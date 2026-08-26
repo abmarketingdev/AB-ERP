@@ -1,0 +1,373 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
+  --font-heading: var(--font-plex-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-on-tint: var(--warning-on-tint);
+  --color-warning: var(--warning);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger: var(--danger);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-ab-accent-1: var(--ab-accent-1);
+  --color-ab-accent-3: var(--ab-accent-3);
+  --color-ab-accent-6: var(--ab-accent-6);
+  --color-ab-accent-9: var(--ab-accent-9);
+  --color-ab-accent-10: var(--ab-accent-10);
+  --color-ab-accent-11: var(--ab-accent-11);
+  --color-ab-accent-12: var(--ab-accent-12);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /*
+   * Grafitt — near-monochrome. Colour is scarce enough that any colour means
+   * something, so hue is reserved almost entirely for status. The "accent" is a
+   * graphite step rather than a hue, which is why the series ramp survives
+   * greyscale and colour-blindness intact (min luminance gap 0.100 vs 0.004–0.011
+   * for a hue-based ramp).
+   *
+   * Verified against white: accent-9 as a button ground reads 11.7:1 with a white
+   * label; accent-11 as link text 9.6:1.
+   */
+  --ab-accent-1: #f4f5f6;
+  --ab-accent-3: #eceef0;
+  --ab-accent-6: #b9bcbf;
+  --ab-accent-9: #33393e;
+  --ab-accent-10: #2a3034;
+  --ab-accent-11: #3d4349;
+  --ab-accent-12: #1b1e21;
+
+  /* Status roles */
+  --success: oklch(0.63 0.17 149);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.77 0.16 78);
+  --warning-foreground: oklch(0.2 0.02 78);
+  /*
+   * Text on a *tinted* warning surface (bg-warning/10), as opposed to a solid
+   * one. `--warning-foreground` is near-black in both themes because it is
+   * meant for the solid fill — put it on a 10 % tint over a dark card and it
+   * measures 1.03:1, which is text nobody can see. This token flips with the
+   * theme; the solid one does not.
+   */
+  --warning-on-tint: oklch(0.44 0.13 78);
+  --danger: oklch(0.58 0.22 27);
+  --danger-foreground: oklch(0.99 0 0);
+  --info: var(--ab-accent-9);
+  --info-foreground: oklch(0.99 0 0);
+
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.2 0.008 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.008 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.008 250);
+  --primary: var(--ab-accent-9);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.962 0.003 250);
+  --secondary-foreground: oklch(0.24 0.008 250);
+  --muted: oklch(0.962 0.003 250);
+  --muted-foreground: oklch(0.545 0.007 250);
+  --accent: var(--ab-accent-3);
+  --accent-foreground: var(--ab-accent-12);
+  --destructive: var(--danger);
+  --border: oklch(0.902 0.004 250);
+  --input: oklch(0.64 0.006 250);
+  --ring: var(--ab-accent-9);
+  /* Series encoded by lightness, not hue — survives greyscale and CVD. */
+  --chart-1: #1e1f21;
+  --chart-2: #343637;
+  --chart-3: #4b4d4f;
+  --chart-4: #646668;
+  --chart-5: #7e8082;
+  --radius: 0.75rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.2 0.008 250);
+  --sidebar-primary: var(--ab-accent-9);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: var(--ab-accent-3);
+  --sidebar-accent-foreground: var(--ab-accent-12);
+  --sidebar-border: oklch(0.902 0.004 250);
+  --sidebar-ring: var(--ab-accent-9);
+}
+
+.dark {
+  --ab-accent-1: #0f1113;
+  --ab-accent-3: #1c1f22;
+  --ab-accent-6: #3a3e42;
+  --ab-accent-9: #c7d2de;
+  --ab-accent-10: #d8e1ea;
+  --ab-accent-11: #e4ebf1;
+  --ab-accent-12: #e8eef4;
+
+  --success: oklch(0.7 0.16 149);
+  --success-foreground: oklch(0.16 0.03 149);
+  --warning: oklch(0.8 0.15 78);
+  --warning-foreground: oklch(0.2 0.02 78);
+  --warning-on-tint: oklch(0.86 0.13 78);
+  --danger: oklch(0.68 0.2 27);
+  --danger-foreground: oklch(0.99 0 0);
+  --info: var(--ab-accent-9);
+  --info-foreground: oklch(0.1 0 0);
+
+  /*
+   * Grafitt dark — a true neutral graphite (hue 250 at near-zero chroma), not
+   * shadcn's blue-violet 264. Verified against this ground: body text 17.9:1,
+   * secondary 9.7:1, muted 5.8:1, accent 12.9:1, input border 3.1:1.
+   */
+  --background: oklch(0.145 0.004 250);
+  --foreground: oklch(0.965 0.001 250);
+  --card: oklch(0.186 0.004 250);
+  --card-foreground: oklch(0.965 0.001 250);
+  --popover: oklch(0.198 0.004 250);
+  --popover-foreground: oklch(0.965 0.001 250);
+  --primary: var(--ab-accent-9);
+  --primary-foreground: oklch(0.13 0.004 250);
+  --secondary: oklch(0.226 0.005 250);
+  --secondary-foreground: oklch(0.965 0.001 250);
+  --muted: oklch(0.226 0.005 250);
+  /*
+   * 0.66, not 0.635. Muted text clears 4.5:1 on the card at the lower value,
+   * but not on the surfaces that sit *above* the card — a selected row carrying
+   * a 12 % accent tint measured 4.17:1. Secondary text has to stay legible on
+   * every ground it lands on, not just the commonest one, and the gap to
+   * `--foreground` (0.965) is wide enough that the hierarchy survives.
+   */
+  --muted-foreground: oklch(0.66 0.005 250);
+  --accent: var(--ab-accent-3);
+  --accent-foreground: var(--ab-accent-12);
+  --destructive: var(--danger);
+  --border: oklch(0.288 0.005 250);
+  --input: oklch(0.5 0.006 250);
+  --ring: var(--ab-accent-9);
+  /* Series encoded by lightness, not hue. All five verified >=3:1 on the card. */
+  --chart-1: #e6e8ea;
+  --chart-2: #c5c7ca;
+  --chart-3: #a6a8aa;
+  --chart-4: #87898b;
+  --chart-5: #6a6c6e;
+  --sidebar: oklch(0.122 0.004 250);
+  --sidebar-foreground: oklch(0.965 0.001 250);
+  --sidebar-primary: var(--ab-accent-9);
+  --sidebar-primary-foreground: oklch(0.13 0.004 250);
+  --sidebar-accent: var(--ab-accent-3);
+  --sidebar-accent-foreground: var(--ab-accent-12);
+  --sidebar-border: oklch(0.245 0.005 250);
+  --sidebar-ring: var(--ab-accent-9);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@keyframes roy-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+/*
+ * Decorative line field (see components/patterns/floating-paths.tsx).
+ *
+ * Only `transform` is animated — the one property the compositor can drive without
+ * repainting — so the SVG underneath is rasterised once and then simply moved.
+ * Measured on /login at 1920x1000 this holds 16.7ms/frame (60fps), where animating
+ * stroke-dashoffset instead cost ~83ms/frame regardless of how few paths were drawn,
+ * and the original JS-driven version cost ~133ms/frame.
+ *
+ * It travels exactly one line-spacing per cycle (--ab-dx / --ab-dy are derived from
+ * the geometry in floating-paths.tsx), so each line lands on its neighbour's old
+ * position and the end of a cycle matches its start. That is what allows `linear`
+ * and `infinite` here: constant speed, no easing pause, no visible restart.
+ */
+@keyframes ab-paths-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--ab-dx), var(--ab-dy), 0);
+  }
+}
+
+.ab-paths-layer {
+  animation-name: ab-paths-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/*
+ * Edge fade. Deliberately a plain overlay and NOT a mask-image on the parent:
+ * a mask forces the moving child to be re-composited every frame and measured
+ * 33.3ms/frame against 16.7ms for this overlay, which paints once.
+ * It also has to sit outside the animated element, or the fade would travel
+ * along with the lines instead of staying put.
+ */
+.ab-paths-fade {
+  background: radial-gradient(140% 120% at 0% 100%, transparent 38%, var(--background) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-roy] {
+    animation: none !important;
+  }
+  [data-roy] animate {
+    display: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/*
+ * FR-C-06, the print half.
+ *
+ * A campaign manager taking the result to a board prints it. The app is a dark
+ * interface, and printing a dark interface produces either a wall of toner or,
+ * with backgrounds dropped, light-grey text on white — unreadable both ways.
+ * So print gets its own light palette rather than an inversion, keeping the
+ * same tokens so every component follows without a single print-specific rule.
+ *
+ * `print-color-adjust: exact` is deliberately NOT set: the chart strokes and
+ * the text are legible without forced backgrounds, and forcing them wastes ink
+ * on something people print in quantity.
+ */
+@media print {
+  :root,
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]) {
+    --background: #ffffff;
+    --foreground: #16181c;
+    --card: #ffffff;
+    --card-foreground: #16181c;
+    --muted: #f4f5f7;
+    --muted-foreground: #4a4f57;
+    --secondary: #f4f5f7;
+    --secondary-foreground: #16181c;
+    --border: #c9ccd2;
+    --input: #c9ccd2;
+    --popover: #ffffff;
+    --popover-foreground: #16181c;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Chrome that has no meaning on paper. */
+  [data-print-hide],
+  nav[aria-label],
+  button[aria-label="Logg ut"] {
+    display: none !important;
+  }
+
+  /* A figure or a chart split across a page break is a figure nobody trusts. */
+  .rounded-xl,
+  .rounded-lg,
+  table,
+  figure {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}
+
+/*
+ * The layout half of printing, applied to BOTH media.
+ *
+ * These two rules change how wide a chart is, and a chart measures itself with
+ * a ResizeObserver — which does not reliably deliver a resize inside the
+ * browser's print pipeline. A chart that never re-measures prints with its plot
+ * area at the old width: axis labels spread across the page while the line
+ * stops two thirds of the way along. Nobody signs off a report that looks like
+ * the campaign collapsed in the last month.
+ *
+ * So `printReport()` stamps `data-printing` on the root, waits for the charts
+ * to settle at the printed width, and only then opens the print dialog. Colours
+ * stay in the @media block — they do not affect measurement, and flashing a
+ * white page before the dialog would be its own defect.
+ */
+:root[data-printing] main {
+  padding: 0 !important;
+}
+:root[data-printing] .lg\:grid-cols-2 {
+  grid-template-columns: 1fr !important;
+}
+:root[data-printing] [data-print-hide] {
+  visibility: hidden;
+}
+
+@media print {
+  main {
+    padding: 0 !important;
+  }
+  /* Two columns of charts becomes one readable column on A4. */
+  .lg\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
