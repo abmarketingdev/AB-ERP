@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/patterns/empty-state";
+import type { MascotPose } from "@/components/patterns/mascot";
 import { NoAccess } from "@/components/patterns/permission-gate";
 import { formatDateTime } from "@/lib/format";
 import { AlertCircle, Info, Table as TableIcon } from "lucide-react";
@@ -40,18 +41,30 @@ export interface ChartTable {
  */
 export type EmptyCause = "no-data-yet" | "filtered-out" | "not-configured";
 
-const EMPTY_COPY: Record<EmptyCause, { title: string; description: string }> = {
+const EMPTY_COPY: Record<
+  EmptyCause,
+  { title: string; description: string; pose: MascotPose }
+> = {
+  /*
+   * The pose carries the same distinction the copy does. All three used to
+   * share one image, which quietly undid the point of having three causes:
+   * "nothing has happened yet", "you filtered it away" and "nobody has decided
+   * this yet" are three different problems with three different next steps.
+   */
   "no-data-yet": {
     title: "Ingen data ennå",
     description: "Tallene kommer når perioden har registrerte dager.",
+    pose: "cloudwatching", // waiting on the world, nothing to do
   },
   "filtered-out": {
     title: "Ingen data for dette utvalget",
     description: "Prøv en annen periode, kampanje eller person.",
+    pose: "research-development", // the reader can search their way out
   },
   "not-configured": {
     title: "Ikke satt opp ennå",
     description: "Definisjonen bak dette tallet er ikke avklart.",
+    pose: "light-work", // "tomt skjema" — someone has to fill this in
   },
 };
 
@@ -129,6 +142,7 @@ export function ChartFrame({
   const empty = {
     title: emptyTitle ?? fallback.title,
     description: emptyDescription ?? fallback.description,
+    pose: fallback.pose,
   };
 
   return (
@@ -191,7 +205,7 @@ export function ChartFrame({
           </div>
         )}
         {state === "empty" && (
-          <EmptyState title={empty.title} description={empty.description} roy="sleeping" />
+          <EmptyState title={empty.title} description={empty.description} pose={empty.pose} />
         )}
         {(state === "ready" || state === "partial") && (
           <ChartReveal>

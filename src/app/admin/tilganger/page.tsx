@@ -110,7 +110,7 @@ export default function AdminTilganger() {
                 <EmptyState
                   title="Ingen brukere matcher søket"
                   description="Prøv et navn, en e-postadresse eller et teamnavn."
-                  roy="thinking"
+                  mascot="thinking"
                 />
               ) : (
                 <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">

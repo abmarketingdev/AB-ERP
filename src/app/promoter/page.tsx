@@ -11,7 +11,7 @@ import { CorrectionNotice } from "@/components/patterns/correction-notice";
 import { Segmented } from "@/components/patterns/segmented";
 import { WeekBars } from "@/components/charts/week-bars";
 import { GoalJourney } from "@/components/patterns/goal-journey";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatWeek, formatDate } from "@/lib/format";
@@ -55,7 +55,7 @@ function Greeting({ name }: { name: string }) {
 
   return (
     <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4">
-      <Roy state={state} size={44} className="shrink-0" />
+      <Mascot state={state} size={64} className="shrink-0" />
       <div className="min-w-0">
         <p className="text-[15px] text-foreground">
           {part}, {name.split(" ")[0]}.

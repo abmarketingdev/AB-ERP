@@ -4,7 +4,7 @@ import * as React from "react";
 import { Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BulletBar } from "@/components/charts/bullet-bar";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { formatNumber } from "@/lib/format";
 import { goalMath, GOAL_STATE_LABEL } from "@/lib/goal";
 import type { GoalCard as GoalCardData } from "@/types/promoter";
@@ -49,7 +49,7 @@ export function GoalJourney({ goal, subject }: { goal: GoalCardData; subject?: s
    * anyone. Everything smaller in this product settles for `win-small`, which
    * is what keeps this one meaning anything.
    */
-  const royState = m.complete ? "win-big" : "ready";
+  const mascotState = m.complete ? "win-big" : "ready";
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -75,7 +75,7 @@ export function GoalJourney({ goal, subject }: { goal: GoalCardData; subject?: s
 
           {/* Røy has a desk of his own: fixed corner, no reaction to the figure
               beside him. Swartz's remedy for the Clippy problem, applied. */}
-          <Roy state={royState} size={40} className="shrink-0" />
+          <Mascot state={mascotState} size={56} className="shrink-0" />
         </div>
 
         <BulletBar

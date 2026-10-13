@@ -213,16 +213,6 @@
   }
 }
 
-@keyframes roy-breathe {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-1.5px);
-  }
-}
-
 /*
  * Decorative line field (see components/patterns/floating-paths.tsx).
  *
@@ -265,11 +255,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-roy] {
+  [data-mascot] {
     animation: none !important;
-  }
-  [data-roy] animate {
-    display: none;
   }
   *,
   *::before,
@@ -370,4 +357,28 @@
   .lg\:grid-cols-2 {
     grid-template-columns: 1fr !important;
   }
+}
+
+/*
+ * The indeterminate bar under the mascot on every loading screen.
+ *
+ * Transform-only, so the compositor drives it without repainting — the same
+ * reasoning as `ab-paths-scroll` above. It is exempt from the "never animate
+ * for longer than a few seconds" rule for the same reason a spinner is: it
+ * exists only while something is genuinely pending, and it unmounts with the
+ * wait. Reduced motion drops it to a static third-width bar, which still reads
+ * as "in progress" without moving.
+ */
+@keyframes mascot-loading-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+.mascot-loading-bar {
+  animation: mascot-loading-sweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-loading-bar { animation: none; transform: translateX(100%); }
 }

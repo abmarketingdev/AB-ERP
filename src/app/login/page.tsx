@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, ShieldCheck, Sparkles, Target, Users, UserSearch, KeyRound, RotateCcw, ChevronLeft } from "lucide-react";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { FloatingPaths } from "@/components/patterns/floating-paths";
 import { LoginTransition } from "@/components/patterns/login-transition";
 import { Button } from "@/components/ui/button";
@@ -49,11 +49,11 @@ export default function LoginPage() {
   const [shake, setShake] = React.useState(0);
   const [submitting, setSubmitting] = React.useState(false);
   const [transitioning, setTransitioning] = React.useState<{ label: string } | null>(null);
-  const [royState, setRoyState] = React.useState<"greeting" | "ready" | "thinking" | "concerned">("greeting");
+  const [mascotState, setMascotState] = React.useState<"greeting" | "ready" | "thinking" | "concerned">("greeting");
 
   function triggerError(message: string) {
     setError(message);
-    setRoyState("concerned");
+    setMascotState("concerned");
     setShake((s) => s + 1);
   }
 
@@ -80,7 +80,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    setRoyState("thinking");
+    setMascotState("thinking");
     const result = await login(email, password);
     setSubmitting(false);
     if (!result.ok) {
@@ -89,7 +89,7 @@ export default function LoginPage() {
     }
     if (result.requires2fa) {
       setPendingToken(result.pendingToken);
-      setRoyState("ready");
+      setMascotState("ready");
       setStep("twofactor");
       return;
     }
@@ -101,7 +101,7 @@ export default function LoginPage() {
     if (!pendingToken) return;
     setError(null);
     setSubmitting(true);
-    setRoyState("thinking");
+    setMascotState("thinking");
     const result = await verifyTwoFactor(pendingToken, code);
     setSubmitting(false);
     if (!result.ok) {
@@ -115,14 +115,14 @@ export default function LoginPage() {
     setEmail(account.email);
     setPassword(account.password);
     setError(null);
-    setRoyState("ready");
+    setMascotState("ready");
   }
 
   function backToCredentials() {
     setStep("credentials");
     setCode("");
     setError(null);
-    setRoyState("greeting");
+    setMascotState("greeting");
   }
 
   return (
@@ -139,7 +139,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 flex items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--ab-accent-9)]/15">
-            <Roy state="idle" size={22} accent="var(--ab-accent-9)" />
+            <Mascot state="idle" size={22} />
           </span>
           <span className="text-sm font-medium tracking-wide text-foreground">AB ERP</span>
         </div>
@@ -182,7 +182,7 @@ export default function LoginPage() {
         </Button>
 
         <div className="relative z-10 mx-auto mb-6 flex items-center gap-2 lg:hidden">
-          <Roy state={royState} size={32} interactive />
+          <Mascot state={mascotState} size={32} interactive />
           <span className="text-base font-medium text-foreground">AB ERP</span>
         </div>
 
@@ -208,7 +208,7 @@ export default function LoginPage() {
                     placeholder="navn@abmarketing.no"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onFocus={() => setRoyState("ready")}
+                    onFocus={() => setMascotState("ready")}
                     className="h-11 bg-input/40"
                     required
                   />
@@ -220,7 +220,7 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => setRoyState("ready")}
+                    onFocus={() => setMascotState("ready")}
                     className="h-11 bg-input/40"
                     required
                   />
@@ -261,7 +261,7 @@ export default function LoginPage() {
                       transition={{ delay: 0.1 + i * 0.06, duration: 0.3 }}
                       whileHover={{ scale: 1.015, x: 3 }}
                       whileTap={{ scale: 0.985 }}
-                      onMouseEnter={() => setRoyState("ready")}
+                      onMouseEnter={() => setMascotState("ready")}
                       onClick={() => fillDemo(account)}
                       className="group flex w-full items-center gap-3 rounded-lg border border-border bg-secondary/40 px-4 py-3 text-left transition-colors hover:border-[var(--ab-accent-9)]/50 hover:bg-secondary"
                     >
@@ -314,7 +314,7 @@ export default function LoginPage() {
                     placeholder="000000"
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                    onFocus={() => setRoyState("ready")}
+                    onFocus={() => setMascotState("ready")}
                     className="h-11 bg-input/40 text-center font-mono text-lg tracking-[0.4em]"
                     autoFocus
                     required

@@ -28,7 +28,7 @@ import {
 } from "@/lib/api/quality";
 import { errorMessage } from "@/lib/api/client";
 import { formatNumber } from "@/lib/format";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { DUR, EASE_ENTER, enter, riseIn } from "@/lib/motion";
 import type { ImportPreview, ImportRun, RejectedRow } from "@/types/quality";
 
@@ -270,7 +270,7 @@ export default function AdminImport() {
                   individual's performance is on this screen — so a small
                   acknowledgement is warmth rather than a mechanic. */}
               <div className="flex items-center gap-3">
-                <Roy state="win-small" size={44} />
+                <Mascot state="win-small" size={64} />
                 <span className="flex size-10 items-center justify-center rounded-full bg-success/12 text-success">
                   <Check className="size-5" aria-hidden />
                 </span>

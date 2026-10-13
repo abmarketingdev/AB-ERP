@@ -8,7 +8,7 @@ import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIntegrations } from "@/lib/api/quality";
 import { riseIn } from "@/lib/motion";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import type { Integration } from "@/types/quality";
 
 /**
@@ -89,7 +89,7 @@ export default function AdminIntegrasjoner() {
                 {/* Only when everything is healthy. A character next to a list
                     of failures would be commenting on someone's bad morning. */}
                 {failed.length === 0 && late.length === 0 && (
-                  <Roy state="win-small" size={40} className="shrink-0" />
+                  <Mascot state="win-small" size={56} className="shrink-0" />
                 )}
                 <p>
                 {failed.length === 0 && late.length === 0 ? (

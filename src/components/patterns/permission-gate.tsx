@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHasPermission } from "@/lib/permissions";
-import { Roy } from "./roy";
+import { Mascot } from "./mascot";
 
 interface PermissionGateProps {
   permission: string;
@@ -43,7 +43,7 @@ export function PermissionGate({ permission, children, fallback }: PermissionGat
 export function NoAccess({ homeHref }: { homeHref?: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-      <Roy state="concerned" size={72} />
+      <Mascot state="concerned" size={72} />
       <div className="space-y-1">
         <p className="text-base font-medium text-foreground">Ingen tilgang</p>
         <p className="max-w-sm text-sm text-muted-foreground">

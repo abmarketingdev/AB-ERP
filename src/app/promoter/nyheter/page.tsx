@@ -44,6 +44,7 @@ export default function PromoterNyheter() {
         skeleton={<Skeleton className="h-64 rounded-xl" />}
         isEmpty={(d) => d.length === 0}
         emptyTitle="Ingen nyheter"
+        emptyPose="reading"
         emptyDescription="Kunngjøringer for avdelingen og kampanjene dine vises her."
         className="flex flex-col gap-5"
       >

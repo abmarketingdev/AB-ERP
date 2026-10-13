@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Check, Mail, Phone, FileText, ClipboardCheck, UserMinus, ShieldOff } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
+import { Mascot } from "@/components/patterns/mascot";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -368,7 +369,16 @@ function OnboardingCard({ candidate, stage }: { candidate: Candidate; stage: Rec
     <Card>
       <CardContent className="space-y-3 py-5">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-foreground">Onboarding</p>
+          <div className="flex items-center gap-2.5">
+            {/*
+             * Someone was hired. It is the one unambiguously good event in this
+             * product that costs nobody anything — no ranking, no shortfall,
+             * nobody being measured — so it is the right place for the pack's
+             * "team og mål" pose. It plays once and stops.
+             */}
+            <Mascot state="win-small" pose="teamwork" size={56} />
+            <p className="text-sm font-medium text-foreground">Onboarding</p>
+          </div>
           <span className="text-xs text-muted-foreground">{done} / {total}</span>
         </div>
         <Progress value={total ? (done / total) * 100 : 0} />

@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion, AnimatePresence } from "motion/react";
 import { ArrowRight, KeyRound, RotateCcw } from "lucide-react";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { LoginTransition } from "@/components/patterns/login-transition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,9 +34,19 @@ export default function CustomerLoginPage() {
   const [shake, setShake] = React.useState(0);
   const [submitting, setSubmitting] = React.useState(false);
   const [transitioning, setTransitioning] = React.useState<{ label: string } | null>(null);
+  /*
+   * The staff login has had a reactive mascot since it was built; this one was
+   * hardcoded to `idle` through the whole flow, so a customer got no
+   * acknowledgement of a wrong password and no sign the 2FA step was working.
+   * "It's a report, not an experience" governs the *report*, not the door.
+   */
+  const [mascotState, setMascotState] = React.useState<
+    "greeting" | "ready" | "thinking" | "concerned"
+  >("greeting");
 
   function triggerError(message: string) {
     setError(message);
+    setMascotState("concerned");
     setShake((s) => s + 1);
   }
 
@@ -44,6 +54,7 @@ export default function CustomerLoginPage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    setMascotState("thinking");
     const result = await customerLogin(email, password);
     setSubmitting(false);
     if (!result.ok) {
@@ -51,6 +62,7 @@ export default function CustomerLoginPage() {
       return;
     }
     setPendingToken(result.pendingToken);
+    setMascotState("ready");
     setStep("twofactor");
   }
 
@@ -59,6 +71,7 @@ export default function CustomerLoginPage() {
     if (!pendingToken) return;
     setError(null);
     setSubmitting(true);
+    setMascotState("thinking");
     const result = await customerVerify2fa(pendingToken, code);
     setSubmitting(false);
     if (!result.ok) {
@@ -80,6 +93,7 @@ export default function CustomerLoginPage() {
     setEmail(CUSTOMER_DEMO_ACCOUNTS[0].email);
     setPassword(CUSTOMER_DEMO_ACCOUNTS[0].password);
     setError(null);
+    setMascotState("ready");
   }
 
   return (
@@ -99,7 +113,7 @@ export default function CustomerLoginPage() {
 
       <div className="relative z-10 flex w-full max-w-sm flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Roy state="idle" size={56} />
+          <Mascot state={mascotState} size={72} />
           <div>
             <h1 className="text-lg font-medium text-foreground">AB Marketing — Kundeportal</h1>
             <p className="text-sm text-muted-foreground">Rapporter for din organisasjon</p>
@@ -121,11 +135,11 @@ export default function CustomerLoginPage() {
               <form onSubmit={onSubmitCredentials} className="mt-6 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="c-email">E-post</Label>
-                  <Input id="c-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11" required />
+                  <Input id="c-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={() => setMascotState("ready")} className="h-11" required />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="c-password">Passord</Label>
-                  <Input id="c-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" required />
+                  <Input id="c-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setMascotState("ready")} className="h-11" required />
                 </div>
                 {error && <p className="text-xs font-medium text-danger">{error}</p>}
                 <Button type="submit" disabled={submitting} className="h-11 w-full text-sm font-medium">
@@ -168,7 +182,10 @@ export default function CustomerLoginPage() {
                   {submitting ? "Bekrefter…" : "Bekreft og logg inn"}
                   {!submitting && <ArrowRight className="size-4" />}
                 </Button>
-                <button type="button" onClick={() => setStep("credentials")} className="flex w-full items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <button type="button" onClick={() => {
+                  setStep("credentials");
+                  setMascotState("greeting");
+                }} className="flex w-full items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                   <RotateCcw className="size-3" /> Tilbake
                 </button>
               </form>

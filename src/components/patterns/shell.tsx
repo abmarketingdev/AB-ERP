@@ -29,7 +29,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { Session } from "@/lib/permissions";
 import { SessionProvider } from "@/lib/permissions";
 import { clearSessionKey } from "@/lib/use-session-guard";
-import { Roy } from "./roy";
+import { Mascot } from "./mascot";
 import { ScopeSwitcher } from "./scope-switcher";
 import { LanguageSwitcher } from "./language-switcher";
 import { useT } from "@/lib/i18n";
@@ -78,14 +78,14 @@ export function Shell({ session, children }: ShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const greetHour = new Date().getHours();
-  const [royState, setRoyState] = React.useState<"greeting" | "idle">(greetHour < 10 ? "greeting" : "idle");
+  const [mascotState, setMascotState] = React.useState<"greeting" | "idle">(greetHour < 10 ? "greeting" : "idle");
 
   React.useEffect(() => {
-    if (royState === "greeting") {
-      const t = setTimeout(() => setRoyState("idle"), 2200);
+    if (mascotState === "greeting") {
+      const t = setTimeout(() => setMascotState("idle"), 2200);
       return () => clearTimeout(t);
     }
-  }, [royState]);
+  }, [mascotState]);
 
   function logout() {
     clearSessionKey();
@@ -120,7 +120,7 @@ export function Shell({ session, children }: ShellProps) {
         <aside className="relative hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
           <div className="flex items-center gap-2.5 px-5 py-5">
             <span className="flex size-8 items-center justify-center rounded-md bg-[var(--ab-accent-9)]/12">
-              <Roy state={royState} size={22} interactive />
+              <Mascot state={mascotState} size={22} interactive />
             </span>
             <div className="min-w-0 leading-tight">
               <p className="truncate text-[13px] font-medium text-sidebar-foreground">AB ERP</p>
@@ -193,7 +193,7 @@ export function Shell({ session, children }: ShellProps) {
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground md:hidden">
           <div className="flex items-center gap-2">
-            <Roy state={royState} size={28} interactive />
+            <Mascot state={mascotState} size={28} interactive />
             <span className="text-sm font-medium">AB ERP</span>
           </div>
           <Button variant="ghost" size="icon" onClick={logout} aria-label={t("Logg ut")} className="hover:bg-danger/10 hover:text-danger">

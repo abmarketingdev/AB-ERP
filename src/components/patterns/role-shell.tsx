@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Shell } from "./shell";
 import { NoAccess } from "./permission-gate";
-import { Roy } from "./roy";
+import { MascotLoadingScreen } from "./mascot-loading";
 import { useSessionGuard } from "@/lib/use-session-guard";
 
 /**
@@ -29,9 +29,7 @@ export function RoleShell({
 
   if (session === undefined) {
     return (
-      <div className="dark flex min-h-screen items-center justify-center bg-background">
-        <Roy state="thinking" size={48} interactive />
-      </div>
+      <MascotLoadingScreen label="Henter din side…" />
     );
   }
   if (session === null) return null;

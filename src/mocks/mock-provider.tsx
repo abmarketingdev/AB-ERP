@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
+import { MascotLoadingScreen } from "@/components/patterns/mascot-loading";
 
 /**
  * Starts the mock service worker before any child can fire a request.
@@ -96,6 +98,7 @@ function startWorkerOnce(): Promise<void> {
 }
 
 export function MockProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const enabled = process.env.NEXT_PUBLIC_API_MOCKING !== "disabled";
   const [ready, setReady] = React.useState(!enabled);
 
@@ -115,6 +118,23 @@ export function MockProvider({ children }: { children: React.ReactNode }) {
     };
   }, [enabled]);
 
-  if (!ready) return null;
+  /*
+   * The worker takes a few hundred milliseconds to boot, and until it does
+   * there is nothing to render. This used to `return null`, which meant the
+   * very first thing anyone saw on a cold visit was a blank white page — the
+   * app's real first impression, and the one screen nobody had designed.
+   *
+   * The theme is derived from the path because this mounts above the router's
+   * layouts: the staff app is dark, the customer portal is light, and guessing
+   * wrong flashes a full-screen colour change when the page arrives.
+   */
+  if (!ready) {
+    return (
+      <MascotLoadingScreen
+        theme={pathname?.startsWith("/kunde") ? "light" : "dark"}
+        label="Starter AB ERP…"
+      />
+    );
+  }
   return <>{children}</>;
 }

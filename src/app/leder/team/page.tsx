@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { KpiTile } from "@/components/patterns/kpi-tile";
 import { BulletBar } from "@/components/charts/bullet-bar";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { Segmented } from "@/components/patterns/segmented";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,7 +157,7 @@ const SORTS: Record<Sort, (a: TeamRollupRow, b: TeamRollupRow) => number> = {
 function Guide({ behind, total }: { behind: number; total: number }) {
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-secondary/30 px-5 py-4">
-      <Roy state="thinking" size={44} className="shrink-0" />
+      <Mascot pose="manager" motion="still" size={64} className="shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] text-foreground">
           {behind === 0

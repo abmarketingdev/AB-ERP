@@ -99,7 +99,7 @@ export default function AdminKpiOrdbok() {
                 <EmptyState
                   title="Ingen definisjoner matcher søket"
                   description="Prøv et KPI-navn, et ord fra regelen eller en eier."
-                  roy="thinking"
+                  mascot="thinking"
                 />
               ) : (
                 <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(260px,340px)_1fr]">

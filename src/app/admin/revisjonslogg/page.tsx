@@ -130,7 +130,7 @@ export default function AdminRevisjonslogg() {
               </div>
 
               {filtered.length === 0 ? (
-                <EmptyState title="Ingen oppføringer matcher filtrene" roy="sleeping" />
+                <EmptyState title="Ingen oppføringer matcher filtrene" mascot="sleeping" />
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <Table>

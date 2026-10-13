@@ -6,6 +6,7 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/patterns/empty-state";
+import { Mascot, type MascotPose } from "@/components/patterns/mascot";
 import { errorMessage } from "@/lib/api/client";
 
 /**
@@ -22,6 +23,7 @@ export function QueryBoundary<T>({
   isEmpty,
   emptyTitle,
   emptyDescription,
+  emptyPose,
   errorHint,
   className,
   children,
@@ -31,6 +33,8 @@ export function QueryBoundary<T>({
   isEmpty?: (data: T) => boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  /** Pick a pose for this particular emptiness. Defaults to "ingen data". */
+  emptyPose?: MascotPose;
   /** One extra sentence under a failure — where to turn when retrying doesn't
    *  help. Worth having wherever the reader has no colleague to ask. */
   errorHint?: string;
@@ -48,10 +52,20 @@ export function QueryBoundary<T>({
   if (query.isError) {
     return (
       <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-6">
-        <span className="flex items-center gap-2 text-sm font-medium text-danger">
-          <AlertTriangle className="size-4" />
-          {errorMessage(query.error)}
-        </span>
+        {/*
+         * Every failed fetch in the product funnels through here, and until now
+         * none of them had a mascot — the one state where a bit of warmth is
+         * unambiguously on the reader's side, because nothing has gone wrong
+         * that is their fault. `meeting-chaos` is the pack's own "feil, travel
+         * uke" pose.
+         */}
+        <div className="flex items-center gap-3">
+          <Mascot state="concerned" size={56} />
+          <span className="flex items-center gap-2 text-sm font-medium text-danger">
+            <AlertTriangle className="size-4" />
+            {errorMessage(query.error)}
+          </span>
+        </div>
         {errorHint && <p className="max-w-prose text-[13px] text-muted-foreground">{errorHint}</p>}
         <Button variant="outline" size="sm" onClick={() => query.refetch()} className="gap-1.5">
           <RotateCcw className="size-3.5" />
@@ -69,7 +83,8 @@ export function QueryBoundary<T>({
       <EmptyState
         title={emptyTitle ?? "Ingen data for denne perioden"}
         description={emptyDescription}
-        roy="sleeping"
+        pose={emptyPose}
+        mascot="sleeping"
       />
     );
   }

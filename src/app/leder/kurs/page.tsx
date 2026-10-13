@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Lock } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
+import { Mascot } from "@/components/patterns/mascot";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Segmented } from "@/components/patterns/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,11 +28,12 @@ import type { CourseGap, TeamCourseRow } from "@/types/leader";
  * who are fully compliant. Same rule as the promoter's own Kurs screen:
  * completed recedes, colour marks what needs action.
  *
- * Røy does not appear here, and that is deliberate. Kurs and Mål on the
- * promoter side are someone looking at their own development; this is a manager
- * looking at named individuals who are not in the room and cannot consent to
- * how they are framed. A mascot has nothing to add to that and a good deal to
- * cost.
+ * The mascot appears on this screen's summary and all-clear states, but never
+ * on a row naming a person. The earlier build excluded it from the screen
+ * entirely, on the grounds that a manager is looking at named individuals who
+ * are not in the room; that boundary now sits at the row rather than the page,
+ * so the character can mark "nothing needs action" without ever standing next
+ * to somebody's shortfall.
  */
 
 type View = "course" | "person";
@@ -141,9 +143,12 @@ function byCourse(rows: TeamCourseRow[]): CourseRollup[] {
 function ByCourse({ courses, people }: { courses: CourseRollup[]; people: number }) {
   if (courses.length === 0) {
     return (
-      <p className="rounded-xl border border-border bg-card px-5 py-6 text-center text-[13px] text-muted-foreground">
-        Alle i teamet har fullført de obligatoriske kursene.
-      </p>
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-5 py-8 text-center">
+        <Mascot state="win-small" pose="whiteboard" size={64} />
+        <p className="text-[13px] text-muted-foreground">
+          Alle i teamet har fullført de obligatoriske kursene.
+        </p>
+      </div>
     );
   }
 

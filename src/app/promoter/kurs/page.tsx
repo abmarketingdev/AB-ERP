@@ -6,7 +6,7 @@ import { Check, ChevronDown, CircleDot, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Segmented } from "@/components/patterns/segmented";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePromoterCourses } from "@/lib/api/promoter";
 import { useSession } from "@/lib/permissions";
@@ -142,7 +142,7 @@ export default function PromoterKurs() {
                     reaction belongs to the monthly goal. A mascot that reacts
                     the same way to everything reacts to nothing. */}
                 {allDone ? (
-                  <Roy state="win-small" size={54} className="shrink-0" />
+                  <Mascot state="win-small" pose="guitar" size={64} className="shrink-0" />
                 ) : (
                   // The whole reason effort estimates are on the rows: summed,
                   // they turn a list of obligations into something you can find
@@ -423,7 +423,7 @@ function CourseRow({
             "Du er her" only when a course is genuinely underway. */}
         {isNext && (
           <div className="mt-2 flex items-center gap-2 pl-1">
-            <Roy state="ready" size={30} />
+            <Mascot state="ready" size={30} />
             <span className="font-mono text-[10.5px] text-muted-foreground">
               {course.status === "in-progress" ? "Du er her" : "Start her"}
             </span>

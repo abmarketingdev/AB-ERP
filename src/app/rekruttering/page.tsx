@@ -87,7 +87,7 @@ export default function RekrutteringForside() {
                     </div>
 
                     {overdue.length === 0 ? (
-                      <EmptyState roy="idle" title="Ingenting på overtid" description="Alle neste-aktiviteter er innenfor frist." />
+                      <EmptyState pose="hammock" title="Ingenting på overtid" description="Alle neste-aktiviteter er innenfor frist." />
                     ) : (
                       <div className="flex flex-col gap-2">
                         {overdue.map((c) => (
@@ -122,7 +122,7 @@ export default function RekrutteringForside() {
                     </div>
 
                     {upcoming.length === 0 ? (
-                      <EmptyState roy={false} title="Ingen planlagte aktiviteter" />
+                      <EmptyState mascot={false} title="Ingen planlagte aktiviteter" />
                     ) : (
                       <div className="flex flex-col gap-2">
                         {upcoming.map((c) => (

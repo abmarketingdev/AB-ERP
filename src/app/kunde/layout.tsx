@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { Roy } from "@/components/patterns/roy";
+import { Mascot } from "@/components/patterns/mascot";
+import { MascotLoadingScreen } from "@/components/patterns/mascot-loading";
 import { PreviewBanner } from "@/components/patterns/preview-banner";
 import { Button } from "@/components/ui/button";
 import { CustomerSessionProvider, useCustomerSessionGuard, clearCustomerToken } from "@/lib/customer-session";
@@ -21,9 +22,7 @@ function CustomerShell({ children }: { children: React.ReactNode }) {
 
   if (account === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Roy state="thinking" size={44} />
-      </div>
+      <MascotLoadingScreen theme="light" label="Henter kontoen din…" />
     );
   }
   if (!account) return null;
@@ -47,7 +46,7 @@ function CustomerShell({ children }: { children: React.ReactNode }) {
         <PreviewBanner />
         <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3 sm:px-8">
           <div className="flex items-center gap-2.5">
-            <Roy state="idle" size={30} />
+            <Mascot state="idle" size={30} />
             <div>
               <p className="text-sm font-medium text-foreground">AB Marketing — Kundeportal</p>
               <p className="text-xs text-muted-foreground">{account.organisation}</p>

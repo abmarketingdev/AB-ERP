@@ -4,6 +4,7 @@ import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Download, Hourglass, Info, Printer, Users } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
+import { Mascot } from "@/components/patterns/mascot";
 import { FigureWithDefinition } from "@/components/patterns/figure-with-definition";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Segmented } from "@/components/patterns/segmented";
@@ -38,9 +39,10 @@ import type { CampaignReport, Granularity } from "@/types/customer";
  * visible: all of it arrives from the endpoint, computed against this customer's
  * contract (FR-C-07/08). There is no local list of fields to fall out of sync.
  *
- * No staff vocabulary anywhere (FR-C-10). Røy stays in the header as the
- * company mark and never appears beside a figure — this is a board document,
- * and a character commenting on the result would undermine it.
+ * No staff vocabulary anywhere (FR-C-10). The mascot appears as the company
+ * mark in the header and alongside the report's own summary, but the figures
+ * themselves stay unaccompanied: this is a board document, and a character
+ * standing next to a specific number reads as commentary on that number.
  */
 export default function KundeRapport() {
   const [campaign, setCampaign] = React.useState<string>();
@@ -143,7 +145,11 @@ function PrintButton() {
         }
       }}
     >
-      <Printer className="size-4" aria-hidden />
+      {preparing ? (
+        <Mascot pose="standing" motion="loop" size={22} label="Klargjør utskrift…" />
+      ) : (
+        <Printer className="size-4" aria-hidden />
+      )}
       {preparing ? "Klargjør…" : "Skriv ut"}
     </Button>
   );
