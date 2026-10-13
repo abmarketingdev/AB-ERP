@@ -3,6 +3,7 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { THEME_SCRIPT } from "@/lib/theme";
+import { MockBadge } from "@/components/patterns/mock-badge";
 
 /*
  * IBM Plex, not Geist or Inter. Those two plus Poppins and Space Grotesk are the
@@ -56,7 +57,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <MockBadge />
+        </Providers>
       </body>
     </html>
   );

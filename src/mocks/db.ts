@@ -12,6 +12,18 @@
  */
 
 import type { KpiValue } from "@/types/kpi";
+
+import {
+  ADS as SRS_ADS,
+  AD_TEMPLATES as SRS_AD_TEMPLATES,
+  buildInterviews as buildSrsInterviews,
+  buildNewHires as buildSrsNewHires,
+  buildEmployees,
+  buildShifts as buildSrsShifts,
+  buildSwaps as buildSrsSwaps,
+  buildTasks as buildSrsTasks,
+} from "./srs-seed";
+const SRS_EMPLOYEES = buildEmployees();
 import type {
   WeekDay,
   GoalCard,
@@ -1095,7 +1107,7 @@ const STORAGE_KEY = "ab-erp-mock-db";
  * v8 — KPI version history; import preview/commit; decided corrections.
  * v9 — integration health (FR-A-10); automated ingestion inbox (FR-I-08).
  */
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 interface Snapshot {
   v: number;
@@ -1148,7 +1160,22 @@ const seed = {
   leadOverrides: {} as Record<string, Partial<import("@/types/lead").Lead>>,
   /** Leads created during the demo — the stand form (LEAD-05) writes here. */
   leadExtra: [] as import("@/types/lead").Lead[],
+
+  // ── The modules the SRS adds beyond the core loop ────────────────────────
+  // Built eagerly rather than lazily because they reference each other: shifts
+  // are per employee, swaps are per shift, and the dashboard reads all of them.
+  ads: clone(SRS_ADS) as import("@/types/ad").Ad[],
+  adTemplates: clone(SRS_AD_TEMPLATES) as import("@/types/ad").AdTemplate[],
+  interviews: buildSrsInterviews(),
+  newHires: buildSrsNewHires(),
+  employees: SRS_EMPLOYEES,
+  shifts: buildSrsShifts(SRS_EMPLOYEES),
+  swapRequests: [] as import("@/types/schedule").SwapRequest[],
+  leaderTasks: buildSrsTasks(),
 };
+
+// Swaps reference shift ids, so they are attached after the seed object exists.
+seed.swapRequests = buildSrsSwaps(seed.shifts);
 
 export type Db = typeof seed;
 

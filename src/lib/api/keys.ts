@@ -33,6 +33,40 @@ export const qk = {
     /** Everything the inbox shows, for invalidation after a bulk action. */
     all: () => ["leads"] as const,
   },
+  ads: {
+    list: () => ["ads", "all", "list"] as const,
+    ad: (id: string) => ["ads", "all", "ad", id] as const,
+    templates: () => ["ads", "all", "templates"] as const,
+    meta: () => ["ads", "all", "meta"] as const,
+  },
+  interviews: {
+    list: (leader?: string) => ["interviews", "all", "list", leader ?? ""] as const,
+    leaders: () => ["interviews", "all", "leaders"] as const,
+    slots: (leader: string) => ["interviews", "all", "slots", leader] as const,
+    all: () => ["interviews"] as const,
+  },
+  onboarding: {
+    list: () => ["onboarding", "all", "list"] as const,
+    hire: (id: string) => ["onboarding", "all", "hire", id] as const,
+    all: () => ["onboarding"] as const,
+  },
+  employees: {
+    list: () => ["employees", "all", "list"] as const,
+    employee: (id: string) => ["employees", "all", "employee", id] as const,
+  },
+  schedule: {
+    shifts: (scope: Record<string, string> = {}) => ["schedule", "all", "shifts", scope] as const,
+    swaps: () => ["schedule", "all", "swaps"] as const,
+    forecast: () => ["schedule", "all", "forecast"] as const,
+    all: () => ["schedule"] as const,
+  },
+  tasks: {
+    list: (leader?: string) => ["tasks", "all", "list", leader ?? ""] as const,
+    compliance: () => ["tasks", "all", "compliance"] as const,
+    all: () => ["tasks"] as const,
+  },
+  recruitmentDashboard: (filter: Record<string, string> = {}) =>
+    ["recruitment-dashboard", "all", filter] as const,
   recruitment: {
     stages: () => ["recruitment", "all", "stages"] as const,
     candidates: () => ["recruitment", "mine", "candidates"] as const,

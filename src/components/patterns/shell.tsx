@@ -26,6 +26,8 @@ import {
   Inbox,
   ShieldCheck,
   UserPlus,
+  Megaphone,
+  CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -62,6 +64,8 @@ const ICONS: Record<string, LucideIcon> = {
   inbox: Inbox,
   "shield-check": ShieldCheck,
   "user-plus": UserPlus,
+  megaphone: Megaphone,
+  "calendar-check": CalendarCheck,
 };
 
 interface ShellProps {

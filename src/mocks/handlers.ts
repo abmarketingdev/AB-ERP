@@ -30,6 +30,13 @@ import {
 import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
 import type { Lead } from "@/types/lead";
 import { queryLeads, leadCounts, leadById, leadsByIds, patchLead } from "./lead-query";
+import { buildDashboard } from "./srs-dashboard";
+import { LEADERS, TEAMS_SRS, JOB_TYPES, LOCATIONS, dayOffset, iso, isoDay, DEMO_TODAY } from "./srs-seed";
+import type { Ad, AdPlatform } from "@/types/ad";
+import type { Interview, InterviewMessage } from "@/types/interview";
+import type { NewHire, Employee, Equipment, ChecklistKey } from "@/types/onboarding";
+import type { Shift, SwapRequest } from "@/types/schedule";
+import type { LeaderTask } from "@/types/task";
 import type { AuditEntry, CustomerAccount, CustomerAgreement } from "@/types/quality";
 import { buildCampaignReport } from "./customer-report";
 import { MOCK_USERS } from "@/lib/mock-users";
@@ -269,6 +276,732 @@ export const handlers = [
   }),
 
   // ── Recruitment ────────────────────────────────────────────────────────────
+  // ── Onboarding (ONB) ───────────────────────────────────────────────────────
+  get("/api/hr/onboarding", () => db.newHires, []),
+
+  http.get("/api/hr/onboarding/:id", async ({ params }) => {
+    await latency();
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    return HttpResponse.json(h);
+  }),
+
+  /** ONB-05 — the checklist. Ticking the last box is what finishes onboarding. */
+  http.post("/api/hr/onboarding/:id/check", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { key: ChecklistKey; done: boolean };
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+
+    /*
+     * ONB-03 — "Ansatt kan ikke starte før kontrakten er signert." So the first
+     * working day cannot be ticked while the contract is outstanding. Refusing
+     * with a reason rather than hiding the control keeps the rule visible.
+     */
+    if (body.key === "forstedag" && body.done && h.contract.status !== "signert") {
+      return HttpResponse.json(
+        { message: "Kontrakten må være signert før første arbeidsdag kan bekreftes." },
+        { status: 409 },
+      );
+    }
+    if (body.key === "utstyr" && body.done && h.equipment.length === 0) {
+      return HttpResponse.json(
+        { message: "Registrer utstyret med serienummer før du huker av." },
+        { status: 409 },
+      );
+    }
+
+    const item = h.checklist.find((c) => c.key === body.key);
+    if (item) {
+      item.done = body.done;
+      item.at = body.done ? new Date().toISOString() : null;
+    }
+
+    // ONB-09 — a completed checklist creates the employee, with the access
+    // template. That transition is the point of the module, so it happens here
+    // rather than being a separate button somebody forgets to press.
+    if (h.checklist.every((c) => c.done) && !h.completedAt) {
+      h.completedAt = new Date().toISOString();
+      const employee: Employee = {
+        id: `emp-${Date.now()}`,
+        name: h.name,
+        phone: h.phone,
+        email: h.email,
+        team: h.team,
+        campaign: h.campaign,
+        role: "Promotør",
+        startDate: h.startDate,
+        active: true,
+        accessTemplate: "Promotør",
+        equipment: h.equipment,
+        photo: Boolean(h.photo),
+        fromNewHireId: h.id,
+      };
+      db.employees.unshift(employee);
+      writeAudit({ actor: "Ole Marius Sormbråten", action: "Opprettet ansatt fra onboarding", area: "Ansatte", affected: h.name, after: "Tilgangsmal: Promotør" });
+    }
+
+    persistDb();
+    return HttpResponse.json(h);
+  }),
+
+  /** ONB-02 / ONB-03 — kontrakt til signering, og purring på det som ikke er signert. */
+  http.post("/api/hr/onboarding/:id/contract", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { action: "send" | "remind" | "sign" };
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const now = new Date().toISOString();
+    if (body.action === "send") {
+      h.contract.status = "sendt";
+      h.contract.sentAt = now;
+    } else if (body.action === "remind") {
+      h.contract.remindersSent += 1;
+    } else {
+      h.contract.status = "signert";
+      h.contract.signedAt = now;
+      const item = h.checklist.find((c) => c.key === "kontrakt");
+      if (item) { item.done = true; item.at = now; }
+    }
+    writeAudit({ actor: "Ole Marius Sormbråten", action: `Kontrakt: ${body.action}`, area: "Onboarding", affected: h.name, after: h.contract.status });
+    persistDb();
+    return HttpResponse.json(h);
+  }),
+
+  /** ONB-06 — Ole tar bildet og kobler det til personen. */
+  http.post("/api/hr/onboarding/:id/photo", async ({ params }) => {
+    await latency();
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const now = new Date().toISOString();
+    h.photo = { uploadedAt: now, uploadedBy: "Ole Marius Sormbråten" };
+    const item = h.checklist.find((c) => c.key === "bilde");
+    if (item) { item.done = true; item.at = now; }
+    persistDb();
+    return HttpResponse.json(h);
+  }),
+
+  /**
+   * ONB-07 — utstyr registreres med serienummer, og utstyrskontrakten sendes
+   * *etter* utlevering.
+   *
+   * The order is the requirement: the contract is the employee confirming what
+   * they received, so it cannot be sent before there is anything to confirm.
+   */
+  http.post("/api/hr/onboarding/:id/equipment", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { kind: string; model: string; serial: string };
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const dupe = db.newHires.flatMap((x) => x.equipment).find((e) => e.serial === body.serial);
+    if (dupe) {
+      return HttpResponse.json(
+        { message: `Serienummeret ${body.serial} er allerede registrert på en annen ansatt.` },
+        { status: 409 },
+      );
+    }
+    const eq: Equipment = {
+      id: `eq-${Date.now()}`,
+      kind: body.kind,
+      model: body.model,
+      serial: body.serial,
+      handedOutAt: new Date().toISOString(),
+      handedOutBy: "Ole Marius Sormbråten",
+    };
+    h.equipment.push(eq);
+    writeAudit({ actor: "Ole Marius Sormbråten", action: "Registrerte utlevert utstyr", area: "Onboarding", affected: h.name, after: `${body.kind} ${body.serial}` });
+    persistDb();
+    return HttpResponse.json(h);
+  }),
+
+  http.post("/api/hr/onboarding/:id/equipment-contract", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { action: "send" | "sign" };
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    if (body.action === "send" && h.equipment.length === 0) {
+      return HttpResponse.json(
+        { message: "Utstyrskontrakten signeres etter utlevering — registrer utstyret først." },
+        { status: 409 },
+      );
+    }
+    const now = new Date().toISOString();
+    if (body.action === "send") {
+      h.equipmentContract = { status: "sendt", sentAt: now, signedAt: null };
+    } else {
+      h.equipmentContract = { ...h.equipmentContract, status: "signert", signedAt: now };
+      const item = h.checklist.find((c) => c.key === "utstyr");
+      if (item) { item.done = true; item.at = now; }
+    }
+    persistDb();
+    return HttpResponse.json(h);
+  }),
+
+  /** ONB-08 — møtte ikke første arbeidsdag, etter at de er fulgt opp. */
+  http.post("/api/hr/onboarding/:id/no-show", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { note: string };
+    const h = db.newHires.find((x) => x.id === params.id);
+    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    h.firstDayNoShow = { at: new Date().toISOString(), followedUpBy: "Ole Marius Sormbråten", note: body.note };
+    writeAudit({ actor: "Ole Marius Sormbråten", action: "Registrerte ikke møtt første arbeidsdag", area: "Onboarding", affected: h.name, after: "Ikke møtt" });
+    persistDb();
+    // Nasrin is told, per ONB-08. Modelled as an audit entry here; the real
+    // system sends it on whichever channel §4 settles on.
+    return HttpResponse.json(h);
+  }),
+
+  // ── Ansatte ────────────────────────────────────────────────────────────────
+  get("/api/hr/employees", () => db.employees, []),
+  http.get("/api/hr/employees/:id", async ({ params }) => {
+    await latency();
+    const e = db.employees.find((x) => x.id === params.id);
+    if (!e) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    return HttpResponse.json(e);
+  }),
+
+  // ── Vaktplan og oppmøte (BEM) ──────────────────────────────────────────────
+  get("/api/hr/shifts", (request) => {
+    const url = new URL(request.url);
+    const employee = url.searchParams.get("employee");
+    const team = url.searchParams.get("team");
+    let rows: Shift[] = db.shifts;
+    if (employee) rows = rows.filter((s) => s.employeeName === employee);
+    if (team) rows = rows.filter((s) => s.team === team);
+    return rows;
+  }, []),
+
+  get("/api/hr/shifts/swaps", () => db.swapRequests, []),
+
+  /** BEM-07 — a swap is a request; it takes effect only once the leader agrees. */
+  http.post("/api/hr/shifts/swaps", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { fromShiftId: string; toShiftId: string; reason: string };
+    const from = db.shifts.find((s) => s.id === body.fromShiftId);
+    const to = db.shifts.find((s) => s.id === body.toShiftId);
+    if (!from || !to) return HttpResponse.json({ message: "Ukjent vakt" }, { status: 404 });
+    const req: SwapRequest = {
+      id: `sw-${Date.now()}`,
+      fromEmployee: from.employeeName,
+      toEmployee: to.employeeName,
+      fromShiftId: from.id,
+      toShiftId: to.id,
+      fromDate: from.date,
+      toDate: to.date,
+      reason: body.reason,
+      status: "venter",
+      requestedAt: new Date().toISOString(),
+      decidedAt: null,
+      decidedBy: null,
+    };
+    db.swapRequests.unshift(req);
+    from.swapPending = true;
+    to.swapPending = true;
+    persistDb();
+    return HttpResponse.json(req, { status: 201 });
+  }),
+
+  http.post("/api/hr/shifts/swaps/:id/decide", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { approve: boolean; by?: string };
+    const req = db.swapRequests.find((r) => r.id === params.id);
+    if (!req) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const from = db.shifts.find((s) => s.id === req.fromShiftId);
+    const to = db.shifts.find((s) => s.id === req.toShiftId);
+
+    req.status = body.approve ? "godkjent" : "avvist";
+    req.decidedAt = new Date().toISOString();
+    req.decidedBy = body.by ?? "Ola Nordmann";
+
+    if (body.approve && from && to) {
+      // The swap exchanges who owns each shift, which is the only thing a swap
+      // actually is — the dates and the team stay where they are.
+      const a = { id: from.employeeId, name: from.employeeName };
+      from.employeeId = to.employeeId;
+      from.employeeName = to.employeeName;
+      to.employeeId = a.id;
+      to.employeeName = a.name;
+    }
+    if (from) from.swapPending = false;
+    if (to) to.swapPending = false;
+
+    writeAudit({ actor: req.decidedBy, action: body.approve ? "Godkjente vaktbytte" : "Avviste vaktbytte", area: "Vaktplan", affected: `${req.fromEmployee} ↔ ${req.toEmployee}`, after: req.status });
+    persistDb();
+    return HttpResponse.json(req);
+  }),
+
+  /** BEM-02 — follow up an absence from the calendar cell itself. */
+  http.post("/api/hr/shifts/:id/follow-up", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { note: string; by?: string };
+    const shift = db.shifts.find((s) => s.id === params.id);
+    if (!shift) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    shift.followUp = { at: new Date().toISOString(), by: body.by ?? "Ola Nordmann", note: body.note };
+    persistDb();
+    return HttpResponse.json(shift);
+  }),
+
+  /**
+   * BEM-03 / BEM-04 — reelt behov for dagsverk, regnet fra historisk oppmøte
+   * "uavhengig av tilgjengeligheten de ansatte selv oppgir".
+   *
+   * `reliable` exists because BEM-04 says this is the basis for decisions about
+   * coaching, contracts and recruitment. A forecast built on a fortnight of
+   * data should say so rather than look like one built on a year.
+   */
+  get("/api/hr/shifts/forecast", () => {
+    const MIN_BASIS_DAYS = 10;
+    const byTeam = new Map<string, { planned: number; attended: number; missed: number; past: number }>();
+    for (const s of db.shifts) {
+      if (s.kind !== "arbeid") continue;
+      const cur = byTeam.get(s.team) ?? { planned: 0, attended: 0, missed: 0, past: 0 };
+      if (s.attendance === "planlagt") cur.planned += 1;
+      if (s.attendance === "mott") { cur.attended += 1; cur.past += 1; }
+      if (s.attendance === "ikke-mott") { cur.missed += 1; cur.past += 1; }
+      byTeam.set(s.team, cur);
+    }
+    return [...byTeam.entries()].map(([team, v]) => {
+      const showRate = v.past ? v.attended / v.past : 0;
+      return {
+        team,
+        plannedDays: v.planned,
+        expectedDays: Math.round(v.planned * showRate),
+        showRate,
+        basisDays: v.past,
+        reliable: v.past >= MIN_BASIS_DAYS,
+      };
+    }).sort((a, b) => a.team.localeCompare(b.team, "nb"));
+  }, []),
+
+  // ── Lederoppgaver (OPPG) ───────────────────────────────────────────────────
+  get("/api/hr/tasks", (request) => {
+    const leader = new URL(request.url).searchParams.get("leader");
+    return leader ? db.leaderTasks.filter((t) => t.leader === leader) : db.leaderTasks;
+  }, []),
+
+  /** OPPG-02 — etterlevelse per leder, for admin. */
+  get("/api/hr/tasks/compliance", () => {
+    const byLeader = new Map<string, { open: number; completed: number; overdue: number }>();
+    for (const t of db.leaderTasks) {
+      const cur = byLeader.get(t.leader) ?? { open: 0, completed: 0, overdue: 0 };
+      if (t.status === "apen") cur.open += 1;
+      if (t.status === "fullfort") cur.completed += 1;
+      if (t.status === "forfalt") cur.overdue += 1;
+      byLeader.set(t.leader, cur);
+    }
+    return [...byLeader.entries()].map(([leader, v]) => ({
+      leader,
+      ...v,
+      // Open tasks are not yet a failure, so they are left out of the rate.
+      // Counting them would punish a leader for having work in front of them.
+      rate: v.completed + v.overdue === 0 ? null : v.completed / (v.completed + v.overdue),
+    })).sort((a, b) => (a.rate ?? 2) - (b.rate ?? 2));
+  }, []),
+
+  /** OPPG-01 — "Hver oppgave har svarfelt, som i Asana". */
+  http.post("/api/hr/tasks/:id/complete", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { response: string };
+    const t = db.leaderTasks.find((x) => x.id === params.id);
+    if (!t) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    if (!body.response?.trim()) {
+      return HttpResponse.json({ message: "Skriv et svar før du fullfører." }, { status: 422 });
+    }
+    t.status = "fullfort";
+    t.response = body.response.trim();
+    t.completedAt = new Date().toISOString();
+    writeAudit({ actor: t.leader, action: "Fullførte lederoppgave", area: "Lederoppgaver", affected: t.title, after: "Fullført" });
+    persistDb();
+    return HttpResponse.json(t);
+  }),
+
+  http.post("/api/hr/tasks", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { title: string; detail?: string; dueDate: string; leader?: string };
+    const t: LeaderTask = {
+      id: `tk-${Date.now()}`,
+      leader: body.leader ?? "Ola Nordmann",
+      title: body.title,
+      detail: body.detail ?? "",
+      source: "egen",
+      relatedCandidateId: null,
+      dueDate: body.dueDate,
+      status: "apen",
+      response: null,
+      completedAt: null,
+    };
+    db.leaderTasks.unshift(t);
+    persistDb();
+    return HttpResponse.json(t, { status: 201 });
+  }),
+
+  // ── Rekrutteringsdashboard (DASH) ──────────────────────────────────────────
+  get("/api/hr/dashboard/recruitment", (request) => buildDashboard(new URL(request.url))),
+
+  // ── Annonser (ANN) ─────────────────────────────────────────────────────────
+  get("/api/hr/ads", () => db.ads, []),
+  get("/api/hr/ads/templates", () => db.adTemplates, []),
+  get("/api/hr/ads/meta", () => ({ jobTypes: JOB_TYPES, locations: LOCATIONS })),
+
+  http.get("/api/hr/ads/:id", async ({ params }) => {
+    await latency();
+    const ad = db.ads.find((a) => a.id === params.id);
+    if (!ad) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    return HttpResponse.json(ad);
+  }),
+
+  /**
+   * ANN-01 / ANN-04 — created once, published to several platforms, and each
+   * publication gets its own tracking link so the applicant carries the channel
+   * they came from all the way into the samleinnboks.
+   */
+  http.post("/api/hr/ads", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as {
+      title: string; jobType: string; location: string; campaign: string;
+      body: string; deadline?: string; platforms: AdPlatform[]; publish?: boolean;
+    };
+    const id = `ad-${Date.now()}`;
+    const now = new Date().toISOString();
+    const ad: Ad = {
+      id,
+      title: body.title,
+      jobType: body.jobType,
+      location: body.location,
+      campaign: body.campaign,
+      body: body.body,
+      status: body.publish ? "publisert" : "utkast",
+      deadline: body.deadline || null,
+      createdAt: now,
+      createdBy: "Fredrik Amundsen",
+      publications: body.publish
+        ? body.platforms.map((pl) => ({
+            platform: pl,
+            externalId: `${pl.slice(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 899999)}`,
+            trackingUrl: `https://abmarketing.no/soknad/${id}?kanal=${pl.toLowerCase()}`,
+            publishedAt: now,
+            unpublishedAt: null,
+            applicants: 0,
+          }))
+        : [],
+    };
+    db.ads.unshift(ad);
+    writeAudit({
+      actor: "Fredrik Amundsen",
+      action: body.publish ? `Publiserte annonse til ${body.platforms.join(", ")}` : "Lagret annonseutkast",
+      area: "Annonser",
+      affected: body.title,
+      after: body.publish ? "Publisert" : "Utkast",
+    });
+    persistDb();
+    return HttpResponse.json(ad, { status: 201 });
+  }),
+
+  http.post("/api/hr/ads/:id/publish", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { platforms: AdPlatform[] };
+    const ad = db.ads.find((a) => a.id === params.id);
+    if (!ad) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const now = new Date().toISOString();
+    for (const pl of body.platforms) {
+      // Re-publishing a platform the ad is already on is a no-op, not a
+      // duplicate: the platform would reject the second posting anyway.
+      if (ad.publications.some((p) => p.platform === pl && !p.unpublishedAt)) continue;
+      ad.publications.push({
+        platform: pl,
+        externalId: `${pl.slice(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 899999)}`,
+        trackingUrl: `https://abmarketing.no/soknad/${ad.id}?kanal=${pl.toLowerCase()}`,
+        publishedAt: now,
+        unpublishedAt: null,
+        applicants: 0,
+      });
+    }
+    ad.status = "publisert";
+    writeAudit({ actor: "Fredrik Amundsen", action: `Publiserte til ${body.platforms.join(", ")}`, area: "Annonser", affected: ad.title, after: "Publisert" });
+    persistDb();
+    return HttpResponse.json(ad);
+  }),
+
+  /** ANN-05 — avpublisering, enten manuelt eller fordi fristen gikk ut. */
+  http.post("/api/hr/ads/:id/unpublish", async ({ params }) => {
+    await latency();
+    const ad = db.ads.find((a) => a.id === params.id);
+    if (!ad) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const now = new Date().toISOString();
+    for (const p of ad.publications) if (!p.unpublishedAt) p.unpublishedAt = now;
+    ad.status = "avpublisert";
+    writeAudit({ actor: "Fredrik Amundsen", action: "Avpubliserte annonse", area: "Annonser", affected: ad.title, before: "Publisert", after: "Avpublisert" });
+    persistDb();
+    return HttpResponse.json(ad);
+  }),
+
+  /**
+   * The public application form behind a tracking link. No auth — this is the
+   * one endpoint a candidate touches directly, and it lands in the samleinnboks
+   * like every other channel rather than in a separate pile.
+   */
+  http.post("/api/public/apply", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as {
+      adId: string; channel: string; name: string; phone: string; email: string;
+      message?: string; consentContact: boolean; consentAdAudience: boolean;
+    };
+    const ad = db.ads.find((a) => a.id === body.adId);
+    const now = new Date().toISOString();
+    const channelName =
+      ["Nav", "Indeed", "Finn", "Jobbnorge", "Karrierestart"].find(
+        (c) => c.toLowerCase() === (body.channel ?? "").toLowerCase(),
+      ) ?? "Nettside";
+
+    db.leadExtra.unshift({
+      id: `l-apply-${Date.now()}`,
+      name: body.name,
+      phone: body.phone,
+      email: body.email,
+      channel: (channelName === "Jobbnorge" || channelName === "Karrierestart" ? "Nettside" : channelName) as never,
+      campaign: ad?.campaign ?? "Høstkampanjen 2026",
+      receivedAt: now,
+      promoter: null,
+      assignedTo: null,
+      status: "ny",
+      consent: {
+        contact: body.consentContact,
+        adAudience: body.consentAdAudience,
+        at: now,
+        text:
+          "Huket av for å bli kontaktet om stilling ved innsending av søknadsskjema." +
+          (body.consentAdAudience ? " Samtykket også til bruk i annonsemålgrupper." : ""),
+      },
+      adId: body.adId,
+      note: body.message ?? null,
+      candidateId: null,
+      duplicateOf: [],
+    });
+
+    // ANN-06 — the applicant count is per publication, so it is incremented on
+    // the one the link came from, not on the ad as a whole.
+    const pub = ad?.publications.find((p) => p.platform.toLowerCase() === (body.channel ?? "").toLowerCase());
+    if (pub) pub.applicants += 1;
+    persistDb();
+    return HttpResponse.json({ ok: true }, { status: 201 });
+  }),
+
+  // ── Intervjubooking (BOOK) ─────────────────────────────────────────────────
+  get("/api/hr/interviews", (request) => {
+    const leader = new URL(request.url).searchParams.get("leader");
+    return leader ? db.interviews.filter((iv) => iv.leader === leader) : db.interviews;
+  }, []),
+
+  get("/api/hr/interviews/leaders", () => LEADERS, []),
+
+  /**
+   * BOOK-01 — the leader's free slots.
+   *
+   * Generated from the working week rather than stored, because a slot is not a
+   * thing: it is the absence of something else. Anything already booked comes
+   * back `available: false` with the reason, so the calendar never shows an
+   * unexplained gap.
+   */
+  get("/api/hr/interviews/slots", (request) => {
+    const url = new URL(request.url);
+    const leader = url.searchParams.get("leader") ?? LEADERS[0];
+    const out: { startsAt: string; available: boolean; reason: string | null }[] = [];
+    const taken = new Map(
+      db.interviews
+        .filter((iv) => iv.leader === leader && iv.status === "booket")
+        .map((iv) => [iv.startsAt.slice(0, 16), iv.candidateName]),
+    );
+    for (let d = 0; d < 14; d++) {
+      const day = dayOffset(d);
+      const weekday = day.getUTCDay();
+      if (weekday === 0 || weekday === 6) continue;
+      for (const [h, m] of [[9, 0], [9, 30], [10, 0], [10, 30], [13, 0], [13, 30], [14, 0], [14, 30]] as const) {
+        const at = dayOffset(d, h, m);
+        if (at.getTime() <= DEMO_TODAY.getTime()) continue;
+        const key = iso(at).slice(0, 16);
+        const who = taken.get(key);
+        // A deterministic blocked hour per leader, standing in for the calendar
+        // the real integration will read (Google or Microsoft — §4 open item).
+        const blocked = h === 13 && d % 3 === (leader.length % 3);
+        out.push({
+          startsAt: iso(at),
+          available: !who && !blocked,
+          reason: who ? `Opptatt: intervju med ${who}` : blocked ? "Opptatt i kalenderen" : null,
+        });
+      }
+    }
+    return out;
+  }, []),
+
+  /**
+   * BOOK-02 … BOOK-04 — booking creates the calendar event and sends the
+   * messages. All of them are rendered in full, because "an SMS was sent"
+   * proves nothing about what it said, and BOOK-03 specifies the contents.
+   */
+  http.post("/api/hr/interviews", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as {
+      candidateId: string; leader: string; startsAt: string; location: string; reminderEnabled: boolean;
+    };
+    const candidate = db.candidates.find((c) => c.id === body.candidateId);
+    if (!candidate) return HttpResponse.json({ message: "Ukjent kandidat" }, { status: 404 });
+
+    const clash = db.interviews.find(
+      (iv) => iv.leader === body.leader && iv.startsAt === body.startsAt && iv.status === "booket",
+    );
+    if (clash) {
+      return HttpResponse.json(
+        { message: `${body.leader} har allerede et intervju på dette tidspunktet.` },
+        { status: 409 },
+      );
+    }
+
+    const when = new Date(body.startsAt);
+    const fmt = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo" });
+    const id = `iv-${Date.now()}`;
+    const token = `tok-${Math.random().toString(36).slice(2, 10)}`;
+    const now = new Date().toISOString();
+
+    const messages: InterviewMessage[] = [
+      {
+        id: `${id}-m1`, channel: "sms", to: candidate.phone, recipientRole: "kandidat", kind: "bekreftelse", sentAt: now,
+        body: `Hei ${candidate.name.split(" ")[0]}! Intervjuet ditt hos AB Marketing er ${fmt.format(when)}, ${body.location}. Du møter ${body.leader}. Spørsmål? Ring 23 96 00 00.`,
+      },
+      {
+        id: `${id}-m2`, channel: "sms", to: "+47 900 00 000", recipientRole: "leder", kind: "bekreftelse", sentAt: now,
+        body: `Intervju booket: ${candidate.name}, ${fmt.format(when)}. Kalenderinvitasjon er sendt.`,
+      },
+      {
+        id: `${id}-m3`, channel: "epost", to: candidate.email, recipientRole: "kandidat", kind: "bekreftelse", sentAt: now,
+        body: `Hei ${candidate.name.split(" ")[0]},\n\nTakk for at du vil snakke med oss. Intervjuet er satt opp ${fmt.format(when)}, ${body.location}.\n\nDu møter ${body.leader}.\n\nTrenger du å flytte eller avbestille, bruk denne lenken: https://abmarketing.no/intervju/${token}\n\nVennlig hilsen\nAB Marketing`,
+      },
+    ];
+
+    const interview: Interview = {
+      id,
+      candidateId: candidate.id,
+      candidateName: candidate.name,
+      candidatePhone: candidate.phone,
+      leader: body.leader,
+      startsAt: body.startsAt,
+      location: body.location,
+      status: "booket",
+      calendarEventId: `cal-${Date.now()}`,
+      cancelToken: token,
+      attended: null,
+      assessment: null,
+      reminderEnabled: body.reminderEnabled,
+      messages,
+      bookedBy: candidate.owner,
+      bookedAt: now,
+    };
+    db.interviews.unshift(interview);
+
+    // The booking is also a stage change, so it lands in the same append-only
+    // history everything else does.
+    if (candidate.stageId === "ny" || candidate.stageId === "kontaktet" || candidate.stageId === "kvalifisert") {
+      candidate.history.push({
+        id: `h-${Date.now()}`,
+        at: nowStamp(),
+        actor: candidate.owner,
+        type: "stage-change",
+        stageId: "intervju-booket",
+        detail: `Intervju booket med ${body.leader} ${fmt.format(when)}, ${body.location}.`,
+      });
+      candidate.stageId = "intervju-booket";
+    }
+
+    writeAudit({ actor: candidate.owner, action: "Booket intervju", area: "Intervju", affected: candidate.name, after: fmt.format(when) });
+    persistDb();
+    return HttpResponse.json(interview, { status: 201 });
+  }),
+
+  /** BOOK-08 — leder registrerer oppmøte og vurdering etter intervjuet. */
+  http.post("/api/hr/interviews/:id/outcome", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { attended: boolean; assessment: string };
+    const iv = db.interviews.find((x) => x.id === params.id);
+    if (!iv) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    iv.attended = body.attended;
+    iv.assessment = body.assessment;
+    iv.status = body.attended ? "gjennomfort" : "no-show";
+
+    const candidate = db.candidates.find((c) => c.id === iv.candidateId);
+    if (candidate) {
+      candidate.history.push({
+        id: `h-${Date.now()}`,
+        at: nowStamp(),
+        actor: iv.leader,
+        type: "stage-change",
+        stageId: body.attended ? "intervjuet" : "no-show",
+        detail: body.attended
+          ? `Møtte til intervju. Vurdering: ${body.assessment}`
+          : `Møtte ikke til intervjuet. ${body.assessment}`,
+      });
+      candidate.stageId = body.attended ? "intervjuet" : "no-show";
+    }
+
+    // The system-generated task that asked for this is now answered, so it
+    // closes itself. A task that survives the thing it asked for is noise.
+    const task = db.leaderTasks.find((t) => t.relatedCandidateId === iv.candidateId && t.source === "system" && t.status !== "fullfort");
+    if (task) {
+      task.status = "fullfort";
+      task.response = body.assessment;
+      task.completedAt = new Date().toISOString();
+    }
+
+    writeAudit({ actor: iv.leader, action: body.attended ? "Registrerte oppmøte" : "Registrerte ikke møtt", area: "Intervju", affected: iv.candidateName, after: body.attended ? "Gjennomført" : "Ikke møtt" });
+    persistDb();
+    return HttpResponse.json(iv);
+  }),
+
+  /** BOOK-06 / BOOK-07 — avbestilling og ombooking fra den offentlige lenken. */
+  http.get("/api/public/interview/:token", async ({ params }) => {
+    await latency();
+    const iv = db.interviews.find((x) => x.cancelToken === params.token);
+    if (!iv) return HttpResponse.json({ message: "Ukjent lenke" }, { status: 404 });
+    const alternatives = [1, 2, 5].map((d) => iso(dayOffset(d + 1, 10, 0)));
+    return HttpResponse.json({
+      id: iv.id,
+      candidateName: iv.candidateName,
+      leader: iv.leader,
+      startsAt: iv.startsAt,
+      location: iv.location,
+      status: iv.status,
+      alternatives,
+    });
+  }),
+
+  http.post("/api/public/interview/:token/cancel", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { rebookTo?: string };
+    const iv = db.interviews.find((x) => x.cancelToken === params.token);
+    if (!iv) return HttpResponse.json({ message: "Ukjent lenke" }, { status: 404 });
+    const fmt = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo" });
+    const now = new Date().toISOString();
+
+    if (body.rebookTo) {
+      const old = iv.startsAt;
+      iv.startsAt = body.rebookTo;
+      iv.status = "booket";
+      iv.messages.push(
+        { id: `${iv.id}-r1`, channel: "sms", to: iv.candidatePhone, recipientRole: "kandidat", kind: "ombooking", sentAt: now, body: `Intervjuet er flyttet til ${fmt.format(new Date(body.rebookTo))}. Vi sees!` },
+        { id: `${iv.id}-r2`, channel: "sms", to: "+47 900 00 000", recipientRole: "leder", kind: "ombooking", sentAt: now, body: `${iv.candidateName} har flyttet intervjuet fra ${fmt.format(new Date(old))} til ${fmt.format(new Date(body.rebookTo))}. Kalenderen er oppdatert.` },
+      );
+      writeAudit({ actor: iv.candidateName, action: "Ombooket intervju", area: "Intervju", affected: iv.candidateName, before: fmt.format(new Date(old)), after: fmt.format(new Date(body.rebookTo)) });
+    } else {
+      iv.status = "avlyst";
+      // BOOK-06 — cancelling clears the calendar, and both people are told.
+      iv.calendarEventId = null;
+      iv.messages.push(
+        { id: `${iv.id}-c1`, channel: "sms", to: "+47 900 00 000", recipientRole: "leder", kind: "avlysning", sentAt: now, body: `${iv.candidateName} har avbestilt intervjuet ${fmt.format(new Date(iv.startsAt))}. Kalenderhendelsen er slettet.` },
+      );
+      writeAudit({ actor: iv.candidateName, action: "Avbestilte intervju", area: "Intervju", affected: iv.candidateName, before: "Booket", after: "Avlyst" });
+    }
+    persistDb();
+    return HttpResponse.json({ ok: true, status: iv.status, startsAt: iv.startsAt });
+  }),
+
   // ── Godkjenning (GODK) ─────────────────────────────────────────────────────
   /**
    * GODK-02 / GODK-03 — Ole approves or rejects, and nothing reaches onboarding

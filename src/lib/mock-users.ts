@@ -23,6 +23,7 @@ export const MOCK_USERS: Record<string, Session> = {
       // is the only thing they open.
       { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus" },
       { id: "resultater", label: "Resultater", href: "/promoter/resultater", icon: "bar-chart" },
+      { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar" },
       { id: "ukeplan", label: "Ukeplan", href: "/promoter/ukeplan", icon: "calendar" },
       { id: "mal", label: "Mål", href: "/promoter/mal", icon: "target" },
       { id: "kurs", label: "Kurs", href: "/promoter/kurs", icon: "graduation-cap" },
@@ -38,6 +39,9 @@ export const MOCK_USERS: Record<string, Session> = {
     scope: { kind: "team", teamIds: ["t1"], label: "Team Vest" },
     navigation: [
       { id: "forside", label: "Forside", href: "/leder", icon: "home" },
+      { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list" },
+      { id: "intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar" },
+      { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check" },
       { id: "teamresultater", label: "Teamresultater", href: "/leder/teamresultater", icon: "bar-chart" },
       { id: "oppfolging", label: "Oppfølgingsbehov", href: "/leder/oppfolging", icon: "alert-triangle" },
       { id: "tiltak", label: "Tiltak", href: "/leder/tiltak", icon: "clipboard-list" },
@@ -63,6 +67,10 @@ export const MOCK_USERS: Record<string, Session> = {
     navigation: [
       { id: "forside", label: "Forside", href: "/leder", icon: "home" },
       { id: "team", label: "Team", href: "/leder/team", icon: "layout-grid" },
+      { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list" },
+      { id: "intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar" },
+      { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check" },
+      { id: "dashboard", label: "Rekruttering", href: "/dashboard", icon: "bar-chart" },
       { id: "teamresultater", label: "Resultater", href: "/leder/teamresultater", icon: "bar-chart" },
       { id: "oppfolging", label: "Oppfølgingsbehov", href: "/leder/oppfolging", icon: "alert-triangle" },
       { id: "tiltak", label: "Tiltak", href: "/leder/tiltak", icon: "clipboard-list" },
@@ -83,6 +91,9 @@ export const MOCK_USERS: Record<string, Session> = {
       // step before it, and because it is where the working day starts.
       { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox" },
       { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users" },
+      { id: "intervjuer", label: "Intervjuer", href: "/rekruttering/intervjuer", icon: "calendar" },
+      { id: "annonser", label: "Annonser", href: "/rekruttering/annonser", icon: "megaphone" },
+      { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "bar-chart" },
     ],
   },
 
@@ -104,6 +115,8 @@ export const MOCK_USERS: Record<string, Session> = {
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check" },
+      { id: "onboarding", label: "Onboarding", href: "/onboarding", icon: "clipboard-list" },
+      { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users" },
       { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users" },
     ],
   },
@@ -146,6 +159,12 @@ export const MOCK_USERS: Record<string, Session> = {
       { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox" },
       { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users" },
       { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check" },
+      { id: "annonser", label: "Annonser", href: "/rekruttering/annonser", icon: "megaphone" },
+      { id: "intervjuer", label: "Intervjuer", href: "/rekruttering/intervjuer", icon: "calendar" },
+      { id: "onboarding", label: "Onboarding", href: "/onboarding", icon: "clipboard-list" },
+      { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users" },
+      { id: "dashboard", label: "Rekrutteringsdashboard", href: "/dashboard", icon: "bar-chart" },
+      { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list" },
       { id: "kpi-ordbok", label: "KPI-ordbok", href: "/admin/kpi-ordbok", icon: "book-open" },
       { id: "import", label: "Import", href: "/admin/import", icon: "upload" },
       { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity" },
