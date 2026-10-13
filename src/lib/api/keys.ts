@@ -25,6 +25,14 @@ export const qk = {
     orgGoalPlan: () => ["leader", "org", "goal-plan"] as const,
     teams: () => ["leader", "org", "teams"] as const,
   },
+  leads: {
+    /** The filter is part of the key — paging and filtering are server-side. */
+    list: (filter: Record<string, string | number> = {}) => ["leads", "inbox", "list", filter] as const,
+    counts: () => ["leads", "inbox", "counts"] as const,
+    lead: (id: string) => ["leads", "inbox", "lead", id] as const,
+    /** Everything the inbox shows, for invalidation after a bulk action. */
+    all: () => ["leads"] as const,
+  },
   recruitment: {
     stages: () => ["recruitment", "all", "stages"] as const,
     candidates: () => ["recruitment", "mine", "candidates"] as const,

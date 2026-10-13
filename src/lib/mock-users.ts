@@ -19,6 +19,9 @@ export const MOCK_USERS: Record<string, Session> = {
     scope: { kind: "self", teamIds: ["t1"], label: "Kari Nordmann" },
     navigation: [
       { id: "forside", label: "Forside", href: "/promoter", icon: "home" },
+      // LEAD-05 — first in the list after the front page because on a stand it
+      // is the only thing they open.
+      { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus" },
       { id: "resultater", label: "Resultater", href: "/promoter/resultater", icon: "bar-chart" },
       { id: "ukeplan", label: "Ukeplan", href: "/promoter/ukeplan", icon: "calendar" },
       { id: "mal", label: "Mål", href: "/promoter/mal", icon: "target" },
@@ -76,7 +79,55 @@ export const MOCK_USERS: Record<string, Session> = {
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "forside", label: "Forside", href: "/rekruttering", icon: "home" },
+      // LEAD-01 — the samleinnboks sits above the pipeline because it is the
+      // step before it, and because it is where the working day starts.
+      { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox" },
       { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users" },
+    ],
+  },
+
+  /**
+   * GODK — Ole, and whoever stands in for him (GODK-04).
+   *
+   * Deliberately the narrowest session in the product. The approver's job is
+   * one decision, and giving them the recruiter's screens as well would make
+   * the queue one tab among several rather than the thing they open the portal
+   * for. `recruitment.view` is granted because the decision is meaningless
+   * without being able to read the candidate it is about.
+   */
+  approver: {
+    key: "approver",
+    userId: "u-approver",
+    name: "Ole Marius Sormbråten",
+    role: "Godkjenner",
+    permissions: ["approval.view", "recruitment.view"],
+    scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
+    navigation: [
+      { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check" },
+      { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users" },
+    ],
+  },
+
+  /**
+   * Ledelse — read-only by construction.
+   *
+   * The SRS gives management "dashboards og prognoser (lesetilgang)". There is
+   * no read-only flag anywhere in this model, and adding one would be a second
+   * access mechanism competing with the permission list. Instead they simply
+   * hold the view permissions and none of the ones that write, which is the
+   * same guarantee expressed in the system that already exists.
+   */
+  management: {
+    key: "management",
+    userId: "u-management",
+    name: "Lars Eide",
+    role: "Ledelse",
+    permissions: ["leader.view", "saleschief.view"],
+    scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Hele selskapet" },
+    navigation: [
+      { id: "forside", label: "Forside", href: "/leder", icon: "home" },
+      { id: "team", label: "Team", href: "/leder/team", icon: "layout-grid" },
+      { id: "teamresultater", label: "Resultater", href: "/leder/teamresultater", icon: "bar-chart" },
     ],
   },
   admin: {
@@ -84,10 +135,17 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-admin",
     name: "Admin Bruker",
     role: "Administrator",
-    permissions: ["admin.view", "kpi.view", "import.view"],
+    // §2.2 — "Admin (Lars og Joseph): mastervisning over alle leads og
+    // kandidater". Admin holds every module permission rather than bypassing
+    // the check, so the admin session is governed by the same mechanism as
+    // everyone else's and /admin/tilganger can show it.
+    permissions: ["admin.view", "kpi.view", "import.view", "recruitment.view", "approval.view", "leader.view", "saleschief.view", "promoter.view"],
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid" },
+      { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox" },
+      { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users" },
+      { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check" },
       { id: "kpi-ordbok", label: "KPI-ordbok", href: "/admin/kpi-ordbok", icon: "book-open" },
       { id: "import", label: "Import", href: "/admin/import", icon: "upload" },
       { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity" },

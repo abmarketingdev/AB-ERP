@@ -136,6 +136,86 @@
   --sidebar-ring: var(--ab-accent-9);
 }
 
+/*
+ * The light palette again, as a class.
+ *
+ * `dark` is a class on <html>, so everything inside inherits it — including
+ * the customer portal, which is deliberately light whatever the staff member
+ * looking at it prefers. `:root` cannot serve that case because it only
+ * applies at the document root. These are the same values as `:root` above.
+ */
+.light {
+  /*
+   * Grafitt — near-monochrome. Colour is scarce enough that any colour means
+   * something, so hue is reserved almost entirely for status. The "accent" is a
+   * graphite step rather than a hue, which is why the series ramp survives
+   * greyscale and colour-blindness intact (min luminance gap 0.100 vs 0.004–0.011
+   * for a hue-based ramp).
+   *
+   * Verified against white: accent-9 as a button ground reads 11.7:1 with a white
+   * label; accent-11 as link text 9.6:1.
+   */
+  --ab-accent-1: #f4f5f6;
+  --ab-accent-3: #eceef0;
+  --ab-accent-6: #b9bcbf;
+  --ab-accent-9: #33393e;
+  --ab-accent-10: #2a3034;
+  --ab-accent-11: #3d4349;
+  --ab-accent-12: #1b1e21;
+
+  /* Status roles */
+  --success: oklch(0.63 0.17 149);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.77 0.16 78);
+  --warning-foreground: oklch(0.2 0.02 78);
+  /*
+   * Text on a *tinted* warning surface (bg-warning/10), as opposed to a solid
+   * one. `--warning-foreground` is near-black in both themes because it is
+   * meant for the solid fill — put it on a 10 % tint over a dark card and it
+   * measures 1.03:1, which is text nobody can see. This token flips with the
+   * theme; the solid one does not.
+   */
+  --warning-on-tint: oklch(0.44 0.13 78);
+  --danger: oklch(0.58 0.22 27);
+  --danger-foreground: oklch(0.99 0 0);
+  --info: var(--ab-accent-9);
+  --info-foreground: oklch(0.99 0 0);
+
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.2 0.008 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.008 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.008 250);
+  --primary: var(--ab-accent-9);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.962 0.003 250);
+  --secondary-foreground: oklch(0.24 0.008 250);
+  --muted: oklch(0.962 0.003 250);
+  --muted-foreground: oklch(0.545 0.007 250);
+  --accent: var(--ab-accent-3);
+  --accent-foreground: var(--ab-accent-12);
+  --destructive: var(--danger);
+  --border: oklch(0.902 0.004 250);
+  --input: oklch(0.64 0.006 250);
+  --ring: var(--ab-accent-9);
+  /* Series encoded by lightness, not hue — survives greyscale and CVD. */
+  --chart-1: #1e1f21;
+  --chart-2: #343637;
+  --chart-3: #4b4d4f;
+  --chart-4: #646668;
+  --chart-5: #7e8082;
+  --radius: 0.75rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.2 0.008 250);
+  --sidebar-primary: var(--ab-accent-9);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: var(--ab-accent-3);
+  --sidebar-accent-foreground: var(--ab-accent-12);
+  --sidebar-border: oklch(0.902 0.004 250);
+  --sidebar-ring: var(--ab-accent-9);
+}
+
 .dark {
   --ab-accent-1: #0f1113;
   --ab-accent-3: #1c1f22;

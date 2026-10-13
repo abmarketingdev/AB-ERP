@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 /*
  * IBM Plex, not Geist or Inter. Those two plus Poppins and Space Grotesk are the
@@ -38,10 +39,22 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    /*
+     * suppressHydrationWarning is required, not cosmetic: the theme script in
+     * the head adds `dark` and sets `color-scheme` on this element before React
+     * hydrates, so the server markup and the live DOM genuinely differ here.
+     * That is the whole point of running it early — without the suppression
+     * React reports a mismatch on every page load.
+     */
     <html
       lang="nb"
       className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Applied before first paint so the chosen theme never flashes. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

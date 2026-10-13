@@ -64,7 +64,7 @@ export default function MascotGallery() {
   const [state, setState] = React.useState<MascotState>("thinking");
 
   return (
-    <div className="dark min-h-screen bg-background p-8 text-foreground">
+    <div className="min-h-screen bg-background p-8 text-foreground">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <header>
           <h1 className="text-[22px]">Pandi</h1>

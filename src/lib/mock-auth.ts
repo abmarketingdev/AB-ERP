@@ -22,6 +22,11 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   { email: "marte@abmarketing.no", password: "salgssjef123", userKey: "saleschief", requires2fa: false },
   { email: "admin@abmarketing.no", password: "admin123", userKey: "admin", requires2fa: true },
   { email: "fredrik@abmarketing.no", password: "rekrutt123", userKey: "recruitment", requires2fa: false },
+  // IFK-04 — "tofaktor for admin og godkjenner". The approver is the only
+  // non-admin account with 2FA on, because the approval decision is the one
+  // nobody else may make on their behalf.
+  { email: "ole@abmarketing.no", password: "godkjenn123", userKey: "approver", requires2fa: true },
+  { email: "lars@abmarketing.no", password: "ledelse123", userKey: "management", requires2fa: false },
 ];
 
 const TWO_FACTOR_CODE = "123456";

@@ -15,6 +15,7 @@ const PERMISSION: Record<string, string> = {
   promoter: "promoter.view",
   leader: "leader.view",
   recruitment: "recruitment.view",
+  approval: "approval.view",
   admin: "admin.view",
 };
 

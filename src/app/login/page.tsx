@@ -126,7 +126,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="dark relative bg-background md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
+    <div className="relative bg-background md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
       <LoginTransition active={transitioning !== null} label={transitioning?.label ?? ""} />
 
       {/* Left — hero panel */}

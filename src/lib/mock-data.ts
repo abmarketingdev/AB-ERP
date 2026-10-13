@@ -646,15 +646,99 @@ export interface RecruitmentStage {
   terminal?: "hired" | "withdrawn";
 }
 
+/**
+ * KAND-01 — the twelve statuses the SRS names, in order.
+ *
+ * The earlier seven were marked in the requirements as "a preliminary proposal
+ * (clarification 6)" and the board was held back because of it. The SRS settles
+ * the set, so the block is lifted.
+ *
+ * "Interesse for senere" is deliberately NOT here. KAND-01 is explicit that it
+ * is a tag, not a column — a candidate parked for a future campaign still has a
+ * real status, and giving it a column would hide them from the funnel that
+ * DASH-05 measures drop-off with.
+ */
 export const RECRUITMENT_STAGES: RecruitmentStage[] = [
-  { id: "ny", label: "Ny henvendelse", fields: [{ id: "kilde", label: "Bekreft kilde" }] },
-  { id: "screening", label: "Screening", fields: [{ id: "screener", label: "Gjennomført av" }, { id: "notat", label: "Kort vurdering" }] },
-  { id: "intervju", label: "Intervju", fields: [{ id: "dato", label: "Intervjudato" }, { id: "inntrykk", label: "Inntrykk" }] },
-  { id: "referanse", label: "Referansesjekk", fields: [{ id: "referanse", label: "Referanseperson" }, { id: "resultat", label: "Resultat" }] },
-  { id: "tilbud", label: "Tilbud sendt", fields: [{ id: "vilkar", label: "Tilbudte vilkår" }] },
-  { id: "ansatt", label: "Ansatt", fields: [{ id: "startdato", label: "Startdato" }], terminal: "hired" },
-  { id: "avsluttet", label: "Avsluttet", fields: [{ id: "arsak", label: "Årsak" }], terminal: "withdrawn" },
+  { id: "ny", label: "Ny", fields: [{ id: "kilde", label: "Bekreft kanal" }] },
+  {
+    id: "kontaktet",
+    label: "Kontaktet",
+    fields: [
+      { id: "kanal", label: "Kontaktet på", placeholder: "Telefon, SMS, e-post" },
+      { id: "notat", label: "Hva ble sagt" },
+    ],
+  },
+  {
+    id: "kvalifisert",
+    label: "Kvalifisert",
+    fields: [
+      { id: "vurdering", label: "Kort vurdering" },
+      { id: "tilgjengelig", label: "Kan starte fra", placeholder: "Dato" },
+    ],
+  },
+  {
+    id: "intervju-booket",
+    label: "Intervju booket",
+    fields: [
+      { id: "leder", label: "Leder som intervjuer" },
+      { id: "tidspunkt", label: "Tidspunkt" },
+      { id: "sted", label: "Sted" },
+    ],
+  },
+  {
+    id: "intervjuet",
+    label: "Intervjuet",
+    fields: [
+      { id: "moette", label: "Møtte kandidaten?", placeholder: "Ja / Nei" },
+      { id: "vurdering", label: "Vurdering etter intervju" },
+    ],
+  },
+  {
+    id: "til-godkjenning",
+    label: "Til godkjenning",
+    fields: [
+      { id: "oppstart", label: "Ønsket oppstartsdato" },
+      { id: "team", label: "Team" },
+      { id: "prosjekt", label: "Prosjekt" },
+      { id: "nivaa", label: "Junior eller senior" },
+      { id: "dager", label: "Hvilke dager skal de jobbe" },
+      { id: "stillingsprosent", label: "Stillingsprosent" },
+      { id: "student", label: "Student?", placeholder: "Ja / Nei" },
+    ],
+  },
+  {
+    id: "godkjent",
+    label: "Godkjent",
+    fields: [{ id: "godkjenner", label: "Godkjent av" }],
+  },
+  {
+    id: "onboarding",
+    label: "Onboarding",
+    fields: [{ id: "oppstart", label: "Bekreftet oppstartsdato" }],
+  },
+  { id: "ansatt", label: "Ansatt", fields: [{ id: "startdato", label: "Første arbeidsdag" }], terminal: "hired" },
+  { id: "avvist", label: "Avvist", fields: [{ id: "arsak", label: "Årsak" }], terminal: "withdrawn" },
+  { id: "no-show", label: "No show", fields: [{ id: "naar", label: "Uteble fra" }], terminal: "withdrawn" },
+  { id: "trukket", label: "Trukket", fields: [{ id: "arsak", label: "Årsak" }], terminal: "withdrawn" },
 ];
+
+/**
+ * KAND-07 — rejection reasons come from a list rather than free text, because
+ * DASH-04 reports on them. Free text cannot be counted.
+ */
+export const REJECTION_REASONS = [
+  "Ikke relevant erfaring",
+  "Kan ikke jobbe nok dager",
+  "For lang reisevei",
+  "Svarte ikke etter gjentatte forsøk",
+  "Trakk seg selv",
+  "Ikke bestått referansesjekk",
+  "Ansatt i annen stilling",
+  "Alder under kampanjens krav",
+];
+
+/** The tag from KAND-01 that is explicitly not a column. */
+export const CANDIDATE_TAGS = ["Interesse for senere", "Sterk kandidat", "Krever oppfølging"];
 
 export interface CandidateHistoryEntry {
   id: string;
@@ -720,15 +804,15 @@ export const CANDIDATES: Candidate[] = [
     campaign: "Høstkampanjen 2026",
     appliedDate: "12. aug 2026",
     owner: "Fredrik Amundsen",
-    stageId: "intervju",
+    stageId: "intervju-booket",
     nextActivity: { label: "Ring for å avtale intervjutid", date: "19. aug 2026", overdue: true },
     contract: "not-sent",
     onboarding: [],
     closure: null,
     history: [
       { id: "h1", at: "12. aug 2026, 09:14", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet fra Finn.no-annonse." },
-      { id: "h2", at: "13. aug 2026, 11:02", actor: "Fredrik Amundsen", type: "stage-change", stageId: "screening", detail: "Flyttet til Screening. Kort vurdering: Godt muntlig, ingen erfaring fra dør-til-dør." },
-      { id: "h3", at: "16. aug 2026, 14:30", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju", detail: "Flyttet til Intervju. Intervjudato ikke avtalt ennå." },
+      { id: "h2", at: "13. aug 2026, 11:02", actor: "Fredrik Amundsen", type: "stage-change", stageId: "kvalifisert", detail: "Flyttet til Screening. Kort vurdering: Godt muntlig, ingen erfaring fra dør-til-dør." },
+      { id: "h3", at: "16. aug 2026, 14:30", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju-booket", detail: "Flyttet til Intervju. Intervjudato ikke avtalt ennå." },
     ],
   },
   {
@@ -740,16 +824,16 @@ export const CANDIDATES: Candidate[] = [
     campaign: "Høstkampanjen 2026",
     appliedDate: "5. aug 2026",
     owner: "Fredrik Amundsen",
-    stageId: "referanse",
+    stageId: "intervjuet",
     nextActivity: { label: "Følge opp referanseperson", date: "21. aug 2026" },
     contract: "not-sent",
     onboarding: [],
     closure: null,
     history: [
       { id: "h1", at: "5. aug 2026, 08:40", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet — henvist av Kari Nordmann." },
-      { id: "h2", at: "7. aug 2026, 10:15", actor: "Fredrik Amundsen", type: "stage-change", stageId: "screening", detail: "Flyttet til Screening. Gjennomført av: Fredrik Amundsen." },
-      { id: "h3", at: "11. aug 2026, 13:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju", detail: "Flyttet til Intervju. Inntrykk: Strukturert, motivert, spørsmål om provisjon." },
-      { id: "h4", at: "18. aug 2026, 09:45", actor: "Fredrik Amundsen", type: "stage-change", stageId: "referanse", detail: "Flyttet til Referansesjekk. Referanseperson: tidligere leder hos Elkjøp." },
+      { id: "h2", at: "7. aug 2026, 10:15", actor: "Fredrik Amundsen", type: "stage-change", stageId: "kvalifisert", detail: "Flyttet til Screening. Gjennomført av: Fredrik Amundsen." },
+      { id: "h3", at: "11. aug 2026, 13:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju-booket", detail: "Flyttet til Intervju. Inntrykk: Strukturert, motivert, spørsmål om provisjon." },
+      { id: "h4", at: "18. aug 2026, 09:45", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervjuet", detail: "Flyttet til Referansesjekk. Referanseperson: tidligere leder hos Elkjøp." },
     ],
   },
   {
@@ -761,17 +845,17 @@ export const CANDIDATES: Candidate[] = [
     campaign: "Vårkampanjen 2026",
     appliedDate: "2. jul 2026",
     owner: "Fredrik Amundsen",
-    stageId: "tilbud",
+    stageId: "til-godkjenning",
     nextActivity: { label: "Purre svar på tilbud", date: "17. aug 2026", overdue: true },
     contract: "sent",
     onboarding: [],
     closure: null,
     history: [
       { id: "h1", at: "2. jul 2026, 12:00", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet fra Instagram-kampanje." },
-      { id: "h2", at: "4. jul 2026, 09:30", actor: "Fredrik Amundsen", type: "stage-change", stageId: "screening", detail: "Flyttet til Screening." },
-      { id: "h3", at: "9. jul 2026, 15:20", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju", detail: "Flyttet til Intervju. Inntrykk: Svært god." },
-      { id: "h4", at: "16. jul 2026, 10:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "referanse", detail: "Flyttet til Referansesjekk. Resultat: Positiv." },
-      { id: "h5", at: "24. jul 2026, 11:10", actor: "Fredrik Amundsen", type: "stage-change", stageId: "tilbud", detail: "Flyttet til Tilbud sendt. Tilbudte vilkår: Standard promoteravtale." },
+      { id: "h2", at: "4. jul 2026, 09:30", actor: "Fredrik Amundsen", type: "stage-change", stageId: "kvalifisert", detail: "Flyttet til Screening." },
+      { id: "h3", at: "9. jul 2026, 15:20", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju-booket", detail: "Flyttet til Intervju. Inntrykk: Svært god." },
+      { id: "h4", at: "16. jul 2026, 10:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervjuet", detail: "Flyttet til Referansesjekk. Resultat: Positiv." },
+      { id: "h5", at: "24. jul 2026, 11:10", actor: "Fredrik Amundsen", type: "stage-change", stageId: "til-godkjenning", detail: "Flyttet til Tilbud sendt. Tilbudte vilkår: Standard promoteravtale." },
     ],
   },
   {
@@ -787,10 +871,10 @@ export const CANDIDATES: Candidate[] = [
     contract: "signed",
     history: [
       { id: "h1", at: "18. jun 2026, 08:00", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet fra Finn.no-annonse." },
-      { id: "h2", at: "20. jun 2026, 10:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "screening", detail: "Flyttet til Screening." },
-      { id: "h3", at: "24. jun 2026, 13:30", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju", detail: "Flyttet til Intervju." },
-      { id: "h4", at: "1. jul 2026, 09:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "referanse", detail: "Flyttet til Referansesjekk." },
-      { id: "h5", at: "6. jul 2026, 14:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "tilbud", detail: "Flyttet til Tilbud sendt." },
+      { id: "h2", at: "20. jun 2026, 10:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "kvalifisert", detail: "Flyttet til Screening." },
+      { id: "h3", at: "24. jun 2026, 13:30", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervju-booket", detail: "Flyttet til Intervju." },
+      { id: "h4", at: "1. jul 2026, 09:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "intervjuet", detail: "Flyttet til Referansesjekk." },
+      { id: "h5", at: "6. jul 2026, 14:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "til-godkjenning", detail: "Flyttet til Tilbud sendt." },
       { id: "h6", at: "12. jul 2026, 11:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "ansatt", detail: "Flyttet til Ansatt. Startdato: 1. august 2026." },
     ],
     onboarding: [
@@ -827,17 +911,143 @@ export const CANDIDATES: Candidate[] = [
     campaign: "Vårkampanjen 2026",
     appliedDate: "14. mai 2026",
     owner: "Fredrik Amundsen",
-    stageId: "avsluttet",
+    stageId: "avvist",
     contract: "not-sent",
     onboarding: [],
     closure: null,
     history: [
       { id: "h1", at: "14. mai 2026, 10:00", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet fra Finn.no-annonse." },
-      { id: "h2", at: "16. mai 2026, 09:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "screening", detail: "Flyttet til Screening." },
-      { id: "h3", at: "22. mai 2026, 11:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "avsluttet", detail: "Flyttet til Avsluttet. Årsak: Kandidat trakk søknaden." },
+      { id: "h2", at: "16. mai 2026, 09:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "kvalifisert", detail: "Flyttet til Screening." },
+      { id: "h3", at: "22. mai 2026, 11:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "avvist", detail: "Flyttet til Avsluttet. Årsak: Kandidat trakk søknaden." },
     ],
   },
 ];
+
+/**
+ * The pipeline the board is meant to show.
+ *
+ * The six hand-written candidates above carry the detailed histories the
+ * candidate page is designed around. These fill the rest of the board, because
+ * a kanban with four occupied columns out of twelve demonstrates the columns
+ * rather than the pipeline — and in particular leaves Ole's queue with one
+ * item, which is not a queue.
+ *
+ * Generated rather than typed out so the spread stays deliberate: the shape is
+ * a funnel (DASH-05), not a uniform sprinkle.
+ */
+const PIPELINE: { stage: string; n: number }[] = [
+  { stage: "ny", n: 5 },
+  { stage: "kontaktet", n: 4 },
+  { stage: "kvalifisert", n: 3 },
+  { stage: "intervju-booket", n: 3 },
+  { stage: "intervjuet", n: 2 },
+  { stage: "til-godkjenning", n: 3 },
+  { stage: "godkjent", n: 2 },
+  { stage: "onboarding", n: 2 },
+  { stage: "no-show", n: 1 },
+  { stage: "trukket", n: 1 },
+];
+
+const EXTRA_NAMES = [
+  "Hedda Lysaker", "Kasper Bøe", "Live Nygård", "Theodor Fjeld", "Agnes Sæther",
+  "Isak Tangen", "Jenny Ruud", "Lucas Holm", "Mina Aas", "Herman Vik",
+  "Aurora Moen", "Adrian Lund", "Emilie Bakken", "Johannes Dahl", "Tuva Solheim",
+  "Daniel Berg", "Selma Haugen", "Filip Ødegård", "Ella Sandvik", "Noah Eriksen",
+  "Frida Hagen", "Markus Lie", "Ida Johansen", "Emil Kristiansen", "Thea Pedersen",
+  "Oskar Andreassen",
+];
+
+const EXTRA_SOURCES = ["Meta", "TikTok", "Finn", "Nettside", "Stand (Kari Nordmann)", "Nav", "Indeed"];
+const EXTRA_CAMPAIGNS = ["Høstkampanjen 2026", "Vinterrekruttering 2027", "Student høst 2026", "Bergen oppstart"];
+const EXTRA_OWNERS = ["Fredrik Amundsen", "Hanne Lie", "Ida Moen"];
+
+/** What the leader submits with GODK-01, so Ole's queue has something to read. */
+const GODK_SUBMISSIONS = [
+  "Ønsket oppstartsdato: 1. sep 2026 · Team: Team Vest · Prosjekt: Høstkampanjen 2026 · Junior eller senior: Junior · Hvilke dager skal de jobbe: man, tir, ons · Stillingsprosent: 60 % · Student?: Ja",
+  "Ønsket oppstartsdato: 25. aug 2026 · Team: Team Nord · Prosjekt: Vinterrekruttering 2027 · Junior eller senior: Senior · Hvilke dager skal de jobbe: man–fre · Stillingsprosent: 100 % · Student?: Nei",
+  "Ønsket oppstartsdato: 8. sep 2026 · Team: Team Sør · Prosjekt: Bergen oppstart · Junior eller senior: Junior · Hvilke dager skal de jobbe: tor, fre, lør · Stillingsprosent: 40 % · Student?: Ja",
+];
+
+function buildPipelineCandidates(): Candidate[] {
+  const out: Candidate[] = [];
+  let n = 0;
+  let godkIdx = 0;
+
+  for (const { stage, n: count } of PIPELINE) {
+    for (let k = 0; k < count; k++) {
+      const idx = n++;
+      const name = EXTRA_NAMES[idx % EXTRA_NAMES.length];
+      const owner = EXTRA_OWNERS[idx % EXTRA_OWNERS.length];
+      const day = 2 + (idx % 16);
+      const applied = `${day}. aug 2026`;
+
+      const history: CandidateHistoryEntry[] = [
+        {
+          id: `h-p${idx}-0`,
+          at: `${applied}, 09:${String(10 + (idx % 45)).padStart(2, "0")}`,
+          actor: owner,
+          type: "created",
+          detail: `Sendt videre fra samleinnboksen. Kanal: ${EXTRA_SOURCES[idx % EXTRA_SOURCES.length]}.`,
+        },
+      ];
+
+      if (stage === "til-godkjenning") {
+        history.push({
+          id: `h-p${idx}-1`,
+          at: `${day + 2}. aug 2026, 14:05`,
+          actor: owner,
+          type: "stage-change",
+          stageId: "til-godkjenning",
+          detail: GODK_SUBMISSIONS[godkIdx++ % GODK_SUBMISSIONS.length],
+        });
+      } else if (stage !== "ny") {
+        history.push({
+          id: `h-p${idx}-1`,
+          at: `${day + 1}. aug 2026, 11:20`,
+          actor: owner,
+          type: "stage-change",
+          stageId: stage,
+          detail: `Flyttet til ${stage}.`,
+        });
+      }
+
+      const inOnboarding = stage === "onboarding";
+      out.push({
+        id: `c-p${idx}`,
+        name,
+        phone: `+47 9${String(10 + idx).padStart(2, "0")} ${String(20 + idx).padStart(2, "0")} ${String(30 + idx).padStart(2, "0")}`,
+        email: name.toLowerCase().replace(/ /g, ".").replace(/[æøå]/g, "o") + "@email.no",
+        source: EXTRA_SOURCES[idx % EXTRA_SOURCES.length],
+        campaign: EXTRA_CAMPAIGNS[idx % EXTRA_CAMPAIGNS.length],
+        appliedDate: applied,
+        owner,
+        stageId: stage,
+        history,
+        // FR-R-06 — a few overdue next activities, so the board has something
+        // to flag. Every card flagged would be the same as none flagged.
+        nextActivity:
+          idx % 7 === 0
+            ? { label: "Ring tilbake", date: `${day + 3}. aug 2026`, overdue: true }
+            : undefined,
+        contract: stage === "onboarding" ? "sent" : "not-sent",
+        onboarding: inOnboarding
+          ? [
+              { id: `ob-${idx}-1`, task: "Personalia registrert", done: true },
+              { id: `ob-${idx}-2`, task: "Kontrakt sendt til signering", done: true },
+              { id: `ob-${idx}-3`, task: "Bilde tatt og lagt inn", done: false },
+              { id: `ob-${idx}-4`, task: "Utstyr utlevert med serienummer", done: false },
+              { id: `ob-${idx}-5`, task: "Opplæring gjennomført", done: false },
+              { id: `ob-${idx}-6`, task: "Første arbeidsdag bekreftet", done: false },
+            ]
+          : [],
+        closure: null,
+      });
+    }
+  }
+  return out;
+}
+
+CANDIDATES.push(...buildPipelineCandidates());
 
 export interface PendingCorrection {
   id: string;

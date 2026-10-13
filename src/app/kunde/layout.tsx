@@ -34,7 +34,9 @@ function CustomerShell({ children }: { children: React.ReactNode }) {
 
   return (
     <CustomerSessionProvider account={account}>
-      <div className="relative flex min-h-screen flex-col bg-background">
+      {/* The customer portal is light whatever the staff theme is — it is a
+          report sent to an external reader, not a tool somebody configures. */}
+      <div className="light relative flex min-h-screen flex-col bg-background">
         {/* WCAG 2.4.1, the customer's version. Short header, but a keyboard
             user should still not have to tab through it to reach the report. */}
         <a

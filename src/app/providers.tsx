@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MockProvider } from "@/mocks/mock-provider";
 import { MascotFilters } from "@/components/patterns/mascot-filters";
 import { LocaleProvider, LocaleScope } from "@/lib/i18n";
+import { ThemeProvider } from "@/lib/theme";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(
@@ -22,6 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
+    <ThemeProvider>
     <MockProvider>
       {/* One instance serves every mascot on the page — `filter: url(#id)`
           resolves against the document, not the subtree. Above the query client
@@ -38,5 +40,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         </LocaleProvider>
       </QueryClientProvider>
     </MockProvider>
+    </ThemeProvider>
   );
 }

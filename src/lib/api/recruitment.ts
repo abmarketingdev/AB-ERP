@@ -102,3 +102,27 @@ export function useAdvanceStage() {
     },
   });
 }
+
+/**
+ * GODK-02 — the approval decision.
+ *
+ * Deliberately one mutation with a `decision` rather than approve() and
+ * reject(): they are the same transition with a different outcome, and the
+ * comment is required on a rejection by the screen, not by two code paths that
+ * can drift.
+ */
+export function useCandidateDecision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; decision: "godkjent" | "avvist"; comment: string }) =>
+      apiPost(`${API.hr}/recruitment/candidates/${vars.id}/decision`, candidateSchema, {
+        decision: vars.decision,
+        comment: vars.comment,
+      }),
+    onSuccess: (updated) => {
+      qc.setQueryData(qk.recruitment.candidate(updated.id), updated);
+      qc.invalidateQueries({ queryKey: qk.recruitment.candidates() });
+      qc.invalidateQueries({ queryKey: qk.quality.audit() });
+    },
+  });
+}

@@ -1095,7 +1095,7 @@ const STORAGE_KEY = "ab-erp-mock-db";
  * v8 — KPI version history; import preview/commit; decided corrections.
  * v9 — integration health (FR-A-10); automated ingestion inbox (FR-I-08).
  */
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 11;
 
 interface Snapshot {
   v: number;
@@ -1136,6 +1136,18 @@ const seed = {
   ] as CorrectionNotice[],
 
   followUps: buildFollowUps(ALL_TEAM_IDS),
+
+  /**
+   * The samleinnboks overlay.
+   *
+   * The 10 000-lead corpus is generated, not stored (see mocks/leads.ts). Only
+   * what the demo actually changes lives here, which keeps the persisted
+   * snapshot small enough for sessionStorage and makes "what did I change in
+   * this session" inspectable.
+   */
+  leadOverrides: {} as Record<string, Partial<import("@/types/lead").Lead>>,
+  /** Leads created during the demo — the stand form (LEAD-05) writes here. */
+  leadExtra: [] as import("@/types/lead").Lead[],
 };
 
 export type Db = typeof seed;

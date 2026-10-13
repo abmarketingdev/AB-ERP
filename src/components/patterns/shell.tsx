@@ -23,6 +23,9 @@ import {
   Activity,
   Wrench,
   Eye,
+  Inbox,
+  ShieldCheck,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -32,6 +35,7 @@ import { clearSessionKey } from "@/lib/use-session-guard";
 import { Mascot } from "./mascot";
 import { ScopeSwitcher } from "./scope-switcher";
 import { LanguageSwitcher } from "./language-switcher";
+import { ThemeSwitcher } from "./theme-switcher";
 import { useT } from "@/lib/i18n";
 import { PreviewBanner } from "./preview-banner";
 import { Button } from "@/components/ui/button";
@@ -55,6 +59,9 @@ const ICONS: Record<string, LucideIcon> = {
   activity: Activity,
   wrench: Wrench,
   eye: Eye,
+  inbox: Inbox,
+  "shield-check": ShieldCheck,
+  "user-plus": UserPlus,
 };
 
 interface ShellProps {
@@ -99,7 +106,7 @@ export function Shell({ session, children }: ShellProps) {
        * discrimination in charts is measurably better on a dark ground. The
        * promoter's field surface and the customer report stay light.
        */}
-      <div className="dark relative flex min-h-screen w-full flex-col bg-background text-foreground">
+      <div className="relative flex min-h-screen w-full flex-col bg-background text-foreground">
         {/*
          * WCAG 2.4.1 — a way past the navigation.
          *
@@ -177,6 +184,7 @@ export function Shell({ session, children }: ShellProps) {
           </nav>
 
           <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-2">
+            <ThemeSwitcher />
             <LanguageSwitcher />
             <Button
               variant="ghost"

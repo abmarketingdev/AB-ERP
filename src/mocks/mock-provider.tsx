@@ -131,7 +131,7 @@ export function MockProvider({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <MascotLoadingScreen
-        theme={pathname?.startsWith("/kunde") ? "light" : "dark"}
+        theme={pathname?.startsWith("/kunde") ? "light" : undefined}
         label="Starter AB ERP…"
       />
     );

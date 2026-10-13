@@ -236,3 +236,62 @@ never in the client.
 When this frontend is done, `src/types/` plus the MSW handlers **are** the API specification. Export
 them as an OpenAPI document if useful, but the types are the contract. Building them carefully now is
 the difference between a two-day integration and a two-week one.
+
+---
+
+## Rekruttering og onboarding (SRS, 30. sep 2026)
+
+The SRS adds a step before the pipeline — the *samleinnboks* — and a hard gate after it. Both are
+new endpoint groups. `src/types/lead.ts` and the handlers in `src/mocks/handlers.ts` are the
+specification; this section is the index.
+
+### Samleinnboks — `/api/hr/leads`
+
+| Method | Path | Returns | SRS |
+|---|---|---|---|
+| GET | `/api/hr/leads?channel=&status=&promoter=&assignedTo=&from=&to=&q=&duplicates=&page=` | `LeadList` | LEAD-08 |
+| GET | `/api/hr/leads/counts` | `{ total, byStatus, byChannel, duplicates }` | — |
+| GET | `/api/hr/leads/:id` | `Lead` | — |
+| POST | `/api/hr/leads/send` | `{ sent, skipped }` | LEAD-08 |
+| POST | `/api/hr/leads/assign` | `{ assigned }` | LEAD-09 |
+| POST | `/api/hr/leads/merge` | `{ kept, merged }` | LEAD-07 |
+| POST | `/api/hr/leads/discard` | `{ discarded }` | — |
+| POST | `/api/hr/leads/stand` | `Lead` | LEAD-05 |
+
+**Filtering, sorting and paging are server-side, and this is not negotiable.** IFK-07 requires the
+inbox to load in under two seconds with 10 000 leads. The list response carries `tookMs` and the UI
+prints it in the table footer, so the requirement is visible rather than asserted. `GET /leads`
+returns one page of 50; `total` is the count matching the filter, not the page.
+
+**Duplicates are computed over the whole corpus, server-side** (`Lead.duplicateOf`). A client-side
+match would only ever find duplicates that happen to share a page, which with 10 000 rows is almost
+never.
+
+**Consent has two independent fields**, `consent.contact` and `consent.adAudience` (LEAD-10).
+Agreeing to be phoned is not agreeing to be exported to Meta as a lookalike seed (LEAD-11). On merge
+they are unioned, never overwritten.
+
+### Godkjenning — the gate
+
+| Method | Path | Returns | SRS |
+|---|---|---|---|
+| POST | `/api/hr/recruitment/candidates/:id/decision` | `Candidate` | GODK-02 |
+
+Body: `{ decision: "godkjent" | "avvist", comment: string }`. Returns **409** if the candidate is not
+in `til-godkjenning` — the decision is only meaningful from that state, and a backend that accepted
+it from any state would make GODK-03 a UI convention rather than a rule.
+
+GODK-03 ("ingen kandidat kan gå videre til ansettelse uten godkjenning") is stated once, in
+`stageMoveRefusal()` in `src/lib/recruitment.ts`, and consumed by the board, the candidate page and
+the mock API. **The real backend must enforce it server-side too.** A gate that exists only in the
+client is not a gate.
+
+Approval is also what creates the onboarding checklist (ONB-05), so the progress counter on the
+board card is correct the moment the decision is made.
+
+### Stages
+
+`RECRUITMENT_STAGES` in `src/lib/mock-data.ts` now holds the twelve statuses KAND-01 names. They
+were previously seven, marked "preliminary proposal (clarification 6)"; the SRS settles the set.
+*Interesse for senere* is a **tag**, not a column — KAND-01 is explicit, and a column would hide
+those candidates from the funnel DASH-05 measures drop-off with.

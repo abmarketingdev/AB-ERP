@@ -45,21 +45,27 @@ export function MascotLoading({
 }
 
 /**
- * Full-viewport version. `theme` exists because this can mount above the router,
- * before any layout has decided whether the page is dark — the staff app is dark
- * and the customer portal is light, and guessing wrong means a full-screen
- * colour flash the moment the real page arrives.
+ * Full-viewport version.
+ *
+ * It inherits the document theme by default, which it could not do while the
+ * staff shell hardcoded `dark`: this mounts above the router, before any layout
+ * has decided anything, so it used to have to guess and a wrong guess was a
+ * full-screen colour flash. Now the inline script in the document head has
+ * already settled the theme before first paint, so there is nothing to guess.
+ *
+ * `theme="light"` stays for the customer portal, which is light whatever the
+ * staff member looking at it prefers.
  */
 export function MascotLoadingScreen({
   label,
-  theme = "dark",
+  theme,
 }: {
   label?: string;
-  theme?: "dark" | "light";
+  theme?: "light";
 }) {
   return (
     <div
-      className={`${theme === "dark" ? "dark " : ""}flex min-h-screen items-center justify-center bg-background`}
+      className={`${theme === "light" ? "light " : ""}flex min-h-screen items-center justify-center bg-background`}
     >
       <MascotLoading label={label} />
     </div>

@@ -28,6 +28,8 @@ import {
   PERIOD_MONTH,
 } from "./db";
 import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
+import type { Lead } from "@/types/lead";
+import { queryLeads, leadCounts, leadById, leadsByIds, patchLead } from "./lead-query";
 import type { AuditEntry, CustomerAccount, CustomerAgreement } from "@/types/quality";
 import { buildCampaignReport } from "./customer-report";
 import { MOCK_USERS } from "@/lib/mock-users";
@@ -267,6 +269,260 @@ export const handlers = [
   }),
 
   // ── Recruitment ────────────────────────────────────────────────────────────
+  // ── Godkjenning (GODK) ─────────────────────────────────────────────────────
+  /**
+   * GODK-02 / GODK-03 — Ole approves or rejects, and nothing reaches onboarding
+   * without it.
+   *
+   * The decision is a stage change like any other, so it lands in the same
+   * append-only history and the same audit log rather than in a parallel
+   * "approvals" store that the candidate timeline would not show.
+   */
+  http.post("/api/hr/recruitment/candidates/:id/decision", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as {
+      decision: "godkjent" | "avvist";
+      comment: string;
+      actor?: string;
+    };
+    const candidate = db.candidates.find((c) => c.id === params.id);
+    if (!candidate) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    if (candidate.stageId !== "til-godkjenning") {
+      return HttpResponse.json(
+        { message: "Kandidaten ligger ikke til godkjenning." },
+        { status: 409 },
+      );
+    }
+
+    const actor = body.actor ?? "Ole Marius Sormbråten";
+    candidate.history.push({
+      id: `h-${Date.now()}`,
+      at: nowStamp(),
+      actor,
+      type: "stage-change",
+      stageId: body.decision,
+      detail:
+        body.decision === "godkjent"
+          ? `Godkjent av ${actor}.${body.comment ? ` Kommentar: ${body.comment}` : ""}`
+          : `Avvist av ${actor}. Begrunnelse: ${body.comment}`,
+    });
+    candidate.stageId = body.decision;
+
+    /*
+     * ONB-05 — approval is what creates the onboarding checklist. Building it
+     * here rather than on the onboarding screen means the progress counter on
+     * the board card is right the moment Ole presses the button.
+     */
+    if (body.decision === "godkjent" && candidate.onboarding.length === 0) {
+      candidate.onboarding = [
+        { id: "ob-1", task: "Personalia registrert", done: false },
+        { id: "ob-2", task: "Kontrakt sendt til signering", done: false },
+        { id: "ob-3", task: "Bilde tatt og lagt inn", done: false },
+        { id: "ob-4", task: "Utstyr utlevert med serienummer", done: false },
+        { id: "ob-5", task: "Opplæring gjennomført", done: false },
+        { id: "ob-6", task: "Første arbeidsdag bekreftet", done: false },
+      ];
+    }
+
+    writeAudit({
+      actor,
+      action: body.decision === "godkjent" ? "Godkjente kandidat" : "Avviste kandidat",
+      area: "Godkjenning",
+      affected: candidate.name,
+      before: "Til godkjenning",
+      after: body.decision === "godkjent" ? "Godkjent" : "Avvist",
+    });
+    persistDb();
+    return HttpResponse.json(candidate);
+  }),
+
+  // ── Samleinnboks (LEAD) ────────────────────────────────────────────────────
+  /*
+   * Filtering, sorting and paging happen here rather than in the table, because
+   * IFK-07 is a requirement about 10 000 leads and a client-side filter over
+   * 10 000 rows is a different product from a server-side one. The response
+   * carries `tookMs` so the demo can show the number instead of claiming it.
+   */
+  get(
+    "/api/hr/leads",
+    (request) => queryLeads(new URL(request.url)),
+    { rows: [], total: 0, tookMs: 0 },
+  ),
+  get("/api/hr/leads/counts", () => leadCounts()),
+
+  http.get("/api/hr/leads/:id", async ({ params }) => {
+    await latency();
+    const lead = leadById(String(params.id));
+    if (!lead) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    return HttpResponse.json(lead);
+  }),
+
+  /**
+   * LEAD-08 — send one or many leads on to the recruitment system.
+   *
+   * This is the step the whole SRS is arranged around, so it is a real
+   * transition and not a flag: each lead becomes a candidate at the first
+   * stage, the lead keeps a pointer to what it became, and the act is written
+   * to the audit log. Sending an already-sent lead is a no-op rather than an
+   * error — a double-click on a bulk action should not produce duplicates.
+   */
+  http.post("/api/hr/leads/send", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { ids: string[]; assignTo?: string };
+    const leads = leadsByIds(body.ids).filter((l) => l.status === "ny");
+    const created: Candidate[] = [];
+
+    for (const lead of leads) {
+      const owner = body.assignTo ?? lead.assignedTo ?? "Fredrik Amundsen";
+      const candidate: Candidate = {
+        id: `c-${lead.id}`,
+        name: lead.name,
+        phone: lead.phone,
+        email: lead.email,
+        source: lead.promoter ? `${lead.channel} (${lead.promoter})` : lead.channel,
+        campaign: lead.campaign,
+        appliedDate: nowStamp(),
+        owner,
+        stageId: db.stages[0].id,
+        history: [
+          {
+            id: `h-${lead.id}`,
+            at: nowStamp(),
+            actor: owner,
+            type: "created",
+            detail: `Sendt videre fra samleinnboksen. Kanal: ${lead.channel}.` +
+              (lead.promoter ? ` Registrert av ${lead.promoter}.` : ""),
+          },
+        ],
+        contract: "not-sent",
+        onboarding: [],
+        closure: null,
+      };
+      db.candidates.unshift(candidate);
+      created.push(candidate);
+      patchLead(lead.id, { status: "sendt", candidateId: candidate.id, assignedTo: owner });
+    }
+
+    writeAudit({
+      actor: "Fredrik Amundsen",
+      action: leads.length === 1 ? "Sendte lead til rekruttering" : `Sendte ${leads.length} leads til rekruttering`,
+      area: "Samleinnboks",
+      affected: leads.length === 1 ? leads[0].name : `${leads.length} leads`,
+      after: db.stages[0].label,
+    });
+    persistDb();
+    return HttpResponse.json({ sent: created.length, skipped: body.ids.length - created.length });
+  }),
+
+  /** LEAD-09 — distribute, or hand on to a colleague. */
+  http.post("/api/hr/leads/assign", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { ids: string[]; assignTo: string };
+    for (const id of body.ids) patchLead(id, { assignedTo: body.assignTo });
+    writeAudit({
+      actor: "Fredrik Amundsen",
+      action: `Tildelte ${body.ids.length} lead(s)`,
+      area: "Samleinnboks",
+      affected: body.assignTo,
+      after: body.assignTo,
+    });
+    persistDb();
+    return HttpResponse.json({ assigned: body.ids.length });
+  }),
+
+  /**
+   * LEAD-07 — fold duplicates into one record.
+   *
+   * The merged-away leads are marked `duplikat` rather than deleted. Somebody
+   * will ask why there were three records for the same person and which one the
+   * phone number came from, and a deleted row cannot answer that.
+   */
+  http.post("/api/hr/leads/merge", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { keepId: string; mergeIds: string[] };
+    const keep = leadById(body.keepId);
+    if (!keep) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const merged = leadsByIds(body.mergeIds).filter((l) => l.id !== keep.id);
+
+    /*
+     * Consent is unioned, not overwritten: if the person ticked the ad-audience
+     * box on any one of the forms they filled in, that consent was given. The
+     * text records which record it came from, because "they consented
+     * somewhere" is not something anyone can act on later.
+     */
+    const adAudience = keep.consent.adAudience || merged.some((m) => m.consent.adAudience);
+    const channels = [...new Set([keep.channel, ...merged.map((m) => m.channel)])];
+
+    patchLead(keep.id, {
+      consent: {
+        ...keep.consent,
+        adAudience,
+        text: keep.consent.text + ` Slått sammen med ${merged.length} duplikat fra ${channels.join(", ")}.`,
+      },
+      duplicateOf: [],
+    });
+    for (const m of merged) patchLead(m.id, { status: "duplikat", duplicateOf: [] });
+
+    writeAudit({
+      actor: "Fredrik Amundsen",
+      action: "Slo sammen duplikater",
+      area: "Samleinnboks",
+      affected: keep.name,
+      before: `${merged.length + 1} oppføringer`,
+      after: "1 oppføring",
+    });
+    persistDb();
+    return HttpResponse.json({ kept: keep.id, merged: merged.length });
+  }),
+
+  http.post("/api/hr/leads/discard", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { ids: string[]; reason?: string };
+    for (const id of body.ids) patchLead(id, { status: "forkastet", note: body.reason ?? null });
+    persistDb();
+    return HttpResponse.json({ discarded: body.ids.length });
+  }),
+
+  /**
+   * LEAD-05 — the stand form. The promoter is taken from the session rather
+   * than typed, which is what makes "registrert av" trustworthy on the
+   * promotørkvalitet dashboard (DASH-03).
+   */
+  http.post("/api/hr/leads/stand", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as {
+      name: string; phone: string; email: string; campaign: string;
+      consentContact: boolean; consentAdAudience: boolean; note?: string; promoter?: string;
+    };
+    const now = new Date().toISOString();
+    const lead: Lead = {
+      id: `l-stand-${Date.now()}`,
+      name: body.name,
+      phone: body.phone,
+      email: body.email,
+      channel: "Stand",
+      campaign: body.campaign,
+      receivedAt: now,
+      promoter: body.promoter ?? "Kari Nordmann",
+      assignedTo: null,
+      status: "ny",
+      consent: {
+        contact: body.consentContact,
+        adAudience: body.consentAdAudience,
+        at: now,
+        text: "Samtykket muntlig på stand til å bli kontaktet om stilling." +
+          (body.consentAdAudience ? " Samtykket også til bruk i annonsemålgrupper." : ""),
+      },
+      adId: null,
+      note: body.note ?? null,
+      candidateId: null,
+      duplicateOf: [],
+    };
+    db.leadExtra.unshift(lead);
+    persistDb();
+    return HttpResponse.json(lead, { status: 201 });
+  }),
+
   get("/api/hr/recruitment/stages", () => db.stages, []),
   get("/api/hr/recruitment/candidates", () => db.candidates, []),
   http.get("/api/hr/recruitment/candidates/:id", async ({ params }) => {
@@ -681,7 +937,7 @@ export const handlers = [
     const now = nowStamp();
     const until = new Date();
     until.setMonth(until.getMonth() + RETENTION_MONTHS);
-    c.stageId = "avsluttet";
+    c.stageId = "avvist";
     c.nextActivity = undefined;
     c.closure = {
       endedAt: now,
@@ -699,7 +955,7 @@ export const handlers = [
       at: now,
       actor: "Fredrik Amundsen",
       type: "stage-change",
-      stageId: "avsluttet",
+      stageId: "avvist",
       detail: `Prosessen avsluttet: ${c.closure.reason}`,
     });
     writeAudit({

@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.claude
+*.md
+!README.md
+out.html
+ddg.html
+sweep.mjs
+tsconfig.tsbuildinfo

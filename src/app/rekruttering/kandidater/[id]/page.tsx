@@ -27,7 +27,7 @@ import {
 } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate, CandidateHistoryEntry, RecruitmentStage } from "@/types/recruitment";
-import { STAGE_BADGE, CONTRACT_LABEL, CONTRACT_BADGE } from "@/lib/recruitment";
+import { STAGE_BADGE, CONTRACT_LABEL, CONTRACT_BADGE, TERMINAL_STAGE_IDS } from "@/lib/recruitment";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -474,7 +474,7 @@ function AdvanceStageForm({
   onClose: () => void;
 }) {
   const currentIdx = stages.findIndex((s) => s.id === currentStageId);
-  const options = stages.filter((s, i) => i !== currentIdx && (i === currentIdx + 1 || s.id === "avsluttet"));
+  const options = stages.filter((s, i) => i !== currentIdx && (i === currentIdx + 1 || TERMINAL_STAGE_IDS.includes(s.id)));
   const [target, setTarget] = React.useState(options[0]?.id ?? "");
   const [values, setValues] = React.useState<Record<string, string>>({});
 
