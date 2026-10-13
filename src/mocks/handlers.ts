@@ -30,6 +30,7 @@ import {
 import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
 import type { Lead } from "@/types/lead";
 import { queryLeads, leadCounts, leadById, leadsByIds, patchLead } from "./lead-query";
+import { leadCorpus } from "./leads";
 import { buildDashboard } from "./srs-dashboard";
 import { LEADERS, TEAMS_SRS, JOB_TYPES, LOCATIONS, dayOffset, iso, isoDay, DEMO_TODAY } from "./srs-seed";
 import type { Ad, AdPlatform } from "@/types/ad";
@@ -1002,6 +1003,171 @@ export const handlers = [
     return HttpResponse.json({ ok: true, status: iv.status, startsAt: iv.startsAt });
   }),
 
+  // ── Notater og vedlegg (KAND-06, KAND-09) ─────────────────────────────────
+  /**
+   * KAND-09 — private notes are filtered **server-side**, by the caller's
+   * permissions, not hidden in the component.
+   *
+   * A client-side filter means the note is in the JSON that reaches the
+   * browser, and "we don't render it" is not the same promise as "you cannot
+   * read it". This is personal data about somebody who has not been hired.
+   */
+  http.post("/api/hr/recruitment/candidates/:id/notes", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { body: string; visibleTo: string[]; author?: string };
+    const c = db.candidates.find((x) => x.id === params.id);
+    if (!c) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const note = {
+      id: `n-${Date.now()}`,
+      at: nowStamp(),
+      author: body.author ?? "Fredrik Amundsen",
+      body: body.body,
+      visibleTo: body.visibleTo ?? [],
+    };
+    c.notes.push(note);
+    // IFK-05 — the note itself is not written to the audit log, only that one
+    // was added. The log is read by more people than the note is.
+    writeAudit({
+      actor: note.author,
+      action: note.visibleTo.length ? "La inn privat notat" : "La inn notat",
+      area: "Rekruttering",
+      affected: c.name,
+      after: note.visibleTo.length ? "Privat" : "Synlig for alle",
+    });
+    persistDb();
+    return HttpResponse.json(c);
+  }),
+
+  http.post("/api/hr/recruitment/candidates/:id/attachments", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { name: string; kind: string; sizeKb?: number };
+    const c = db.candidates.find((x) => x.id === params.id);
+    if (!c) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    c.attachments.push({
+      id: `f-${Date.now()}`,
+      name: body.name,
+      kind: (body.kind as "cv") ?? "annet",
+      sizeKb: body.sizeKb ?? Math.round(40 + Math.random() * 200),
+      uploadedAt: nowStamp(),
+      uploadedBy: "Fredrik Amundsen",
+    });
+    persistDb();
+    return HttpResponse.json(c);
+  }),
+
+  // ── GODK-04: stedfortreder ────────────────────────────────────────────────
+  /**
+   * "Godkjenner kan ha stedfortreder ved fravær (ikke personsavhengig)."
+   *
+   * The parenthesis is the requirement: the queue must not stop because one
+   * person is away, so the deputy is a property of the *role*, not a favour one
+   * named person does another. Stored as a setting, with a window, so it
+   * expires by itself rather than quietly leaving two approvers forever.
+   */
+  get("/api/hr/approval/deputy", () => db.approvalDeputy),
+
+  http.post("/api/hr/approval/deputy", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { deputy: string | null; from?: string; to?: string };
+    db.approvalDeputy = body.deputy
+      ? { deputy: body.deputy, from: body.from ?? null, to: body.to ?? null, setAt: new Date().toISOString() }
+      : { deputy: null, from: null, to: null, setAt: new Date().toISOString() };
+    writeAudit({
+      actor: "Ole Marius Sormbråten",
+      action: body.deputy ? "Satte stedfortreder for godkjenning" : "Fjernet stedfortreder",
+      area: "Godkjenning",
+      affected: body.deputy ?? "—",
+      after: body.deputy ? `${body.from ?? "nå"} – ${body.to ?? "inntil videre"}` : "ingen",
+    });
+    persistDb();
+    return HttpResponse.json(db.approvalDeputy);
+  }),
+
+  // ── LEAD-11: målgruppeeksport til Meta og TikTok ──────────────────────────
+  /**
+   * "Leads og ansatte som presterer godt kan eksporteres som målgrupper til
+   * Meta og TikTok, slik at annonsene kan bruke lookalike audiences."
+   *
+   * Only people who ticked the *second* consent box are included (LEAD-10).
+   * That is the whole reason the two consents are separate fields, and the
+   * response reports how many were excluded for exactly that reason — an export
+   * that silently drops a third of the list is one nobody can verify.
+   */
+  http.post("/api/hr/leads/audience-export", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { platform: "Meta" | "TikTok"; basis: "hired" | "qualified" };
+    const all = [...db.leadExtra, ...leadCorpus()];
+    const pool = body.basis === "hired"
+      ? all.filter((l) => l.status === "sendt" && db.candidates.some(
+          (c) => c.name === l.name && ["ansatt", "onboarding", "godkjent"].includes(c.stageId)))
+      : all.filter((l) => l.status === "sendt");
+
+    const eligible = pool.filter((l) => l.consent.adAudience);
+    const excluded = pool.length - eligible.length;
+
+    writeAudit({
+      actor: "Fredrik Amundsen",
+      action: `Eksporterte målgruppe til ${body.platform}`,
+      area: "Samleinnboks",
+      affected: `${eligible.length} personer`,
+      before: `${pool.length} vurdert`,
+      after: `${excluded} utelatt uten samtykke`,
+    });
+    persistDb();
+    return HttpResponse.json({
+      platform: body.platform,
+      exported: eligible.length,
+      considered: pool.length,
+      excludedNoConsent: excluded,
+      // Hashed in the real thing — Meta and TikTok both take SHA-256 of a
+      // normalised e-mail. Shown here so the shape of what leaves is visible.
+      sample: eligible.slice(0, 3).map((l) => ({ hashedEmail: `sha256:${l.email.length}${l.id}` })),
+    });
+  }),
+
+  // ── BEM-05 / OPPG-03: Slack-varsling ──────────────────────────────────────
+  /**
+   * Both requirements are "Bør", and both are the same mechanism: a message
+   * composed by the system and sent to Slack. Rendering the text rather than a
+   * "sent" flag is the same decision as for the interview SMS — what it says is
+   * the part anybody can have an opinion about before it goes live.
+   */
+  get("/api/hr/notifications/preview", () => {
+    const behind = db.shifts.filter((s) => s.attendance === "ikke-mott");
+    const byPerson = new Map<string, number>();
+    for (const s of behind) byPerson.set(s.employeeName, (byPerson.get(s.employeeName) ?? 0) + 1);
+    const worst = [...byPerson.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+    const overdue = db.leaderTasks.filter((t) => t.status === "forfalt");
+    const byLeader = new Map<string, number>();
+    for (const t of overdue) byLeader.set(t.leader, (byLeader.get(t.leader) ?? 0) + 1);
+
+    return {
+      absence: worst.map(([name, n]) => ({
+        channel: "slack" as const,
+        to: `@${name.toLowerCase().replace(/ /g, ".")}`,
+        kind: "oppmøte" as const,
+        body: `Hei ${name.split(" ")[0]}! Du ligger ${n} dager bak planlagt oppmøte de siste fire ukene. Si fra til lederen din hvis noe står i veien — vi finner en løsning.`,
+      })),
+      leaderSummary: [...byLeader.entries()].map(([leader, n]) => ({
+        channel: "slack" as const,
+        to: `@${leader.toLowerCase().replace(/ /g, ".")}`,
+        kind: "oppgaver" as const,
+        body: `Du har ${n} forfalte oppgave${n === 1 ? "" : "r"} i portalen. ${overdue.filter((t) => t.leader === leader).slice(0, 2).map((t) => `• ${t.title}`).join("\n")}`,
+      })),
+    };
+  }),
+
+  // ── DASH-01: rapport på e-post for de som vil ha den ──────────────────────
+  get("/api/hr/dashboard/subscription", () => db.reportSubscription),
+  http.post("/api/hr/dashboard/subscription", async ({ request }) => {
+    await latency();
+    const body = (await request.json()) as { enabled: boolean; frequency: "ukentlig" | "manedlig"; recipients: string[] };
+    db.reportSubscription = { ...body };
+    persistDb();
+    return HttpResponse.json(db.reportSubscription);
+  }),
+
   // ── Godkjenning (GODK) ─────────────────────────────────────────────────────
   /**
    * GODK-02 / GODK-03 — Ole approves or rejects, and nothing reaches onboarding
@@ -1128,6 +1294,8 @@ export const handlers = [
           },
         ],
         contract: "not-sent",
+        notes: [],
+        attachments: [],
         onboarding: [],
         closure: null,
       };
@@ -1410,6 +1578,8 @@ export const handlers = [
         },
       ],
       contract: "not-sent",
+      notes: [],
+      attachments: [],
       onboarding: [],
       closure: null,
     };

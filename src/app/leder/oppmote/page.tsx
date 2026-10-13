@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useShifts, useSwapRequests, useDecideSwap, useFollowUpAbsence, useForecast } from "@/lib/api/srs";
 import { errorMessage } from "@/lib/api/client";
 import { ATTENDANCE_LABEL, DAY_KIND_LABEL, type Shift } from "@/types/schedule";
+import { SlackPreview } from "@/components/patterns/slack-preview";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * BEM-01 … BEM-04 — lederkalenderen.
@@ -45,7 +47,7 @@ function cellStyle(s: Shift | undefined) {
   return { cls: "bg-[var(--ab-accent-3)] text-[var(--ab-accent-12)]", label: "P", title: "Planlagt arbeidsdag" };
 }
 
-export default function Oppmote() {
+function OppmotePage() {
   const [team, setTeam] = React.useState("alle");
   const shifts = useShifts(team === "alle" ? {} : { team });
   const swaps = useSwapRequests();
@@ -251,6 +253,8 @@ export default function Oppmote() {
         )}
       </QueryBoundary>
 
+      <SlackPreview kind="absence" />
+
       <Dialog open={Boolean(absence)} onOpenChange={(o) => !o && setAbsence(null)}>
         <DialogContent>
           <DialogHeader>
@@ -299,5 +303,17 @@ function Legend() {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function Oppmote() {
+  return (
+    <PermissionGate permission="schedule.view">
+      <OppmotePage />
+    </PermissionGate>
   );
 }

@@ -17,6 +17,7 @@ import { useTasks, useCompleteTask, useCreateTask } from "@/lib/api/srs";
 import { useSession } from "@/lib/permissions";
 import { errorMessage } from "@/lib/api/client";
 import { TASK_STATUS_LABEL, type LeaderTask } from "@/types/task";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * OPPG-01 — den obligatoriske oppgavelisten, med svarfelt per oppgave.
@@ -34,7 +35,7 @@ import { TASK_STATUS_LABEL, type LeaderTask } from "@/types/task";
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" });
 const DEMO_TODAY = "2026-08-20";
 
-export default function Lederoppgaver() {
+function LederoppgaverPage() {
   const session = useSession();
   const leader = session?.role === "Salgssjef" ? "Ola Nordmann" : (session?.name ?? "Ola Nordmann");
   const tasks = useTasks(leader);
@@ -215,5 +216,17 @@ function TaskCard({ task: t }: { task: LeaderTask }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function Lederoppgaver() {
+  return (
+    <PermissionGate permission="tasks.view">
+      <LederoppgaverPage />
+    </PermissionGate>
   );
 }

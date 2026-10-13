@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompliance } from "@/lib/api/srs";
+import { SlackPreview } from "@/components/patterns/slack-preview";
 
 /**
  * OPPG-02 — "Admin ser etterlevelse per leder: fullførte og forfalte oppgaver."
@@ -71,6 +72,8 @@ export default function AdminOppgaver() {
           </Card>
         )}
       </QueryBoundary>
+
+      <SlackPreview kind="tasks" />
 
       <p className="text-xs text-muted-foreground">
         Prosenten er fullførte av fullførte pluss forfalte. Åpne oppgaver teller ikke med — de er

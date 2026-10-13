@@ -14,6 +14,7 @@ import { useInterviews, useInterviewOutcome } from "@/lib/api/srs";
 import { useSession } from "@/lib/permissions";
 import { errorMessage } from "@/lib/api/client";
 import { INTERVIEW_STATUS_LABEL, type Interview } from "@/types/interview";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * BOOK-08 / BOOK-09 — lederens egne intervjuer, og skjemaet etterpå.
@@ -30,7 +31,7 @@ import { INTERVIEW_STATUS_LABEL, type Interview } from "@/types/interview";
 const fullFmt = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo" });
 const DEMO_NOW = new Date("2026-08-20T09:12:00.000Z");
 
-export default function LederIntervjuer() {
+function LederIntervjuerPage() {
   const session = useSession();
   // Falls back to a seeded leader so the screen is not empty for the sales
   // chief, who has no interviews of their own in the fixtures.
@@ -167,5 +168,17 @@ function OutcomeCard({ interview: iv }: { interview: Interview }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function LederIntervjuer() {
+  return (
+    <PermissionGate permission="interviews.view">
+      <LederIntervjuerPage />
+    </PermissionGate>
   );
 }

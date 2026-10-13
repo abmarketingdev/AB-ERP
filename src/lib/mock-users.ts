@@ -15,7 +15,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-promoter",
     name: "Kari Nordmann",
     role: "Promoter",
-    permissions: ["promoter.view"],
+    permissions: ["promoter.view", "schedule.view"],
     scope: { kind: "self", teamIds: ["t1"], label: "Kari Nordmann" },
     navigation: [
       { id: "forside", label: "Forside", href: "/promoter", icon: "home" },
@@ -35,7 +35,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-leader",
     name: "Ola Nordmann",
     role: "Team lead",
-    permissions: ["leader.view"],
+    permissions: ["leader.view", "schedule.view", "tasks.view", "interviews.view"],
     scope: { kind: "team", teamIds: ["t1"], label: "Team Vest" },
     navigation: [
       { id: "forside", label: "Forside", href: "/leder", icon: "home" },
@@ -54,7 +54,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-saleschief",
     name: "Marte Solberg",
     role: "Salgssjef",
-    permissions: ["leader.view", "saleschief.view"],
+    permissions: ["leader.view", "saleschief.view", "schedule.view", "tasks.view", "interviews.view", "recruitdash.view"],
     scope: {
       kind: "org",
       teamIds: ["t1", "t2", "t3", "t4"],
@@ -83,7 +83,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-recruitment",
     name: "Fredrik Amundsen",
     role: "Rekrutterer",
-    permissions: ["recruitment.view"],
+    permissions: ["recruitment.view", "leads.view", "ads.view", "interviews.view", "recruitdash.view"],
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "forside", label: "Forside", href: "/rekruttering", icon: "home" },
@@ -111,7 +111,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-approver",
     name: "Ole Marius Sormbråten",
     role: "Godkjenner",
-    permissions: ["approval.view", "recruitment.view"],
+    permissions: ["approval.view", "recruitment.view", "privatenotes.view", "onboarding.view", "employees.view"],
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check" },
@@ -135,7 +135,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-management",
     name: "Lars Eide",
     role: "Ledelse",
-    permissions: ["leader.view", "saleschief.view"],
+    permissions: ["leader.view", "saleschief.view", "recruitdash.view", "schedule.view", "privatenotes.view"],
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Hele selskapet" },
     navigation: [
       { id: "forside", label: "Forside", href: "/leder", icon: "home" },
@@ -152,7 +152,7 @@ export const MOCK_USERS: Record<string, Session> = {
     // kandidater". Admin holds every module permission rather than bypassing
     // the check, so the admin session is governed by the same mechanism as
     // everyone else's and /admin/tilganger can show it.
-    permissions: ["admin.view", "kpi.view", "import.view", "recruitment.view", "approval.view", "leader.view", "saleschief.view", "promoter.view"],
+    permissions: ["admin.view", "kpi.view", "import.view", "recruitment.view", "approval.view", "leader.view", "saleschief.view", "promoter.view", "leads.view", "ads.view", "interviews.view", "onboarding.view", "employees.view", "privatenotes.view", "schedule.view", "tasks.view", "recruitdash.view"],
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid" },

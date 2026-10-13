@@ -63,7 +63,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     activeIntlLocale = LOCALES.find((l) => l.value === locale)?.intl ?? "nb-NO";
-    document.documentElement.lang = locale === "en" ? "en" : "no";
+    document.documentElement.lang = locale === "en" ? "en" : "nb";
   }, [locale]);
 
   const setLocale = React.useCallback((next: Locale) => {

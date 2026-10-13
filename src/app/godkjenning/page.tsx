@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCandidates, useStages, useCandidateDecision } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate } from "@/types/recruitment";
+import { DeputyCard } from "@/components/patterns/deputy-card";
 
 /**
  * GODK-01 … GODK-05 — the approval queue.
@@ -87,6 +88,8 @@ export default function Godkjenning() {
           Ingen kandidat kan gå videre til onboarding eller ansettelse uten at den er godkjent her.
           Avslag krever en begrunnelse, og begge deler havner i kandidatens historikk.
         </p>
+
+        <DeputyCard />
 
         <QueryBoundary
           query={candidates}

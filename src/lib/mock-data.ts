@@ -432,7 +432,27 @@ export interface Integration {
  * because the interesting moment is *before* the failure — an administrator who
  * only ever sees red has already lost the morning.
  */
+/**
+ * §4 — the integrations the SRS names, on top of the ones the platform already
+ * had. Every one can be switched off by an administrator without a deploy, and
+ * "Recman" is listed deliberately: the SRS's first line about it is that it is
+ * being phased out, and a row that says so is more useful than its absence.
+ */
 export const INTEGRATIONS: Integration[] = [
+  { id: "srs-1", name: "Meta Lead Ads — leads inn", consequence: "Uten denne kommer ingen leads fra Facebook og Instagram inn i samleinnboksen.", kind: "feed", status: "ok", schedule: "Webhook, fortløpende", lastSuccessAt: "20. aug 2026, 14:10", lastRunAt: "20. aug 2026, 14:10", minutesSinceSuccess: 2, expectedEveryMinutes: 60, owner: "Markedsføring", note: null },
+  { id: "srs-2", name: "Meta Custom Audiences — målgrupper ut", consequence: "Uten denne kan ikke gode kandidater brukes som utgangspunkt for lookalike-annonser.", kind: "feed", status: "ok", schedule: "Manuell eksport", lastSuccessAt: "18. aug 2026, 09:30", lastRunAt: "18. aug 2026, 09:30", minutesSinceSuccess: 3400, expectedEveryMinutes: 10080, owner: "Markedsføring", note: null },
+  { id: "srs-3", name: "TikTok Lead Generation — leads inn", consequence: "Uten denne kommer ingen leads fra TikTok-annonser inn.", kind: "feed", status: "ok", schedule: "Webhook, fortløpende", lastSuccessAt: "20. aug 2026, 13:55", lastRunAt: "20. aug 2026, 13:55", minutesSinceSuccess: 17, expectedEveryMinutes: 60, owner: "Markedsføring", note: null },
+  { id: "srs-4", name: "Nettside — søknadsskjema", consequence: "Uten denne havner ikke søknader fra nettsiden i samleinnboksen.", kind: "feed", status: "ok", schedule: "Webhook, fortløpende", lastSuccessAt: "20. aug 2026, 14:02", lastRunAt: "20. aug 2026, 14:02", minutesSinceSuccess: 10, expectedEveryMinutes: 120, owner: "Drift", note: null },
+  { id: "srs-5", name: "Finn — søkere inn og annonser ut", consequence: "Uten denne publiseres ikke annonser på Finn, og søkere derfra uteblir.", kind: "feed", status: "late", schedule: "Hver time", lastSuccessAt: "20. aug 2026, 09:00", lastRunAt: "20. aug 2026, 13:00", minutesSinceSuccess: 312, expectedEveryMinutes: 60, owner: "Rekruttering", note: "Finn svarte med 503 på siste tre forsøk." },
+  { id: "srs-6", name: "Nav — stillingsimport til arbeidsplassen.no", consequence: "Uten denne publiseres ingen annonser på Nav.", kind: "feed", status: "ok", schedule: "Hver time", lastSuccessAt: "20. aug 2026, 14:00", lastRunAt: "20. aug 2026, 14:00", minutesSinceSuccess: 12, expectedEveryMinutes: 60, owner: "Rekruttering", note: null },
+  { id: "srs-7", name: "Indeed — jobbfeed", consequence: "Uten denne publiseres ingen annonser på Indeed.", kind: "feed", status: "ok", schedule: "Hver time", lastSuccessAt: "20. aug 2026, 14:00", lastRunAt: "20. aug 2026, 14:00", minutesSinceSuccess: 12, expectedEveryMinutes: 60, owner: "Rekruttering", note: null },
+  { id: "srs-8", name: "Kalender — ledige tider og invitasjoner", consequence: "Uten denne ser ikke rekrutterer lederens ledige tider, og ingen får kalenderinvitasjon.", kind: "feed", status: "ok", schedule: "Fortløpende", lastSuccessAt: "20. aug 2026, 14:09", lastRunAt: "20. aug 2026, 14:09", minutesSinceSuccess: 3, expectedEveryMinutes: 30, owner: "Drift", note: "Må avklares: skissen sier Google, AB er på vei til Microsoft 365." },
+  { id: "srs-9", name: "SMS — bekreftelser og påminnelser", consequence: "Uten denne får verken kandidat eller leder SMS om intervjuet.", kind: "feed", status: "ok", schedule: "Fortløpende", lastSuccessAt: "20. aug 2026, 14:11", lastRunAt: "20. aug 2026, 14:11", minutesSinceSuccess: 1, expectedEveryMinutes: 30, owner: "Drift", note: "Norsk avsender." },
+  { id: "srs-10", name: "E-post — bekreftelser og avslag", consequence: "Uten denne sendes ingen bekreftelser eller avslag på e-post.", kind: "feed", status: "ok", schedule: "Fortløpende", lastSuccessAt: "20. aug 2026, 14:08", lastRunAt: "20. aug 2026, 14:08", minutesSinceSuccess: 4, expectedEveryMinutes: 30, owner: "Drift", note: null },
+  { id: "srs-11", name: "Slack — brukere og varsling", consequence: "Uten denne får ledere ingen varsel om forfalte oppgaver eller fravær.", kind: "feed", status: "ok", schedule: "Fortløpende", lastSuccessAt: "20. aug 2026, 13:40", lastRunAt: "20. aug 2026, 13:40", minutesSinceSuccess: 32, expectedEveryMinutes: 120, owner: "Drift", note: null },
+  { id: "srs-12", name: "Tripletex — opprett og slett ansatte", consequence: "Uten denne må nyansatte legges inn manuelt i lønnssystemet.", kind: "feed", status: "ok", schedule: "Ved fullført onboarding", lastSuccessAt: "19. aug 2026, 11:20", lastRunAt: "19. aug 2026, 11:20", minutesSinceSuccess: 1621, expectedEveryMinutes: 10080, owner: "HR", note: null },
+  { id: "srs-13", name: "Scrive — kontrakter og signaturstatus", consequence: "Uten denne sendes ingen kontrakter til signering, og signaturstatus står stille.", kind: "feed", status: "ok", schedule: "Fortløpende", lastSuccessAt: "20. aug 2026, 12:05", lastRunAt: "20. aug 2026, 12:05", minutesSinceSuccess: 127, expectedEveryMinutes: 240, owner: "HR", note: "Malendringer skal meldes til Dana før de tas i bruk." },
+  { id: "srs-14", name: "Recman — under utfasing", consequence: "Ingen. Systemet erstatter Recman, og integrasjonen er avviklet.", kind: "feed", status: "ok", schedule: "Avviklet", lastSuccessAt: "1. aug 2026, 00:00", lastRunAt: "1. aug 2026, 00:00", minutesSinceSuccess: 28800, expectedEveryMinutes: 0, owner: "Rekruttering", note: "Kan sies opp når fase 1 og 2 er i drift." },
   { id: "int-1", name: "Dashboard.xlsx — nattlig import", consequence: "Uten denne står alle tall stille fra i går.", kind: "import", status: "ok", schedule: "Hver natt 03:00", lastSuccessAt: "21. aug 2026, 03:04", lastRunAt: "21. aug 2026, 03:04", minutesSinceSuccess: 1240, expectedEveryMinutes: 1440, owner: "Drift", note: null },
   { id: "int-2", name: "Kvalitetskontroll — godkjenning av salg", consequence: "Uten denne viser tallene rå registreringer, ikke godkjente salg.", kind: "feed", status: "late", schedule: "Hver time", lastSuccessAt: "21. aug 2026, 19:12", lastRunAt: "21. aug 2026, 22:00", minutesSinceSuccess: 190, expectedEveryMinutes: 60, owner: "Kvalitetsansvarlig — Petter Holm", note: "Siste kjøring startet, men fullførte ikke." },
   { id: "int-3", name: "AB Maps — ukeplan og ruter", consequence: "Uten denne oppdateres ikke ukeplanen for promotørene.", kind: "feed", status: "ok", schedule: "Hvert 15. minutt", lastSuccessAt: "21. aug 2026, 22:45", lastRunAt: "21. aug 2026, 22:45", minutesSinceSuccess: 9, expectedEveryMinutes: 15, owner: "Drift", note: null },
@@ -523,6 +543,19 @@ export const PERMISSIONS = [
   { key: "kpi.view", label: "KPI-ordbok", description: "Definisjoner, versjoner og hvilke skjermer som bruker dem.", area: "Kvalitet", sensitive: false },
   { key: "import.view", label: "Import", description: "Last opp Dashboard.xlsx, se avviste rader og kjørehistorikk.", area: "Kvalitet", sensitive: true },
   { key: "admin.view", label: "Administrasjon", description: "Brukere, tilganger, kundekontoer, forhåndsvisning og revisjonslogg.", area: "Administrasjon", sensitive: true },
+  // §2.2 — "Admin velger hvilke moduler hver bruker har tilgang til", and §8.1
+  // makes it an acceptance criterion. Every module the portal actually has has
+  // to appear here, or it cannot be granted or taken away.
+  { key: "leads.view", label: "Samleinnboks", description: "Alle innkommende leads før de sendes videre til rekruttering.", area: "Rekruttering", sensitive: true },
+  { key: "ads.view", label: "Annonser", description: "Opprette og publisere stillingsannonser, og se søkertall per kanal.", area: "Rekruttering", sensitive: false },
+  { key: "interviews.view", label: "Intervjubooking", description: "Booke intervjuer mot lederes kalender, og se meldingene som sendes.", area: "Rekruttering", sensitive: true },
+  { key: "approval.view", label: "Godkjenning", description: "Godkjenne eller avvise kandidater før ansettelse. Ingen kan ansettes uten.", area: "Rekruttering", sensitive: true },
+  { key: "onboarding.view", label: "Onboarding", description: "Sjekkliste, kontrakt, bilde og utstyr for nyansatte.", area: "HR", sensitive: true },
+  { key: "employees.view", label: "Ansatte", description: "Ansattregister, utstyrsliste og tilgangsmaler.", area: "HR", sensitive: true },
+  { key: "privatenotes.view", label: "Private notater", description: "Se notater som er merket som private på kandidatprofilen.", area: "HR", sensitive: true },
+  { key: "schedule.view", label: "Vaktplan og oppmøte", description: "Vaktplan, oppmøtekalender, vaktbytter og bemanningsprognose.", area: "Leder", sensitive: true },
+  { key: "tasks.view", label: "Lederoppgaver", description: "Egen oppgaveliste, og etterlevelse per leder for admin.", area: "Leder", sensitive: false },
+  { key: "recruitdash.view", label: "Rekrutteringsdashboard", description: "Trakt, no shows, kanal- og promotørkvalitet.", area: "Ledelse", sensitive: true },
 ];
 
 export interface UserAccess {
@@ -740,6 +773,24 @@ export const REJECTION_REASONS = [
 /** The tag from KAND-01 that is explicitly not a column. */
 export const CANDIDATE_TAGS = ["Interesse for senere", "Sterk kandidat", "Krever oppfølging"];
 
+export interface CandidateNote {
+  id: string;
+  at: string;
+  author: string;
+  body: string;
+  /** Permission keys. Empty = everyone who can see the candidate. */
+  visibleTo: string[];
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  kind: "cv" | "soknad" | "attest" | "bilde" | "annet";
+  sizeKb: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 export interface CandidateHistoryEntry {
   id: string;
   at: string;
@@ -761,6 +812,8 @@ export interface Candidate {
   stageId: string;
   nextActivity?: { label: string; date: string; overdue?: boolean };
   history: CandidateHistoryEntry[];
+  notes: CandidateNote[];
+  attachments: Attachment[];
   contract: "not-sent" | "sent" | "signed";
   onboarding: { id: string; task: string; done: boolean }[];
   closure: CandidateClosure | null;
@@ -779,9 +832,16 @@ export interface CandidateClosure {
   removed: string[];
 }
 
-export const RETENTION_MONTHS = 6;
+/**
+ * IFK-01 — "Kandidater som ikke ansettes, slettes eller anonymiseres etter en
+ * fast frist (forslag 3 år)". §7.2 answers its own open question with the same
+ * number: "Sletteregel for kandidater som ikke ansettes? Svar: 3 år."
+ *
+ * This was 6 months, which contradicted the spec the screen cites.
+ */
+export const RETENTION_MONTHS = 36;
 export const RETENTION_BASIS =
-  "Avtalt oppbevaring: 6 måneder etter avsluttet prosess, for å kunne dokumentere begrunnelsen for ansettelsesvalget.";
+  "Avtalt oppbevaring: 3 år etter avsluttet prosess, for å kunne dokumentere begrunnelsen for ansettelsesvalget. Kandidaten kan samtykke til lengre lagring.";
 export const RETENTION_RETAINED = [
   "Navn",
   "Kampanje og kilde",
@@ -807,6 +867,8 @@ export const CANDIDATES: Candidate[] = [
     stageId: "intervju-booket",
     nextActivity: { label: "Ring for å avtale intervjutid", date: "19. aug 2026", overdue: true },
     contract: "not-sent",
+    notes: [],
+    attachments: [],
     onboarding: [],
     closure: null,
     history: [
@@ -827,6 +889,8 @@ export const CANDIDATES: Candidate[] = [
     stageId: "intervjuet",
     nextActivity: { label: "Følge opp referanseperson", date: "21. aug 2026" },
     contract: "not-sent",
+    notes: [],
+    attachments: [],
     onboarding: [],
     closure: null,
     history: [
@@ -848,6 +912,8 @@ export const CANDIDATES: Candidate[] = [
     stageId: "til-godkjenning",
     nextActivity: { label: "Purre svar på tilbud", date: "17. aug 2026", overdue: true },
     contract: "sent",
+    notes: [],
+    attachments: [],
     onboarding: [],
     closure: null,
     history: [
@@ -869,6 +935,8 @@ export const CANDIDATES: Candidate[] = [
     owner: "Fredrik Amundsen",
     stageId: "ansatt",
     contract: "signed",
+    notes: [],
+    attachments: [],
     history: [
       { id: "h1", at: "18. jun 2026, 08:00", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet fra Finn.no-annonse." },
       { id: "h2", at: "20. jun 2026, 10:00", actor: "Fredrik Amundsen", type: "stage-change", stageId: "kvalifisert", detail: "Flyttet til Screening." },
@@ -898,6 +966,8 @@ export const CANDIDATES: Candidate[] = [
     stageId: "ny",
     nextActivity: { label: "Førstegangskontakt", date: "22. aug 2026" },
     contract: "not-sent",
+    notes: [],
+    attachments: [],
     onboarding: [],
     closure: null,
     history: [{ id: "h1", at: "8. aug 2026, 16:20", actor: "Fredrik Amundsen", type: "created", detail: "Kandidat opprettet — henvist av Ola Nordmann." }],
@@ -913,6 +983,8 @@ export const CANDIDATES: Candidate[] = [
     owner: "Fredrik Amundsen",
     stageId: "avvist",
     contract: "not-sent",
+    notes: [],
+    attachments: [],
     onboarding: [],
     closure: null,
     history: [
@@ -1030,6 +1102,8 @@ function buildPipelineCandidates(): Candidate[] {
             ? { label: "Ring tilbake", date: `${day + 3}. aug 2026`, overdue: true }
             : undefined,
         contract: stage === "onboarding" ? "sent" : "not-sent",
+        notes: [],
+        attachments: [],
         onboarding: inOnboarding
           ? [
               { id: `ob-${idx}-1`, task: "Personalia registrert", done: true },
@@ -1045,6 +1119,45 @@ function buildPipelineCandidates(): Candidate[] {
     }
   }
   return out;
+}
+
+
+/**
+ * KAND-06 / KAND-09 — a few real notes and attachments, including private ones.
+ *
+ * A private-notes feature with no private note in the fixtures demonstrates
+ * nothing: the whole point is that two people looking at the same candidate see
+ * different things, and that is only visible if there is something to hide.
+ */
+const C1 = CANDIDATES.find((c) => c.id === "c1");
+if (C1) {
+  C1.notes = [
+    { id: "n1", at: "13. aug 2026, 11:05", author: "Fredrik Amundsen",
+      body: "Ringte. Positiv, men kan ikke starte før etter eksamen 20. september.", visibleTo: [] },
+    { id: "n2", at: "16. aug 2026, 14:35", author: "Fredrik Amundsen",
+      body: "Ønsker helst Oslo sentrum. Har ikke bil.", visibleTo: [] },
+    { id: "n3", at: "17. aug 2026, 09:20", author: "Ole Marius Sormbråten",
+      body: "Oppgitt tidligere arbeidsgiver ønsker ikke å gi referanse. Følges opp før tilbud.",
+      visibleTo: ["privatenotes.view"] },
+  ];
+  C1.attachments = [
+    { id: "f1", name: "CV - Amalie Strand.pdf", kind: "cv", sizeKb: 184, uploadedAt: "12. aug 2026, 09:16", uploadedBy: "Amalie Strand" },
+    { id: "f2", name: "Soknad.pdf", kind: "soknad", sizeKb: 62, uploadedAt: "12. aug 2026, 09:16", uploadedBy: "Amalie Strand" },
+  ];
+}
+const C2 = CANDIDATES.find((c) => c.id === "c2");
+if (C2) {
+  C2.notes = [
+    { id: "n4", at: "7. aug 2026, 10:12", author: "Hanne Lie",
+      body: "God på stand, vant til å snakke med folk.", visibleTo: [] },
+    { id: "n5", at: "9. aug 2026, 16:40", author: "Ole Marius Sormbråten",
+      body: "HR: sluttet hos forrige arbeidsgiver etter konflikt. Ikke diskvalifiserende, men verdt å kjenne til.",
+      visibleTo: ["privatenotes.view"] },
+  ];
+  C2.attachments = [
+    { id: "f3", name: "CV - Tobias Wiig.pdf", kind: "cv", sizeKb: 211, uploadedAt: "5. aug 2026, 13:02", uploadedBy: "Tobias Wiig" },
+    { id: "f4", name: "Attest - Kiwi.pdf", kind: "attest", sizeKb: 97, uploadedAt: "6. aug 2026, 08:44", uploadedBy: "Hanne Lie" },
+  ];
 }
 
 CANDIDATES.push(...buildPipelineCandidates());

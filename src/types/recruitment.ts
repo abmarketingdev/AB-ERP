@@ -28,6 +28,41 @@ export const candidateHistoryEntrySchema = z.object({
 });
 export type CandidateHistoryEntry = z.infer<typeof candidateHistoryEntrySchema>;
 
+
+/** KAND-06 — vedlegg på kandidaten. */
+export const attachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(["cv", "soknad", "attest", "bilde", "annet"]),
+  sizeKb: z.number(),
+  uploadedAt: z.string(),
+  uploadedBy: z.string(),
+});
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+/**
+ * KAND-06 / KAND-09 — notater, og private notater.
+ *
+ * One type, one flag, rather than two parallel lists: a private note is an
+ * ordinary note with an audience. Keeping them in separate arrays would mean
+ * every screen that renders notes has to remember to render the other kind too,
+ * and the one that forgets is the one that leaks.
+ *
+ * `visibleTo` holds **permission keys**, not user ids. The SRS says "kun
+ * synlige for utvalgte brukere (f.eks. HR og ledelse)" — that is a role
+ * question, and pinning it to named people means every new HR hire needs the
+ * old notes re-shared.
+ */
+export const candidateNoteSchema = z.object({
+  id: z.string(),
+  at: z.string(),
+  author: z.string(),
+  body: z.string(),
+  /** Empty = visible to anyone who can see the candidate. */
+  visibleTo: z.array(z.string()),
+});
+export type CandidateNote = z.infer<typeof candidateNoteSchema>;
+
 export const candidateSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -43,6 +78,10 @@ export const candidateSchema = z.object({
     .optional(),
   /** Append-only. Advancing a stage appends; it never overwrites. */
   history: z.array(candidateHistoryEntrySchema),
+  /** KAND-06 — free notes, and KAND-09's private ones, in one list. */
+  notes: z.array(candidateNoteSchema),
+  /** KAND-06 — vedlegg. */
+  attachments: z.array(attachmentSchema),
   contract: z.enum(["not-sent", "sent", "signed"]),
   /**
    * FR-R-10 — when a candidate ends, access and retention are restricted.
@@ -96,3 +135,10 @@ export type AdvanceStage = z.infer<typeof advanceStageSchema>;
 
 export const candidateListSchema = z.array(candidateSchema);
 export const stageListSchema = z.array(recruitmentStageSchema);
+
+/** KAND-06 / KAND-09 — add a note, optionally restricted to an audience. */
+export const newNoteSchema = z.object({
+  body: z.string().min(2, "Skriv et notat"),
+  visibleTo: z.array(z.string()),
+});
+export type NewNote = z.infer<typeof newNoteSchema>;

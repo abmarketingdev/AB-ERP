@@ -1107,7 +1107,7 @@ const STORAGE_KEY = "ab-erp-mock-db";
  * v8 — KPI version history; import preview/commit; decided corrections.
  * v9 — integration health (FR-A-10); automated ingestion inbox (FR-I-08).
  */
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 interface Snapshot {
   v: number;
@@ -1172,6 +1172,17 @@ const seed = {
   shifts: buildSrsShifts(SRS_EMPLOYEES),
   swapRequests: [] as import("@/types/schedule").SwapRequest[],
   leaderTasks: buildSrsTasks(),
+
+  /** GODK-04 — stedfortreder for godkjenneren, with a window so it expires. */
+  approvalDeputy: { deputy: null as string | null, from: null as string | null,
+                    to: null as string | null, setAt: null as string | null },
+
+  /**
+   * DASH-01 — the dashboard replaces the PDF reports, but the requirement adds
+   * "De som ønsker det, kan fortsatt velge å få rapporten på epost."
+   */
+  reportSubscription: { enabled: false, frequency: "ukentlig" as "ukentlig" | "manedlig",
+                        recipients: ["lars@abmarketing.no"] },
 };
 
 // Swaps reference shift ids, so they are attached after the seed object exists.

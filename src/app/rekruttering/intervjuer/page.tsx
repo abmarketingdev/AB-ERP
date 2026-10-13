@@ -16,6 +16,7 @@ import { useInterviews, useLeaders, useSlots, useBookInterview } from "@/lib/api
 import { useCandidates } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
 import { INTERVIEW_STATUS_LABEL, type Interview, type InterviewStatus } from "@/types/interview";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * BOOK-01 … BOOK-05 — bookingskjermen.
@@ -39,7 +40,7 @@ const dayHeader = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "nume
 const timeFmt = new Intl.DateTimeFormat("nb-NO", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo" });
 const fullFmt = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo" });
 
-export default function Intervjuer() {
+function IntervjuerPage() {
   const candidates = useCandidates();
   const leaders = useLeaders();
   const interviews = useInterviews();
@@ -285,5 +286,17 @@ function InterviewCard({ interview: iv }: { interview: Interview }) {
         </details>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function Intervjuer() {
+  return (
+    <PermissionGate permission="interviews.view">
+      <IntervjuerPage />
+    </PermissionGate>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate, CandidateHistoryEntry, RecruitmentStage } from "@/types/recruitment";
 import { STAGE_BADGE, CONTRACT_LABEL, CONTRACT_BADGE, TERMINAL_STAGE_IDS } from "@/lib/recruitment";
+import { CandidateNotes } from "@/components/patterns/candidate-notes";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -319,6 +320,8 @@ export default function CandidateDetail() {
 
                     <OnboardingCard candidate={c} stage={stage} />
                   </div>
+
+                  <CandidateNotes candidate={c} />
 
                   <HistoryTimeline history={c.history} />
 

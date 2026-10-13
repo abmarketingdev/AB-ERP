@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, ArrowRight, Users, Copy, Trash2, X } from "lucide-react";
+import { Search, ArrowRight, Users, Copy, Trash2, X, Share2 } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,8 @@ import {
 import { LEAD_STATUS_LABEL, LEAD_CHANNELS, CHANNEL_KIND, type Lead, type LeadStatus } from "@/types/lead";
 import { LEAD_PROMOTERS, LEAD_RECRUITERS } from "@/mocks/leads";
 import { MergeDuplicatesDialog } from "@/components/patterns/merge-duplicates-dialog";
+import { AudienceExportDialog } from "@/components/patterns/audience-export";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * LEAD-01 — the samleinnboks.
@@ -52,7 +54,7 @@ const CHANNEL_TONE: Record<string, string> = {
 const dateFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const numFmt = new Intl.NumberFormat("nb-NO");
 
-export default function Samleinnboks() {
+function SamleinnboksPage() {
   const [q, setQ] = React.useState("");
   const [debouncedQ, setDebouncedQ] = React.useState("");
   const [channel, setChannel] = React.useState(ALL);
@@ -65,6 +67,7 @@ export default function Samleinnboks() {
   const [page, setPage] = React.useState(1);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [mergeFor, setMergeFor] = React.useState<Lead | null>(null);
+  const [audienceOpen, setAudienceOpen] = React.useState(false);
   const [assignTarget, setAssignTarget] = React.useState(LEAD_RECRUITERS[0]);
 
   /*
@@ -156,6 +159,11 @@ export default function Samleinnboks() {
         }
         source="Meta, TikTok, Finn, Nav, Indeed, nettside og stand"
         lastUpdated={new Date()}
+        actions={
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAudienceOpen(true)}>
+            <Share2 className="size-4" /> Eksporter målgruppe
+          </Button>
+        }
       />
 
       {/* ── Filters ─────────────────────────────────────────────────────── */}
@@ -340,6 +348,7 @@ export default function Samleinnboks() {
       </QueryBoundary>
 
       <MergeDuplicatesDialog lead={mergeFor} onClose={() => setMergeFor(null)} />
+      <AudienceExportDialog open={audienceOpen} onClose={() => setAudienceOpen(false)} />
     </div>
   );
 }
@@ -381,5 +390,17 @@ function TableSkeleton() {
         {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function Samleinnboks() {
+  return (
+    <PermissionGate permission="leads.view">
+      <SamleinnboksPage />
+    </PermissionGate>
   );
 }

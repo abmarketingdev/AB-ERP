@@ -8,6 +8,7 @@ import { newHireListSchema, newHireSchema, employeeListSchema, employeeSchema } 
 import { shiftListSchema, swapRequestListSchema, swapRequestSchema, shiftSchema, forecastListSchema } from "@/types/schedule";
 import { leaderTaskListSchema, leaderTaskSchema, complianceListSchema } from "@/types/task";
 import { dashboardSchema } from "@/types/recruitment-dashboard";
+import { candidateSchema } from "@/types/recruitment";
 
 /**
  * One file for the modules the SRS adds, rather than seven near-identical ones.
@@ -286,5 +287,107 @@ export function useRecruitmentDashboard(filter: { campaign?: string; team?: stri
     queryKey: qk.recruitmentDashboard(Object.fromEntries(params)),
     queryFn: () => apiGet(`${API.hr}/dashboard/recruitment${qs ? `?${qs}` : ""}`, dashboardSchema),
     placeholderData: (prev) => prev,
+  });
+}
+
+// ── Notater, vedlegg (KAND-06/09) ───────────────────────────────────────────
+
+function invalidateCandidate(qc: QueryClient, id: string) {
+  qc.invalidateQueries({ queryKey: qk.recruitment.candidate(id) });
+  qc.invalidateQueries({ queryKey: qk.recruitment.candidates() });
+  qc.invalidateQueries({ queryKey: qk.quality.audit() });
+}
+
+export function useAddNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; body: string; visibleTo: string[]; author?: string }) =>
+      apiPost(`${API.hr}/recruitment/candidates/${v.id}/notes`, candidateSchema,
+              { body: v.body, visibleTo: v.visibleTo, author: v.author }),
+    onSuccess: (_d, v) => invalidateCandidate(qc, v.id),
+  });
+}
+
+export function useAddAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; name: string; kind: string }) =>
+      apiPost(`${API.hr}/recruitment/candidates/${v.id}/attachments`, candidateSchema,
+              { name: v.name, kind: v.kind }),
+    onSuccess: (_d, v) => invalidateCandidate(qc, v.id),
+  });
+}
+
+// ── GODK-04 stedfortreder ───────────────────────────────────────────────────
+
+const deputySchema = z.object({
+  deputy: z.string().nullable(),
+  from: z.string().nullable(),
+  to: z.string().nullable(),
+  setAt: z.string().nullable(),
+});
+
+export function useDeputy() {
+  return useQuery({ queryKey: ["approval", "deputy"], queryFn: () => apiGet(`${API.hr}/approval/deputy`, deputySchema) });
+}
+export function useSetDeputy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { deputy: string | null; from?: string; to?: string }) =>
+      apiPost(`${API.hr}/approval/deputy`, deputySchema, v),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["approval", "deputy"] }); qc.invalidateQueries({ queryKey: qk.quality.audit() }); },
+  });
+}
+
+// ── LEAD-11 målgruppeeksport ────────────────────────────────────────────────
+
+const audienceSchema = z.object({
+  platform: z.string(),
+  exported: z.number(),
+  considered: z.number(),
+  excludedNoConsent: z.number(),
+  sample: z.array(z.object({ hashedEmail: z.string() })),
+});
+
+export function useAudienceExport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { platform: "Meta" | "TikTok"; basis: "hired" | "qualified" }) =>
+      apiPost(`${API.hr}/leads/audience-export`, audienceSchema, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.quality.audit() }),
+  });
+}
+
+// ── BEM-05 / OPPG-03 Slack-varsling ─────────────────────────────────────────
+
+const notificationSchema = z.object({
+  absence: z.array(z.object({ channel: z.string(), to: z.string(), kind: z.string(), body: z.string() })),
+  leaderSummary: z.array(z.object({ channel: z.string(), to: z.string(), kind: z.string(), body: z.string() })),
+});
+
+export function useNotificationPreview() {
+  return useQuery({
+    queryKey: ["notifications", "preview"],
+    queryFn: () => apiGet(`${API.hr}/notifications/preview`, notificationSchema),
+  });
+}
+
+// ── DASH-01 rapport på e-post ───────────────────────────────────────────────
+
+const subscriptionSchema = z.object({
+  enabled: z.boolean(),
+  frequency: z.enum(["ukentlig", "manedlig"]),
+  recipients: z.array(z.string()),
+});
+
+export function useReportSubscription() {
+  return useQuery({ queryKey: ["dashboard", "subscription"], queryFn: () => apiGet(`${API.hr}/dashboard/subscription`, subscriptionSchema) });
+}
+export function useSetReportSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { enabled: boolean; frequency: "ukentlig" | "manedlig"; recipients: string[] }) =>
+      apiPost(`${API.hr}/dashboard/subscription`, subscriptionSchema, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["dashboard", "subscription"] }),
   });
 }

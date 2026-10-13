@@ -1,16 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Download, AlertTriangle, Clock } from "lucide-react";
+import { Download, AlertTriangle, Clock, Mail, FileSpreadsheet, Printer } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRecruitmentDashboard } from "@/lib/api/srs";
+import { useRecruitmentDashboard, useReportSubscription, useSetReportSubscription } from "@/lib/api/srs";
 import { LEAD_CAMPAIGNS } from "@/mocks/leads";
 import { TEAMS_SRS } from "@/mocks/srs-seed";
 import { ROBUST_SALES_THRESHOLD, type FunnelStep, type NoShowRow } from "@/types/recruitment-dashboard";
@@ -61,6 +63,23 @@ export default function Dashboard() {
     days: Number(days),
   });
 
+  /**
+   * DASH-08 — "Eksport til Excel, PDF".
+   *
+   * Excel is the CSV below: semicolon-separated and BOM-prefixed, which is what
+   * Norwegian Excel opens correctly without an import wizard. PDF is the
+   * browser's own print-to-PDF against the print stylesheet in globals.css,
+   * which already turns the dark interface into something that does not empty a
+   * toner cartridge. Generating a PDF in the client would mean shipping a
+   * rendering library to reproduce a page the browser can already print.
+   */
+  function exportPdf() {
+    document.documentElement.setAttribute("data-printing", "");
+    window.print();
+    // The attribute is only needed for the duration of the print layout.
+    setTimeout(() => document.documentElement.removeAttribute("data-printing"), 1000);
+  }
+
   function exportCsv() {
     const d = dash.data;
     if (!d) return;
@@ -94,9 +113,14 @@ export default function Dashboard() {
         source="Statusloggen"
         lastUpdated={new Date()}
         actions={
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={exportCsv} disabled={!dash.data}>
-            <Download className="size-4" /> Eksporter
-          </Button>
+          <div className="flex flex-wrap gap-2" data-print-hide>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={exportCsv} disabled={!dash.data}>
+              <FileSpreadsheet className="size-4" /> Excel
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={exportPdf} disabled={!dash.data}>
+              <Printer className="size-4" /> PDF
+            </Button>
+          </div>
         }
       />
 
@@ -137,6 +161,7 @@ export default function Dashboard() {
 
             <ChannelTable rows={d.channelQuality} />
             <PromoterTable rows={d.promoterQuality} />
+            <ReportSubscription />
           </>
         )}
       </QueryBoundary>
@@ -354,6 +379,95 @@ function PromoterTable({ rows }: { rows: { promoter: string; leads: number; qual
             </tbody>
           </table>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+/**
+ * DASH-01 — the dashboard replaces the PDF reports that went out by e-mail, but
+ * the requirement keeps a door open: "De som ønsker det, kan fortsatt velge å
+ * få rapporten på epost."
+ *
+ * Opt-in rather than opt-out, and off by default, because the point of the
+ * module is to stop sending PDFs nobody opens.
+ */
+function ReportSubscription() {
+  const sub = useReportSubscription();
+  const save = useSetReportSubscription();
+  const [recipient, setRecipient] = React.useState("");
+
+  const data = sub.data;
+  if (!data) return null;
+
+  return (
+    <Card data-print-hide>
+      <CardContent className="flex flex-col gap-4 py-5">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <Mail className="size-4 text-muted-foreground" aria-hidden /> Rapport på e-post
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Dashboardet erstatter PDF-rapportene. Vil noen fortsatt ha dem på e-post, kan de slås på her.
+        </p>
+
+        <label className="flex items-center gap-3 text-sm">
+          <Switch
+            id="sub-on"
+            checked={data.enabled}
+            onCheckedChange={(v) => save.mutate({ ...data, enabled: v })}
+          />
+          <span>Send rapporten på e-post</span>
+        </label>
+
+        {data.enabled && (
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Hyppighet</Label>
+              {(["ukentlig", "manedlig"] as const).map((f) => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={data.frequency === f ? "default" : "outline"}
+                  onClick={() => save.mutate({ ...data, frequency: f })}
+                >
+                  {f === "ukentlig" ? "Ukentlig" : "Månedlig"}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">Mottakere</Label>
+              <ul className="flex flex-wrap gap-2">
+                {data.recipients.map((r) => (
+                  <li key={r}>
+                    <Badge variant="outline" className="gap-1.5">
+                      {r}
+                      <button
+                        type="button"
+                        aria-label={`Fjern ${r}`}
+                        className="opacity-60 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => save.mutate({ ...data, recipients: data.recipients.filter((x) => x !== r) })}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="sub-add" className="text-xs text-muted-foreground">Legg til mottaker</Label>
+                <Input id="sub-add" type="email" className="w-[16rem]" value={recipient}
+                  placeholder="navn@abmarketing.no" onChange={(e) => setRecipient(e.target.value)} />
+              </div>
+              <Button size="sm" variant="outline" disabled={!recipient.includes("@")}
+                onClick={() => { save.mutate({ ...data, recipients: [...data.recipients, recipient] }); setRecipient(""); }}>
+                Legg til
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

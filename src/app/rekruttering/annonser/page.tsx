@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAds, usePublishAd, useUnpublishAd } from "@/lib/api/srs";
 import { AD_STATUS_LABEL, AD_PLATFORMS, PLATFORM_FREE, type Ad, type AdStatus } from "@/types/ad";
 import { NewAdDialog } from "@/components/patterns/new-ad-dialog";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * ANN-06 — oversikt over aktive annonser, kanal og antall søkere per annonse.
@@ -31,7 +32,7 @@ const STATUS_TONE: Record<AdStatus, string> = {
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long", year: "numeric" });
 const numFmt = new Intl.NumberFormat("nb-NO");
 
-export default function Annonser() {
+function AnnonserPage() {
   const ads = useAds();
   const [createOpen, setCreateOpen] = React.useState(false);
 
@@ -199,5 +200,17 @@ function AdCard({ ad }: { ad: Ad }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function Annonser() {
+  return (
+    <PermissionGate permission="ads.view">
+      <AnnonserPage />
+    </PermissionGate>
   );
 }

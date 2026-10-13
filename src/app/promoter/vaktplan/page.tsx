@@ -16,6 +16,7 @@ import { useShifts, useSwapRequests, useRequestSwap } from "@/lib/api/srs";
 import { useSession } from "@/lib/permissions";
 import { errorMessage } from "@/lib/api/client";
 import { DAY_KIND_LABEL, type Shift, type DayKind } from "@/types/schedule";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * BEM-06 / BEM-07 — den ansattes egen vaktplan for hele måneden, og vaktbytte.
@@ -41,7 +42,7 @@ const monthFmt = new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeri
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" });
 const DEMO_TODAY = "2026-08-20";
 
-export default function Vaktplan() {
+function VaktplanPage() {
   const session = useSession();
   const name = session?.name ?? "Kari Nordmann";
   const shifts = useShifts({ employee: name });
@@ -220,5 +221,17 @@ function Legend() {
       <li className="flex items-center gap-1.5"><Check className="size-3 text-success" aria-hidden /> Møtt</li>
       <li className="flex items-center gap-1.5"><X className="size-3 text-danger" aria-hidden /> Ikke møtt</li>
     </ul>
+  );
+}
+
+/**
+ * §2.2 — this module is grantable per user in /admin/tilganger, so the page
+ * has to actually check it. Without this the toggle is decoration.
+ */
+export default function Vaktplan() {
+  return (
+    <PermissionGate permission="schedule.view">
+      <VaktplanPage />
+    </PermissionGate>
   );
 }
