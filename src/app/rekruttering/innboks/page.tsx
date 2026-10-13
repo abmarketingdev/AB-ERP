@@ -352,11 +352,19 @@ function FilterSelect({
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
+  /*
+   * The label has to be tied to the trigger with htmlFor/id. A bare <Label>
+   * next to a Radix Select looks right and is useless: a screen reader
+   * announces the control as "Alle, combobox" with no indication of what it
+   * filters, and the design checklist requires every form control to be
+   * associated with its label.
+   */
+  const id = React.useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectTrigger id={id} aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Alle</SelectItem>
           {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
