@@ -29,6 +29,7 @@ import { errorMessage } from "@/lib/api/client";
 import type { Candidate, CandidateHistoryEntry, RecruitmentStage } from "@/types/recruitment";
 import { STAGE_BADGE, CONTRACT_LABEL, CONTRACT_BADGE, TERMINAL_STAGE_IDS } from "@/lib/recruitment";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
+import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -221,7 +222,12 @@ export default function CandidateDetail() {
                 <div className="flex flex-1 flex-col gap-6">
                   <PageHeader
                     title={c.name}
-                    description={`${c.source} · ${c.campaign} · Søkte ${c.appliedDate}`}
+                    description={
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        <ChannelMark channel={channelOf(c.source)} />
+                        {c.source} · {c.campaign} · Søkte {c.appliedDate}
+                      </span>
+                    }
                     source="Rekrutteringslogg"
                     actions={
                       !isTerminal ? (

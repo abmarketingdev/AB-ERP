@@ -6,7 +6,8 @@ import { formatDateTime } from "@/lib/format";
 
 interface PageHeaderProps {
   title: string;
-  description?: string;
+  /** Inline nodes allowed: some headers carry a channel mark beside the text. */
+  description?: React.ReactNode;
   period?: string;
   source?: string;
   lastUpdated?: Date | string;

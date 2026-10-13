@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLeads, useMergeLeads } from "@/lib/api/leads";
 import { LEAD_STATUS_LABEL, type Lead } from "@/types/lead";
+import { ChannelMark } from "@/components/patterns/channel-mark";
 
 /**
  * LEAD-07 — "oppdage duplikater på telefon og epost og la rekrutterer slå dem
@@ -99,7 +100,7 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
                   <div className="flex items-center gap-2">
                     {keep && <Check className="size-4 text-[var(--ab-accent-9)]" />}
                     <span className="font-medium">{l.name}</span>
-                    <Badge variant="outline">{l.channel}</Badge>
+                    <Badge variant="outline" className="gap-1.5"><ChannelMark channel={l.channel} />{l.channel}</Badge>
                     <Badge variant="outline">{LEAD_STATUS_LABEL[l.status]}</Badge>
                     {keep && <span className="ml-auto text-xs text-[var(--ab-accent-9)]">Beholdes</span>}
                   </div>

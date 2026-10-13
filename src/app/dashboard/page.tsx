@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRecruitmentDashboard, useReportSubscription, useSetReportSubscription } from "@/lib/api/srs";
+import { ChannelMark } from "@/components/patterns/channel-mark";
 import { LEAD_CAMPAIGNS } from "@/mocks/leads";
 import { TEAMS_SRS } from "@/mocks/srs-seed";
 import { ROBUST_SALES_THRESHOLD, type FunnelStep, type NoShowRow } from "@/types/recruitment-dashboard";
@@ -155,7 +156,7 @@ export default function Dashboard() {
             <Funnel steps={d.funnel} />
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <NoShowChart title="Ikke møtt per kanal" rows={d.noShowByChannel} />
+              <NoShowChart title="Ikke møtt per kanal" rows={d.noShowByChannel} marks />
               <NoShowChart title="Ikke møtt per salgssjef" rows={d.noShowByLeader} />
             </div>
 
@@ -239,7 +240,7 @@ function Funnel({ steps }: { steps: FunnelStep[] }) {
 }
 
 /** DASH-02 — ikke møtt, både til intervju og første arbeidsdag. */
-function NoShowChart({ title, rows }: { title: string; rows: NoShowRow[] }) {
+function NoShowChart({ title, rows, marks }: { title: string; rows: NoShowRow[]; marks?: boolean }) {
   const withData = rows.filter((r) => r.rate !== null);
   return (
     <Card>
@@ -256,7 +257,10 @@ function NoShowChart({ title, rows }: { title: string; rows: NoShowRow[] }) {
               const alarm = v >= NO_SHOW_ALARM && !thin;
               return (
                 <li key={r.key} className="group flex items-center gap-3">
-                  <span className="w-28 shrink-0 truncate text-right text-[13px] text-muted-foreground" title={r.key}>{r.key}</span>
+                  <span className="flex w-28 shrink-0 items-center justify-end gap-1.5 truncate text-right text-[13px] text-muted-foreground" title={r.key}>
+                    {marks && <ChannelMark channel={r.key} />}
+                    <span className="truncate">{r.key}</span>
+                  </span>
                   <span className="relative flex h-5 flex-1 items-center">
                     <span
                       className="h-5 rounded-r-[4px]"
@@ -319,7 +323,12 @@ function ChannelTable({ rows }: { rows: { channel: string; leads: number; hired:
             <tbody className="divide-y divide-border">
               {rows.map((r) => (
                 <tr key={r.channel}>
-                  <td className="py-2">{r.channel}</td>
+                  <td className="py-2">
+                    <span className="inline-flex items-center gap-1.5">
+                      <ChannelMark channel={r.channel} />
+                      {r.channel}
+                    </span>
+                  </td>
                   <td className="py-2 text-right tabular-nums">{num.format(r.leads)}</td>
                   <td className="py-2 text-right tabular-nums">{num.format(r.hired)}</td>
                   <td className="py-2 pr-6 text-right tabular-nums text-muted-foreground">{r.hireRate === null ? "—" : pct1.format(r.hireRate)}</td>

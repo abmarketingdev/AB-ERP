@@ -20,6 +20,7 @@ import { LEAD_STATUS_LABEL, LEAD_CHANNELS, CHANNEL_KIND, type Lead, type LeadSta
 import { LEAD_PROMOTERS, LEAD_RECRUITERS } from "@/mocks/leads";
 import { MergeDuplicatesDialog } from "@/components/patterns/merge-duplicates-dialog";
 import { AudienceExportDialog } from "@/components/patterns/audience-export";
+import { ChannelMark, ChannelLabel } from "@/components/patterns/channel-mark";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
@@ -181,7 +182,7 @@ function SamleinnboksPage() {
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <FilterSelect label="Kanal" value={channel} onChange={setChannel}
-            options={LEAD_CHANNELS.map((c) => ({ value: c, label: c }))} />
+            options={LEAD_CHANNELS.map((c) => ({ value: c, label: c, node: <ChannelLabel channel={c} /> }))} />
           <FilterSelect label="Status" value={status} onChange={setStatus}
             options={(Object.keys(LEAD_STATUS_LABEL) as LeadStatus[]).map((s) => ({ value: s, label: LEAD_STATUS_LABEL[s] }))} />
           <FilterSelect label="Promotør" value={promoter} onChange={setPromoter}
@@ -299,7 +300,8 @@ function SamleinnboksPage() {
                           <div className="text-xs text-muted-foreground tabular-nums">{lead.phone} · {lead.email}</div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={CHANNEL_TONE[CHANNEL_KIND[lead.channel]]}>
+                          <Badge variant="outline" className={`gap-1.5 ${CHANNEL_TONE[CHANNEL_KIND[lead.channel]]}`}>
+                            <ChannelMark channel={lead.channel} />
                             {lead.channel}
                           </Badge>
                         </TableCell>
@@ -359,7 +361,7 @@ function FilterSelect({
   label: string;
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; node?: React.ReactNode }[];
 }) {
   /*
    * The label has to be tied to the trigger with htmlFor/id. A bare <Label>
@@ -376,7 +378,7 @@ function FilterSelect({
         <SelectTrigger id={id} aria-label={label}><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Alle</SelectItem>
-          {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.node ?? o.label}</SelectItem>)}
         </SelectContent>
       </Select>
     </div>

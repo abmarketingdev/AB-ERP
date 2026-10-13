@@ -19,6 +19,7 @@ import { newCandidateSchema, type NewCandidate } from "@/types/recruitment";
 import { STAGE_BADGE } from "@/lib/recruitment";
 import { CandidateBoard } from "@/components/patterns/candidate-board";
 import { Segmented } from "@/components/patterns/segmented";
+import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 
 /**
  * FR-R-01 / FR-R-04 / FR-R-09 — the candidate list.
@@ -187,6 +188,7 @@ export default function RekrutteringKandidater() {
                             className="mt-0.5 truncate text-xs text-muted-foreground"
                             title={`${c.source} · ${c.campaign} · Søkte ${c.appliedDate}`}
                           >
+                            <ChannelMark channel={channelOf(c.source)} />
                             {c.source} · {c.campaign} · Søkte {c.appliedDate}
                           </p>
                         </div>
