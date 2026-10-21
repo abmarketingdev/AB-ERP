@@ -53,7 +53,7 @@ function groupsOf(rows: AdminIntegration[]): [string, AdminIntegration[]][] {
 }
 
 const dt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const when = (iso: string | null) => (iso ? dt.format(new Date(iso)) : "Aldri");
+const when = (iso: string | null) => (iso ? dt.format(new Date(iso)) : "Aldri kjørt");
 
 export function IntegrationAdmin() {
   const query = useAdminIntegrations();
@@ -147,8 +147,11 @@ function AlertList({ alerts }: { alerts: { id: number; label: string; message: s
   );
 }
 
+/** Never run and never failed: «I rute» would overstate it — say what is true. */
+const UNUSED = { label: "Ikke brukt ennå", icon: Clock, chip: "border-border bg-muted text-muted-foreground", dot: "bg-muted-foreground/40" };
+
 function Row({ r, canAdmin }: { r: AdminIntegration; canAdmin: boolean }) {
-  const s = STATUS[r.status];
+  const s = r.status === "ok" && !r.lastSuccessAt && !r.lastFailureAt ? UNUSED : STATUS[r.status];
   const Icon = s.icon;
   const toggle = useToggleIntegration();
   const test = useSendTest();
@@ -168,7 +171,9 @@ function Row({ r, canAdmin }: { r: AdminIntegration; canAdmin: boolean }) {
             <span className="block truncate text-[12.5px] text-muted-foreground">{r.breaksWhat}</span>
           )}
         </span>
-        <span className="hidden text-[12px] text-muted-foreground sm:inline">Sist ok {when(r.lastSuccessAt)}</span>
+        <span className="hidden text-[12px] text-muted-foreground sm:inline">
+          {r.lastSuccessAt ? `Sist ok ${when(r.lastSuccessAt)}` : "Aldri kjørt"}
+        </span>
         <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${s.chip}`}>
           <Icon className="size-3" aria-hidden />{s.label}
         </span>

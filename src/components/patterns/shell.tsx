@@ -143,9 +143,12 @@ export function Shell({ session, children }: ShellProps) {
 
           <ScopeSwitcher />
 
-          <p className="px-5 pb-2 pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            {t("Meny")}
-          </p>
+          {/* With section headings the generic «Meny» label would just repeat them. */}
+          {!session.navigation.some((n) => n.section) && (
+            <p className="px-5 pb-2 pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              {t("Meny")}
+            </p>
+          )}
 
           {/* Named, because a screen reader lists landmarks and "navigation,
               navigation" is not a list. Only one of the two is ever in the

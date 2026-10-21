@@ -36,6 +36,9 @@ export interface Session {
   permissions: string[];
   navigation: NavItem[];
   scope: Scope;
+  /** Where login lands. Defaults to the first menu item; set when the menu is sectioned
+   *  and the person's own front page is not first (a leader lands on /leder, not Kandidater). */
+  homeHref?: string;
 }
 
 const SessionContext = React.createContext<Session | null>(null);

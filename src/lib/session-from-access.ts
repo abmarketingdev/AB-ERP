@@ -33,11 +33,9 @@ export const VIEW_GATES: Record<string, string[]> = {
   "admin.view": ["access.admin", "integrations.read", "audit.read", "privacy.admin", "tasks.compliance"],
 };
 
-/** Every screen, with the gate that shows it, grouped in sections. Order is the menu order. */
+/** Every screen, with the gate that shows it, grouped in sections (order: Rekruttering ·
+ * Ledere · Min side · Administrasjon — master, design review round 1). Order is the menu order. */
 const NAV: (NavItem & { gate: string })[] = [
-  { id: "forside-promoter", label: "Forside", href: "/promoter", icon: "home", gate: "promoter.view", section: "Min side" },
-  { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "promoter.view", section: "Min side" },
-  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "promoter.view", section: "Min side" },
   { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox", gate: "leads.view", section: "Rekruttering" },
   { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users", gate: "recruitment.view", section: "Rekruttering" },
   { id: "intervjuer", label: "Intervjuer", href: "/rekruttering/intervjuer", icon: "calendar", gate: "interviews.view", section: "Rekruttering" },
@@ -50,6 +48,9 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "leader.view", section: "Ledere" },
   { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check", gate: "leader.view", section: "Ledere" },
   { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list", gate: "tasks.view", section: "Ledere" },
+  { id: "forside-promoter", label: "Forside", href: "/promoter", icon: "home", gate: "promoter.view", section: "Min side" },
+  { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "promoter.view", section: "Min side" },
+  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "promoter.view", section: "Min side" },
   { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid", gate: "admin.view", section: "Administrasjon" },
   { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "admin.view", section: "Administrasjon" },
   { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "admin.view", section: "Administrasjon" },
@@ -82,7 +83,13 @@ export function sessionFromAccess(access: AccessMe, name?: string): Session {
       return true;
     })
     .map(({ id, label, href, icon, section }) => ({ id, label, href, icon, section }));
+  const home =
+    gates.includes("admin.view") ? "/admin"
+      : gates.includes("leader.view") ? "/leder"
+        : gates.includes("promoter.view") ? "/promoter"
+          : navigation[0]?.href;
   return {
+    homeHref: home,
     key: access.template ?? "custom",
     userId: access.userId,
     name: name ?? access.username,
