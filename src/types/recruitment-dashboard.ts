@@ -108,6 +108,8 @@ export const dashboardSchema = z.object({
     definitionVersion: z.string(),
     sources: z.object({ salesSyncedAt: z.string().nullable() }),
     minObservationsForAlarm: z.number(),
+    /** Leads from A3's mock applicant generator (staging demos), left out unless asked for. */
+    simulatedLeads: z.number().default(0),
   }),
 });
 export type RecruitmentDashboard = z.infer<typeof dashboardSchema>;
@@ -146,5 +148,6 @@ export interface DashboardFilter {
   teamId?: string;
   channel?: string;
   includeImported?: boolean;
+  includeSimulated?: boolean;
   groupBy?: "uke" | "maned";
 }

@@ -22,7 +22,8 @@ const BASE = `${API.recruitment}/dashboard`;
 export function dashboardParams(f: DashboardFilter) {
   return {
     from: f.from, to: f.to, region: f.region, team_id: f.teamId, channel: f.channel,
-    include_imported: f.includeImported ? 1 : undefined, group_by: f.groupBy,
+    include_imported: f.includeImported ? 1 : undefined, include_simulated: f.includeSimulated ? 1 : undefined,
+    group_by: f.groupBy,
   };
 }
 

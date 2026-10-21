@@ -79,7 +79,7 @@ function useUrlFilter(): [UrlFilter, (patch: Record<string, string>) => void] {
     days,
     from: minus(Number(days) - 1), to: TODAY,
     region: sp.get("region") ?? undefined, teamId: sp.get("team") ?? undefined, channel: sp.get("kanal") ?? undefined,
-    includeImported: sp.get("importerte") === "1", groupBy: (sp.get("per") === "maned" ? "maned" : "uke") as "uke" | "maned",
+    includeImported: sp.get("importerte") === "1", includeSimulated: sp.get("simulerte") === "1", groupBy: (sp.get("per") === "maned" ? "maned" : "uke") as "uke" | "maned",
   };
   const set = (patch: Record<string, string>) => {
     const next = new URLSearchParams(sp.toString());
@@ -147,10 +147,19 @@ function DashboardPage() {
         <Filter id="d-chan" label="Kanal" value={f.channel ?? "alle"} onChange={(v) => set({ kanal: v })}
           options={[{ v: "alle", l: "Alle kanaler" }, ...(opt?.channels ?? []).map((c) => ({ v: c.key, l: c.name }))]} />
       </div>
-      <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground" data-print-hide>
-        <Switch checked={f.includeImported} onCheckedChange={(v) => set({ importerte: v ? "1" : "" })} aria-label="Ta med importerte fra Recman" />
-        Ta med kandidater importert fra Recman
-      </label>
+      <div className="flex flex-wrap gap-x-6 gap-y-2" data-print-hide>
+        <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
+          <Switch checked={f.includeImported} onCheckedChange={(v) => set({ importerte: v ? "1" : "" })} aria-label="Ta med importerte fra Recman" />
+          Ta med kandidater importert fra Recman
+        </label>
+        {/* Only where demo applicants exist (staging): shown with the count left out, never silently. */}
+        {(dash.data?.basis.simulatedLeads ?? 0) > 0 && (
+          <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
+            <Switch checked={Boolean(f.includeSimulated)} onCheckedChange={(v) => set({ simulerte: v ? "1" : "" })} aria-label="Ta med simulerte søkere" />
+            Ta med {dash.data?.basis.simulatedLeads} simulerte søkere (testdata)
+          </label>
+        )}
+      </div>
 
       <QueryBoundary
         query={dash}

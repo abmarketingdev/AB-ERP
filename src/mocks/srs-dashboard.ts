@@ -281,6 +281,7 @@ export function buildDashboard(url: URL): RecruitmentDashboard {
       definitionVersion: "mock",
       sources: { salesSyncedAt: null },
       minObservationsForAlarm: 5,
+      simulatedLeads: 0,
     },
   };
 }

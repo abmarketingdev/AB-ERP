@@ -24,11 +24,11 @@ const HATCH = "bg-[repeating-linear-gradient(135deg,var(--muted)_0_3px,transpare
  * BEM-01 says «blå». The design system's accent ramp is monochrome, so planned
  * gets its own blue — light and dark steps chosen for AA text-on-fill (6.9:1 and
  * 8.3:1, computed) — with a border, because the fill alone is too close to the
- * card. Proposed to A1 as tokens --planned / --planned-on-tint; until then here.
+ * card. Shared tokens --planned / --planned-tint / --planned-on-tint (A1, ERP 44ff678).
  * Green vs red fails colour-blind separation (ΔE 5.1 deutan, dataviz validator),
  * which is legal only with secondary encoding: every cell carries M / I / P.
  */
-const PLANNED = "border border-[oklch(0.62_0.12_255)] bg-[oklch(0.93_0.04_255)] text-[oklch(0.42_0.13_255)] dark:border-[oklch(0.55_0.1_255)] dark:bg-[oklch(0.32_0.07_255)] dark:text-[oklch(0.86_0.08_255)]";
+const PLANNED = "border border-planned bg-planned-tint text-planned-on-tint";
 
 export interface CellStyle { cls: string; label: string; title: string }
 

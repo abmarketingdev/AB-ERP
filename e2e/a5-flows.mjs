@@ -27,16 +27,44 @@ const browser = await chromium.launch();
 {
   const { ctx, page } = await as(browser, "rek_leder", 400);
   await page.goto(`${BASE}/leder/oppmote`, { waitUntil: "networkidle" });
-  const card = page.getByRole("heading", { name: /Registrer dagens oppmøte/ });
-  if (await card.count()) {
-    const row = page.locator("li", { hasText: "Jonas" }).filter({ has: page.getByRole("button", { name: "Møtt" }) }).first();
-    await row.getByRole("button", { name: "Møtt" }).click();
+  // Whoever is still open in today's card (earlier runs may have registered some).
+  const row = page.locator("li").filter({ has: page.getByRole("button", { name: "Møtt", exact: true }) }).first();
+  const name = (await row.count()) ? (await row.innerText()).split("\n")[0].trim() : null;
+  if (name) {
+    const box = await row.getByRole("button", { name: "Møtt", exact: true }).boundingBox();
+    check("1 trykkflate ≥ 44 px", Boolean(box) && box.height >= 44, JSON.stringify(box));
+    await row.getByRole("button", { name: "Møtt", exact: true }).click();
     await page.waitForTimeout(1500);
   }
-  const cell = page.getByRole("button", { name: new RegExp(`Jonas.*${new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${today}T00:00:00Z`))}: Møtt`) }).first();
-  check("1 leder på telefon registrerer møtt → cellen er grønn (Møtt)", await cell.count() > 0);
-  const box = await page.getByRole("button", { name: /Møtt/ }).first().boundingBox();
-  check("1 trykkflate ≥ 44 px", !box || box.height >= 44, JSON.stringify(box));
+  const dayName = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${today}T00:00:00Z`));
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (name) {
+    const cell = page.getByRole("button", { name: new RegExp(`${esc(name)}.*${dayName}: Møtt`) }).first();
+    check("1 leder på telefon registrerer møtt → cellen er grønn (Møtt)", await cell.count() > 0, `name=${name}`);
+  } else {
+    // Rerun: everyone due today is registered, and attendance is append-only — so correct
+    // a day through the cell dialog instead (Ikke møtt, then back to Møtt, each with a code).
+    const cellAny = page.getByRole("button", { name: new RegExp(`${dayName}: (Møtt|Ikke møtt)`) }).first();
+    const before = await cellAny.getAttribute("aria-label");
+    const who = before.split(",")[0];
+    const flip = async (to, reason) => {
+      await page.getByRole("button", { name: new RegExp(`^${esc(who)}, ${dayName}`) }).first().click();
+      await page.getByLabel("Årsak hvis du retter registreringen").click();
+      await page.getByRole("option", { name: reason }).click();
+      await page.getByRole("button", { name: to, exact: true }).click();
+      await page.waitForTimeout(1200);
+      await page.keyboard.press("Escape");
+    };
+    const now = before.includes(": Møtt") ? "Møtt" : "Ikke møtt";
+    const other = now === "Møtt" ? "Ikke møtt" : "Møtt";
+    await flip(other, "Registrert feil");
+    const mid = await page.getByRole("button", { name: new RegExp(`^${esc(who)}, ${dayName}`) }).first().getAttribute("aria-label");
+    await flip(now, "Registrert feil");
+    const after = await page.getByRole("button", { name: new RegExp(`^${esc(who)}, ${dayName}`) }).first().getAttribute("aria-label");
+    check("1 leder på telefon retter oppmøte → cellen følger (append-only retting)",
+      mid.includes(`: ${other}`) && after.includes(`: ${now}`), `${before} | ${mid} | ${after}`);
+  }
+
   await ctx.close();
 }
 
@@ -45,32 +73,39 @@ const browser = await chromium.launch();
   const kari = await as(browser, "rek_promotor", 400);
   await kari.page.goto(`${BASE}/promoter/vaktplan`, { waitUntil: "networkidle" });
   await kari.page.getByRole("button", { name: "Neste måned" }).isVisible();
-  // Kari's day 12 days ahead may be next month; request from the list of own days.
-  const target = plus(12);
+  // Kari and Jonas alternate days 12/13 ahead between runs (each run swaps them), so use
+  // whichever Kari has now. Staging may hold other test swaps; every check below targets
+  // this run's request by its reason text, never «the first» swap on the page.
+  const fmt = (d) => new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+  const target = plus(12).slice(0, 7) !== today.slice(0, 7) ? plus(12) : plus(12);
   const anchorMonth = target.slice(0, 7) !== today.slice(0, 7);
   if (anchorMonth) { await kari.page.getByRole("button", { name: "Neste måned" }).click(); await kari.page.waitForTimeout(1200); }
-  const dayLabel = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${target}T00:00:00Z`));
+  let dayLabel = fmt(plus(12));
+  if (await kari.page.locator("li", { hasText: dayLabel }).count() === 0) dayLabel = fmt(plus(13));
   const row = kari.page.locator("li", { hasText: dayLabel }).first();
+  const REASON = `Eksamen (e2e ${Date.now() % 100000})`;
   await row.getByRole("button", { name: /Be om bytte/ }).click();
   await kari.page.getByLabel("Bytt med").click();
   await kari.page.getByRole("option", { name: /Jonas/ }).first().click();
-  await kari.page.getByLabel("Begrunnelse").fill("Eksamen (e2e)");
+  await kari.page.getByLabel("Begrunnelse").fill(REASON);
   await kari.page.getByRole("button", { name: "Send forespørsel" }).click();
   await kari.page.waitForTimeout(1500);
   check("2a forespørsel sendt — raden viser «Bytte venter»", await kari.page.getByText("Bytte venter").count() > 0);
 
   const jonas = await as(browser, "rek_promotor_pluss", 400);
   await jonas.page.goto(`${BASE}/promoter/vaktplan`, { waitUntil: "networkidle" });
-  await jonas.page.getByRole("button", { name: /Ja, send til leder/ }).first().click();
-  await jonas.page.waitForTimeout(1200);
-  check("2b kollega godtar", await jonas.page.getByRole("button", { name: /Ja, send til leder/ }).count() === 0);
+  const incoming = jonas.page.locator("li", { hasText: REASON });
+  await incoming.getByRole("button", { name: /Ja, send til leder/ }).click();
+  await incoming.waitFor({ state: "detached", timeout: 8000 }).catch(() => {});
+  check("2b kollega godtar", await jonas.page.locator("li", { hasText: REASON }).count() === 0);
 
   const leder = await as(browser, "rek_leder", 1440);
   await leder.page.goto(`${BASE}/leder/oppmote`, { waitUntil: "networkidle" });
-  await leder.page.getByRole("button", { name: "Godkjenn" }).first().click();
-  await leder.page.waitForTimeout(1500);
-  check("2c leder godkjenner", await leder.page.getByText(/vaktbytte venter på deg/).count() === 0
-    || (await leder.page.getByText(/0 vaktbytte venter/).count()) > 0);
+  const pending = leder.page.locator("li", { hasText: REASON });
+  check("2c forespørselen venter hos leder etter kollegaens ja", await pending.count() === 1);
+  await pending.getByRole("button", { name: "Godkjenn" }).click();
+  await pending.waitFor({ state: "detached", timeout: 8000 }).catch(() => {});
+  check("2c leder godkjenner", await leder.page.locator("li", { hasText: REASON }).count() === 0);
 
   await kari.page.reload({ waitUntil: "networkidle" });
   if (anchorMonth) { await kari.page.getByRole("button", { name: "Neste måned" }).click(); await kari.page.waitForTimeout(1200); }
