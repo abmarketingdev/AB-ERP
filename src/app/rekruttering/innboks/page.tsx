@@ -24,6 +24,7 @@ import { ChannelMark, ChannelLabel } from "@/components/patterns/channel-mark";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 import { errorMessage } from "@/lib/api/client";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
+import { DatePicker } from "@/components/patterns/date-picker";
 import { usePhone } from "@/lib/use-media-query";
 import { contactLine, formatPhone } from "@/lib/phone";
 
@@ -259,11 +260,11 @@ function SamleinnboksPage() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="lead-from" className="text-xs text-muted-foreground">Fra dato</Label>
-            <Input id="lead-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-[10.5rem]" />
+            <DatePicker id="lead-from" value={from} onChange={setFrom} max={to || undefined} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="lead-to" className="text-xs text-muted-foreground">Til dato</Label>
-            <Input id="lead-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-[10.5rem]" />
+            <DatePicker id="lead-to" value={to} onChange={setTo} min={from || undefined} />
           </div>
           <label className="flex h-9 items-center gap-2 text-sm">
             <Checkbox checked={duplicatesOnly} onCheckedChange={(v) => setDuplicatesOnly(Boolean(v))} />

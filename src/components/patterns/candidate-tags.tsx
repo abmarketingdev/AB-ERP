@@ -4,7 +4,7 @@ import * as React from "react";
 import { Tag } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/patterns/date-picker";
 import { Label } from "@/components/ui/label";
 import { useCandidateReasons, useSetCandidateTags } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
@@ -55,8 +55,8 @@ export function CandidateTags({ candidate }: { candidate: Candidate }) {
           <div className="flex flex-wrap items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="follow-up" className="text-xs text-muted-foreground">Følg opp</Label>
-              <Input id="follow-up" type="date" className="h-9 w-[10.5rem]" value={followUp}
-                onChange={(e) => setFollowUp(e.target.value)} />
+              <DatePicker id="follow-up" value={followUp} onChange={setFollowUp}
+                min={new Date().toLocaleDateString("sv-SE")} />
             </div>
             <Button size="sm" variant="outline" className="h-9" disabled={setTags.isPending}
               onClick={() => setTags.mutate({ id: candidate.id, followUpOn: followUp || null })}>
