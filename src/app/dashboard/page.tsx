@@ -234,7 +234,7 @@ function Content({ d, groupBy, onGroupBy }: { d: RecruitmentDashboard; groupBy: 
       )}
 
       <ChannelTable rows={d.channelQuality} />
-      <PromoterTable rows={d.promoterQuality} salesSyncedAt={d.basis.sources.salesSyncedAt} />
+      <PromoterTable rows={d.promoterQuality} salesSyncedAt={d.basis.sources.salesSyncedAt} salesSource={d.basis.sources.salesSource ?? null} />
 
       <p className="text-xs text-muted-foreground">
         Definisjoner versjon {d.basis.definitionVersion} — se KPI-ordboken for regelen bak hvert tall. Beregnet{" "}
@@ -454,7 +454,7 @@ function ChannelTable({ rows }: { rows: ChannelQualityRow[] }) {
 }
 
 /** DASH-03 — promotørkvalitet: what their recruits became, and their own work. */
-function PromoterTable({ rows, salesSyncedAt }: { rows: PromoterQualityRow[]; salesSyncedAt: string | null }) {
+function PromoterTable({ rows, salesSyncedAt, salesSource }: { rows: PromoterQualityRow[]; salesSyncedAt: string | null; salesSource: "hr" | "mock" | null }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 py-5">
@@ -463,7 +463,9 @@ function PromoterTable({ rows, salesSyncedAt }: { rows: PromoterQualityRow[]; sa
           <Clock className="size-3" aria-hidden />
           Effektivitet er godkjente avtaler per oppmøtedag. Mange oppmøtedager med få avtaler er svak leveranse — eller
           manglende oppfølging.
-          {salesSyncedAt ? ` Avtaler fra HR, hentet ${new Date(salesSyncedAt).toLocaleString("nb-NO")}.` : " Avtaletall fra HR er ikke hentet ennå."}
+          {!salesSyncedAt ? " Avtaletall fra HR er ikke hentet ennå."
+            : salesSource === "mock" ? " Avtaletallene er testdata, ikke fra HR."
+            : ` Avtaler fra HR, hentet ${new Date(salesSyncedAt).toLocaleString("nb-NO")}.`}
         </p>
         <ul className="flex flex-col gap-2 sm:hidden">
           {rows.map((r) => (

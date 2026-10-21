@@ -106,7 +106,7 @@ export const dashboardSchema = z.object({
     scope: z.enum(["alle", "egne"]),
     computedAt: z.string(),
     definitionVersion: z.string(),
-    sources: z.object({ salesSyncedAt: z.string().nullable() }),
+    sources: z.object({ salesSyncedAt: z.string().nullable(), salesSource: z.enum(["hr", "mock"]).nullable().optional() }),
     minObservationsForAlarm: z.number(),
     /** Leads from A3's mock applicant generator (staging demos), left out unless asked for. */
     simulatedLeads: z.number().default(0),
