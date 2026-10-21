@@ -5,9 +5,6 @@ import { qk } from "./keys";
 import { adListSchema, adSchema, adTemplateListSchema } from "@/types/ad";
 import { interviewListSchema, interviewSchema, slotListSchema, publicInterviewSchema } from "@/types/interview";
 import { newHireListSchema, newHireSchema, employeeListSchema, employeeSchema } from "@/types/onboarding";
-import { shiftListSchema, swapRequestListSchema, swapRequestSchema, shiftSchema, forecastListSchema } from "@/types/schedule";
-import { leaderTaskListSchema, leaderTaskSchema, complianceListSchema } from "@/types/task";
-import { dashboardSchema } from "@/types/recruitment-dashboard";
 import { candidateSchema } from "@/types/recruitment";
 
 /**
@@ -200,96 +197,6 @@ export function useEmployee(id: string) {
   });
 }
 
-// ── Vaktplan og oppmøte (BEM) ───────────────────────────────────────────────
-
-export function useShifts(scope: { employee?: string; team?: string } = {}) {
-  const params = new URLSearchParams();
-  if (scope.employee) params.set("employee", scope.employee);
-  if (scope.team) params.set("team", scope.team);
-  const qs = params.toString();
-  return useQuery({
-    queryKey: qk.schedule.shifts(Object.fromEntries(params)),
-    queryFn: () => apiGet(`${API.hr}/shifts${qs ? `?${qs}` : ""}`, shiftListSchema),
-  });
-}
-export function useSwapRequests() {
-  return useQuery({ queryKey: qk.schedule.swaps(), queryFn: () => apiGet(`${API.hr}/shifts/swaps`, swapRequestListSchema) });
-}
-export function useForecast() {
-  return useQuery({ queryKey: qk.schedule.forecast(), queryFn: () => apiGet(`${API.hr}/shifts/forecast`, forecastListSchema) });
-}
-function invalidateSchedule(qc: QueryClient) {
-  qc.invalidateQueries({ queryKey: qk.schedule.all() });
-  qc.invalidateQueries({ queryKey: qk.quality.audit() });
-}
-export function useRequestSwap() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { fromShiftId: string; toShiftId: string; reason: string }) =>
-      apiPost(`${API.hr}/shifts/swaps`, swapRequestSchema, v),
-    onSuccess: () => invalidateSchedule(qc),
-  });
-}
-export function useDecideSwap() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { id: string; approve: boolean; by?: string }) =>
-      apiPost(`${API.hr}/shifts/swaps/${v.id}/decide`, swapRequestSchema, { approve: v.approve, by: v.by }),
-    onSuccess: () => invalidateSchedule(qc),
-  });
-}
-export function useFollowUpAbsence() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { id: string; note: string; by?: string }) =>
-      apiPost(`${API.hr}/shifts/${v.id}/follow-up`, shiftSchema, { note: v.note, by: v.by }),
-    onSuccess: () => invalidateSchedule(qc),
-  });
-}
-
-// ── Lederoppgaver (OPPG) ────────────────────────────────────────────────────
-
-export function useTasks(leader?: string) {
-  return useQuery({
-    queryKey: qk.tasks.list(leader),
-    queryFn: () => apiGet(`${API.hr}/tasks${leader ? `?leader=${encodeURIComponent(leader)}` : ""}`, leaderTaskListSchema),
-  });
-}
-export function useCompliance() {
-  return useQuery({ queryKey: qk.tasks.compliance(), queryFn: () => apiGet(`${API.hr}/tasks/compliance`, complianceListSchema) });
-}
-export function useCompleteTask() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { id: string; response: string }) =>
-      apiPost(`${API.hr}/tasks/${v.id}/complete`, leaderTaskSchema, { response: v.response }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: qk.tasks.all() }); qc.invalidateQueries({ queryKey: qk.quality.audit() }); },
-  });
-}
-export function useCreateTask() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { title: string; detail?: string; dueDate: string; leader?: string }) =>
-      apiPost(`${API.hr}/tasks`, leaderTaskSchema, v),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.tasks.all() }),
-  });
-}
-
-// ── Dashboard (DASH) ────────────────────────────────────────────────────────
-
-export function useRecruitmentDashboard(filter: { campaign?: string; team?: string; days?: number } = {}) {
-  const params = new URLSearchParams();
-  if (filter.campaign) params.set("campaign", filter.campaign);
-  if (filter.team) params.set("team", filter.team);
-  if (filter.days) params.set("days", String(filter.days));
-  const qs = params.toString();
-  return useQuery({
-    queryKey: qk.recruitmentDashboard(Object.fromEntries(params)),
-    queryFn: () => apiGet(`${API.hr}/dashboard/recruitment${qs ? `?${qs}` : ""}`, dashboardSchema),
-    placeholderData: (prev) => prev,
-  });
-}
-
 // ── Notater, vedlegg (KAND-06/09) ───────────────────────────────────────────
 
 function invalidateCandidate(qc: QueryClient, id: string) {
@@ -358,36 +265,4 @@ export function useAudienceExport() {
   });
 }
 
-// ── BEM-05 / OPPG-03 Slack-varsling ─────────────────────────────────────────
-
-const notificationSchema = z.object({
-  absence: z.array(z.object({ channel: z.string(), to: z.string(), kind: z.string(), body: z.string() })),
-  leaderSummary: z.array(z.object({ channel: z.string(), to: z.string(), kind: z.string(), body: z.string() })),
-});
-
-export function useNotificationPreview() {
-  return useQuery({
-    queryKey: ["notifications", "preview"],
-    queryFn: () => apiGet(`${API.hr}/notifications/preview`, notificationSchema),
-  });
-}
-
-// ── DASH-01 rapport på e-post ───────────────────────────────────────────────
-
-const subscriptionSchema = z.object({
-  enabled: z.boolean(),
-  frequency: z.enum(["ukentlig", "manedlig"]),
-  recipients: z.array(z.string()),
-});
-
-export function useReportSubscription() {
-  return useQuery({ queryKey: ["dashboard", "subscription"], queryFn: () => apiGet(`${API.hr}/dashboard/subscription`, subscriptionSchema) });
-}
-export function useSetReportSubscription() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { enabled: boolean; frequency: "ukentlig" | "manedlig"; recipients: string[] }) =>
-      apiPost(`${API.hr}/dashboard/subscription`, subscriptionSchema, v),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["dashboard", "subscription"] }),
-  });
-}
+// BEM / OPPG / DASH hooks live in staffing.ts, tasks.ts and recruitment-dashboard.ts (A5).
