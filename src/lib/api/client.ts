@@ -176,7 +176,8 @@ export async function apiSend<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) throw new ApiError(res.status, await safeBody(res));
-  return parseOr(schema, await res.json(), path);
+  // 204 No Content (secrets saved, alert acknowledged) has no body to parse.
+  return parseOr(schema, res.status === 204 ? null : await res.json(), path);
 }
 
 /**
