@@ -70,3 +70,46 @@ export function formatRelativeTime(date: Date | string): string {
   const diffDays = Math.round(diffHours / 24);
   return rtf.format(diffDays, "day");
 }
+
+/**
+ * One way to show a phone number everywhere (master, design review round 1 — lanes showed
+ * «+47 998 12 344» and «969 75 697» side by side).
+ *
+ *  - Norwegian (+47, 8 digits): «969 75 697» for mobiles (4/9…) and «22 33 44 55» for
+ *    landlines — how Norwegians write them, no country code.
+ *  - Foreign: the country code, then the rest grouped in threes: «+46 701 234 567».
+ *  - Anything unparseable is shown as given (never guessed into a wrong number).
+ *
+ * `phoneHref` gives the tel: link in E.164, so a tap always dials correctly.
+ */
+export function formatPhone(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const e164 = toE164(raw);
+  if (!e164) return raw.trim();
+  if (e164.startsWith("+47") && e164.length === 11) {
+    const n = e164.slice(3);
+    return /^[49]/.test(n)
+      ? `${n.slice(0, 3)} ${n.slice(3, 5)} ${n.slice(5)}`
+      : `${n.slice(0, 2)} ${n.slice(2, 4)} ${n.slice(4, 6)} ${n.slice(6)}`;
+  }
+  const m = /^\+(1|7|[2-9]\d)(\d+)$/.exec(e164);
+  if (!m) return e164;
+  return `+${m[1]} ${m[2].replace(/(\d{3})(?=\d)/g, "$1 ")}`;
+}
+
+export function phoneHref(raw: string | null | undefined): string | undefined {
+  const e164 = raw ? toE164(raw) : null;
+  return e164 ? `tel:${e164}` : undefined;
+}
+
+/** Same normalisation as the backend (notify/phone.py): 8 digits → +47, 0047/47… → +47. */
+function toE164(raw: string): string | null {
+  let d = raw.replace(/[^\d+]/g, "");
+  if (d.startsWith("00")) d = "+" + d.slice(2);
+  if (!d.startsWith("+")) {
+    if (d.length === 8) d = "+47" + d;
+    else if (d.length === 10 && d.startsWith("47")) d = "+" + d;
+    else return null;
+  }
+  return /^\+\d{7,15}$/.test(d) ? d : null;
+}
