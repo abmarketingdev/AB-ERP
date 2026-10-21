@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { IS_MOCK } from "@/lib/data-source";
-import { authorizedFetch } from "@/lib/auth-tokens";
+import { authorizedFetch, currentBearer } from "@/lib/auth-tokens";
 
 /**
  * The one boundary. Everything crossing the network goes through here.
@@ -104,7 +104,8 @@ function authHeaders(): HeadersInit {
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (typeof window === "undefined") return headers;
 
-  const token = window.localStorage.getItem("ab-erp-token");
+  // The IFK-04 step-up token while one is valid, else the normal session token.
+  const token = currentBearer();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const customer = customerToken();

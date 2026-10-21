@@ -42,7 +42,17 @@ async function apiLogin(username: string, password: string): Promise<LoginResult
     return { ok: false, error: "Får ikke kontakt med innloggingen. Sjekk nettet og prøv igjen." };
   }
   const body = await json(res);
-  if (res.status === 401) return { ok: false, error: "Feil brukernavn eller passord." };
+  if (res.status === 401) {
+    // 27 addresses are shared by several accounts (2026-10-21). Auth narrows a shared
+    // address by platform and password, but when that still leaves none or several it
+    // answers a plain 401 — the username always works, so say so.
+    return {
+      ok: false,
+      error: username.includes("@")
+        ? "Feil e-post eller passord. Bruker du en delt e-postadresse? Logg inn med brukernavnet ditt."
+        : "Feil brukernavn eller passord.",
+    };
+  }
   if (res.status === 403) return { ok: false, error: "Kontoen din har ikke tilgang til ERP. Kontakt en administrator." };
   if (res.status === 429) return { ok: false, error: "For mange forsøk. Vent litt og prøv igjen." };
   if (!res.ok) return { ok: false, error: "Innloggingen feilet. Prøv igjen." };
