@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Mascot } from "@/components/patterns/mascot";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { useShifts, useSwapRequests, useRequestSwap, useRespondSwap, useWithdrawSwap, useSetDayKind } from "@/lib/api/staffing";
 import { errorMessage } from "@/lib/api/client";
 import { DAY_KIND_LABEL, SWAP_STATUS_LABEL, type Shift, type SwapRequest } from "@/types/schedule";
@@ -187,56 +186,42 @@ function VaktplanPage() {
       </QueryBoundary>
 
       {/* BEM-07 — the request, and the fact that it needs approval, stated. */}
-      <Dialog open={Boolean(swapFrom)} onOpenChange={(o) => !o && setSwapFrom(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Be om vaktbytte</DialogTitle>
-            <DialogDescription>
-              Kollegaen din må si ja først, og deretter må lederen godkjenne. Begge vaktene står som før til da.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <p className="text-sm">Din vakt: <span className="font-medium">{swapFrom && dayFmt.format(day(swapFrom.date))}</span></p>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="swap-to">Bytt med</Label>
-              <Select value={swapTo} onValueChange={setSwapTo}>
-                <SelectTrigger id="swap-to" className="min-h-10"><SelectValue placeholder="Velg en kollegas vakt" /></SelectTrigger>
-                <SelectContent>
-                  {targets.filter((t) => t.date !== swapFrom?.date).slice(0, 60).map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.employeeName} — {dayFmt.format(day(t.date))}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {targets.length === 0 && <p className="text-xs text-muted-foreground">Ingen kolleger på teamet ditt har ledige arbeidsdager å bytte med.</p>}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="swap-reason">Begrunnelse</Label>
-              <Textarea id="swap-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
-            </div>
-            {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+      <ResponsiveSheet open={Boolean(swapFrom)} onOpenChange={(o) => !o && setSwapFrom(null)} title="Be om vaktbytte"
+        description="Kollegaen din må si ja først, og deretter må lederen godkjenne. Begge vaktene står som før til da."
+        footer={<>
+          <Button variant="ghost" onClick={() => setSwapFrom(null)}>Avbryt</Button>
+          <Button disabled={request.isPending} onClick={submitSwap}>Send forespørsel</Button>
+        </>}>
+        <div className="flex flex-col gap-4 py-2">
+          <p className="text-sm">Din vakt: <span className="font-medium">{swapFrom && dayFmt.format(day(swapFrom.date))}</span></p>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="swap-to">Bytt med</Label>
+            <Select value={swapTo} onValueChange={setSwapTo}>
+              <SelectTrigger id="swap-to" className="min-h-11"><SelectValue placeholder="Velg en kollegas vakt" /></SelectTrigger>
+              <SelectContent>
+                {targets.filter((t) => t.date !== swapFrom?.date).slice(0, 60).map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.employeeName} — {dayFmt.format(day(t.date))}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {targets.length === 0 && <p className="text-xs text-muted-foreground">Ingen kolleger på teamet ditt har arbeidsdager du kan bytte til — du jobber allerede de dagene, eller ingen er satt opp.</p>}
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSwapFrom(null)}>Avbryt</Button>
-            <Button disabled={request.isPending} onClick={submitSwap}>Send forespørsel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(sick)} onOpenChange={(o) => !o && setSick(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Meld deg syk</DialogTitle>
-            <DialogDescription>
-              {sick && `${weekdayFmt.format(day(sick.date))} ${dayFmt.format(day(sick.date))} blir registrert som sykedag. Lederen din ser det i kalenderen.`}
-            </DialogDescription>
-          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="swap-reason">Begrunnelse</Label>
+            <Textarea id="swap-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
           {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSick(null)}>Avbryt</Button>
-            <Button disabled={setKind.isPending} onClick={reportSick}>Meld syk</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </ResponsiveSheet>
+
+      <ResponsiveSheet open={Boolean(sick)} onOpenChange={(o) => !o && setSick(null)} title="Meld deg syk"
+        description={sick ? `${weekdayFmt.format(day(sick.date))} ${dayFmt.format(day(sick.date))} blir registrert som sykedag. Lederen din ser det i kalenderen.` : undefined}
+        footer={<>
+          <Button variant="ghost" onClick={() => setSick(null)}>Avbryt</Button>
+          <Button disabled={setKind.isPending} onClick={reportSick}>Meld syk</Button>
+        </>}>
+        {error ? <p className="text-sm text-danger" role="alert">{error}</p> : <span />}
+      </ResponsiveSheet>
     </div>
   );
 }
@@ -265,7 +250,6 @@ function OutgoingSwap({ swap: s }: { swap: SwapRequest }) {
   const open = s.status === "venter_kollega" || s.status === "venter_leder";
   return (
     <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-      {s.status === "godkjent" && <Mascot state="win-small" size={36} label="Byttet er godkjent" />}
       <span className="tabular-nums">{dayFmt.format(day(s.fromDate))}</span>
       <Repeat className="size-3.5 text-muted-foreground" aria-label="byttes med" />
       <span className="tabular-nums">{dayFmt.format(day(s.toDate))}</span>

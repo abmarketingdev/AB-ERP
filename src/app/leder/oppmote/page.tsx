@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { useMascotOnDone } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
 import { useShifts, useSwapRequests, useDecideSwap, useFollowUpAbsence, useForecast, useRecordAttendance } from "@/lib/api/staffing";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -111,14 +112,7 @@ function OppmotePage() {
       {/* The leader's main daily action, first and one tap per person (IFK-08). */}
       {anchor.slice(0, 7) === TODAY.slice(0, 7) && todayOpen.length > 0 && <TodayCard days={todayOpen} />}
 
-      {todayDone.length > 0 && todayOpen.length === 0 && (
-        <Card>
-          <CardContent className="flex items-center gap-3 py-3">
-            <Mascot state="win-small" size={56} label="Dagens oppmøte er registrert" />
-            <p className="text-sm">Dagens oppmøte er registrert for alle {todayDone.length}.</p>
-          </CardContent>
-        </Card>
-      )}
+      <TodayDone done={todayDone.length > 0 && todayOpen.length === 0} count={todayDone.length} />
 
       {/* BEM-07 — the leader decides only after the colleague has accepted. */}
       {(toDecide.length > 0 || withColleague.length > 0) && (
@@ -312,6 +306,20 @@ function OppmotePage() {
   );
 }
 
+/** Pandi once when the last of today's registrations is made — not on every visit. */
+function TodayDone({ done, count }: { done: boolean; count: number }) {
+  const { key, ...mascot } = useMascotOnDone(done);
+  if (!done) return null;
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 py-3">
+        <Mascot key={key} {...mascot} size={56} label="Dagens oppmøte er registrert" />
+        <p className="text-sm">Dagens oppmøte er registrert for alle {count}.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function TodayCard({ days }: { days: Shift[] }) {
   const record = useRecordAttendance();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -413,12 +421,9 @@ function DayDialog({ shift: s, onClose }: { shift: Shift | null; onClose: () => 
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{s.employeeName}</DialogTitle>
-          <DialogDescription className="capitalize">{fullDay.format(day(s.date))}{s.source === "first_day" ? " · første arbeidsdag" : ""}</DialogDescription>
-        </DialogHeader>
+    <ResponsiveSheet open onOpenChange={(o) => !o && onClose()} title={s.employeeName}
+      description={`${fullDay.format(day(s.date))}${s.source === "first_day" ? " · første arbeidsdag" : ""}`}
+      footer={<Button variant="ghost" onClick={onClose}>Lukk</Button>}>
         <div className="flex flex-col gap-4 py-2">
           {locked && (
             <p className="flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-sm">
@@ -473,11 +478,7 @@ function DayDialog({ shift: s, onClose }: { shift: Shift | null; onClose: () => 
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Lukk</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveSheet>
   );
 }
 

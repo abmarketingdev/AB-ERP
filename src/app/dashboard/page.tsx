@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 import { ChannelMark } from "@/components/patterns/channel-mark";
 import {
@@ -123,7 +124,7 @@ function DashboardPage() {
         lastUpdated={dash.data ? new Date(dash.data.basis.computedAt) : new Date()}
         actions={
           <div className="flex flex-wrap items-center gap-2" data-print-hide>
-            {exporting && <Mascot state="thinking" size={32} label="Lager eksporten" />}
+            {exporting && <Mascot {...mascotFor("loading", "Lager rapporten…")} size={32} />}
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportAs("xlsx")} disabled={!dash.data || Boolean(exporting)}>
               <FileSpreadsheet className="size-4" /> Excel
             </Button>

@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { useMascotOnDone } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
 import { ResponseFieldForm, ResponseSummary } from "@/components/patterns/response-field-form";
 import { useTasks, useCompleteTask, useCreateTask } from "@/lib/api/tasks";
@@ -89,7 +90,7 @@ function LederoppgaverPage() {
       >
         {() => (
           <>
-            {overdue.length === 0 && open.length === 0 && done.length > 0 && <AllDone count={done.length} />}
+            <AllDone done={overdue.length === 0 && open.length === 0 && done.length > 0} count={done.length} />
             <Group title="Forfalt" items={overdue} />
             <Group title="Åpne" items={open} />
             <Group title="Fullført" items={done} />
@@ -97,41 +98,40 @@ function LederoppgaverPage() {
         )}
       </QueryBoundary>
 
-      <Dialog open={newOpen} onOpenChange={(o) => !o && setNewOpen(false)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Ny oppgave</DialogTitle></DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tk-title">Tittel</Label>
-              <Input id="tk-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tk-detail">Beskrivelse</Label>
-              <Textarea id="tk-detail" rows={2} value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tk-due">Frist</Label>
-              <Input id="tk-due" type="datetime-local" className="w-[14rem]" value={form.dueAt}
-                onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
-            </div>
-            {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+      <ResponsiveSheet open={newOpen} onOpenChange={(o) => !o && setNewOpen(false)} title="Ny oppgave"
+        footer={<>
+          <Button variant="ghost" onClick={() => setNewOpen(false)}>Avbryt</Button>
+          <Button disabled={create.isPending} onClick={submitNew}>Opprett oppgave</Button>
+        </>}>
+        <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-title">Tittel</Label>
+            <Input id="tk-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setNewOpen(false)}>Avbryt</Button>
-            <Button disabled={create.isPending} onClick={submitNew}>Opprett</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-detail">Beskrivelse <span className="text-muted-foreground">(valgfritt)</span></Label>
+            <Textarea id="tk-detail" rows={2} value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-due">Frist</Label>
+            <Input id="tk-due" type="datetime-local" className="w-[14rem]" value={form.dueAt}
+              onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+          </div>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+        </div>
+      </ResponsiveSheet>
     </div>
   );
 }
 
-/** Pandi «once» — the list was emptied; then he holds still (WCAG 2.2.2). */
-function AllDone({ count }: { count: number }) {
+/** Pandi «once» when the last open task is closed — not on a visit where all was already done. */
+function AllDone({ done, count }: { done: boolean; count: number }) {
+  const { key, ...mascot } = useMascotOnDone(done);
+  if (!done) return null;
   return (
     <Card>
       <CardContent className="flex items-center gap-4 py-4">
-        <Mascot state="win-small" size={72} label="Alle oppgaver er fullført" />
+        <Mascot key={key} {...mascot} size={56} label="Alle oppgaver er fullført" />
         <div>
           <p className="font-medium">Alle oppgaver er fullført</p>
           <p className="text-sm text-muted-foreground">{count} fullført. Nye kommer når systemet trenger deg.</p>
