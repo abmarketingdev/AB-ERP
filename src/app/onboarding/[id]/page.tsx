@@ -220,7 +220,9 @@ function Detail({ hire: h }: { hire: NewHire }) {
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {h.authUserId
-                ? "Opprettet. Personen får velkomst-e-post med passordlenke når onboardingen fullføres."
+                ? h.status === "completed"
+                  ? "Opprettet. Velkomst-e-post med passordlenke sendes fra HR."
+                  : "Opprettet. Personen får velkomst-e-post med passordlenke når onboardingen fullføres."
                 : h.manualAccount
                   ? "Ledernivå: kontoen opprettes manuelt i HR (én konto, én rolle)."
                   : allSigned ? "Kontraktene er signert. Kontoen kan opprettes." : "Kan opprettes når alle kontraktene er signert."}
@@ -334,7 +336,9 @@ function Detail({ hire: h }: { hire: NewHire }) {
             <p className="mt-1 text-sm text-muted-foreground">
               {h.firstDayNoShow
                 ? `Registrert som ikke møtt${h.firstDayNoShow.at ? ` ${stampFmt.format(new Date(h.firstDayNoShow.at))}` : ""}, fulgt opp av ${h.firstDayNoShow.followedUpBy}.`
-                : `Starter ${dateFmt.format(new Date(h.startDate))}. Lederen registrerer oppmøte i lederkalenderen.`}
+                : h.checklist.find((c) => c.key === "forstedag")?.done
+                  ? "Møtt første arbeidsdag, registrert av lederen i lederkalenderen."
+                  : `Starter ${dateFmt.format(new Date(h.startDate))}. Lederen registrerer oppmøte i lederkalenderen.`}
             </p>
             {h.blockedReasons.length > 0 && !closed && (
               <p className="mt-1 text-xs text-warning-on-tint">

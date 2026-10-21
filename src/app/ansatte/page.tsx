@@ -53,7 +53,7 @@ export default function Ansatte() {
       <PageHeader
         title="Ansatte"
         description={`${rows.length} av ${all.length} ansatte · ${withEquipment} har utstyr utlevert`}
-        source="Opprettet gjennom onboarding"
+        source="HR-systemet (ansatte fra onboarding og eldre ansatte)"
         lastUpdated={new Date()}
       />
 
@@ -117,9 +117,12 @@ export default function Ansatte() {
                       <TableCell className="text-sm text-muted-foreground">{e.team}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{e.campaign}</TableCell>
                       <TableCell className="text-sm tabular-nums text-muted-foreground">
-                        {dayFmt.format(new Date(e.startDate))}
+                        {/* Most HR employees predate the recruitment flow and have no start date. */}
+                        {e.startDate ? dayFmt.format(new Date(e.startDate)) : "—"}
                       </TableCell>
-                      <TableCell><Badge variant="outline">{e.accessTemplate}</Badge></TableCell>
+                      <TableCell>
+                        {e.accessTemplate ? <Badge variant="outline">{e.accessTemplate}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
                       <TableCell className="text-right">
                         {e.equipment.length === 0 ? (
                           <span className="text-xs text-muted-foreground">—</span>
