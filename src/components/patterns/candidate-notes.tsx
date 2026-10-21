@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAddNote, useAddAttachment } from "@/lib/api/srs";
+import { attachmentUrl, useAddNote, useAddAttachment } from "@/lib/api/srs";
+import { apiDownload } from "@/lib/api/client";
 import { useNoteAudience } from "@/lib/api/recruitment";
 import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
@@ -58,6 +59,20 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
    * someone a private note exists about a candidate is already telling them too much.
    */
   const visible = candidate.notes;
+
+  /** KAND-06 — authenticated download (a plain link would not carry the token). */
+  async function download(id: string, fallbackName: string) {
+    setError(null);
+    try {
+      const { blob, filename } = await apiDownload(attachmentUrl(candidate.id, id));
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = filename ?? fallbackName;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch (err) { setError(errorMessage(err)); }
+  }
 
   async function submitNote() {
     setError(null);
@@ -208,6 +223,9 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
                   <span className="ml-auto text-xs text-muted-foreground">
                     {f.uploadedBy} · {f.uploadedAt}
                   </span>
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => void download(f.id, f.name)}>
+                    Last ned
+                  </Button>
                 </li>
               ))}
             </ul>

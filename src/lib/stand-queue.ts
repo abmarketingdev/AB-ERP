@@ -27,12 +27,34 @@ function read(): QueuedLead[] {
   }
 }
 
+const CHANGED = "ab-erp:stand-queue-changed";
+let memory: QueuedLead[] = [];      // fallback when storage is unavailable
+
 function write(items: QueuedLead[]) {
+  memory = items;
   try {
     localStorage.setItem(KEY, JSON.stringify(items));
   } catch {
-    /* storage unavailable: the in-memory list still drives the UI this session */
+    /* storage unavailable: `memory` still drives the UI this session */
   }
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+function snapshot(): string {
+  try {
+    return localStorage.getItem(KEY) ?? "[]";
+  } catch {
+    return JSON.stringify(memory);
+  }
+}
+
+function subscribe(onChange: () => void) {
+  window.addEventListener(CHANGED, onChange);
+  window.addEventListener("storage", onChange);      // another tab sent or queued
+  return () => {
+    window.removeEventListener(CHANGED, onChange);
+    window.removeEventListener("storage", onChange);
+  };
 }
 
 export function isRetryable(err: unknown) {
@@ -41,15 +63,16 @@ export function isRetryable(err: unknown) {
 }
 
 export function useStandQueue(send: (item: QueuedLead) => Promise<unknown>) {
-  const [items, setItems] = React.useState<QueuedLead[]>([]);
+  // The queue lives in storage (an external system), read as a string snapshot so
+  // the server render ("[]") and the first client render agree.
+  const raw = React.useSyncExternalStore(subscribe, snapshot, () => "[]");
+  const items = React.useMemo(() => {
+    try { return JSON.parse(raw) as QueuedLead[]; } catch { return []; }
+  }, [raw]);
   const sending = React.useRef(false);
 
-  React.useEffect(() => setItems(read()), []);
-
   const enqueue = React.useCallback((item: QueuedLead) => {
-    const next = [...read().filter((i) => i.clientId !== item.clientId), item];
-    write(next);
-    setItems(next);
+    write([...read().filter((i) => i.clientId !== item.clientId), item]);
   }, []);
 
   const flush = React.useCallback(async () => {
@@ -63,9 +86,7 @@ export function useStandQueue(send: (item: QueuedLead) => Promise<unknown>) {
           if (isRetryable(err)) break;          // still offline: keep the rest for later
         }
         // Sent, or refused for good (4xx): either way it leaves the queue.
-        const rest = read().filter((i) => i.clientId !== item.clientId);
-        write(rest);
-        setItems(rest);
+        write(read().filter((i) => i.clientId !== item.clientId));
       }
     } finally {
       sending.current = false;

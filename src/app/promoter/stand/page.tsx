@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, CloudOff, RotateCcw } from "lucide-react";
+import { CloudOff, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ export default function StandSkjema() {
   const session = useSession();
   const create = useCreateStandLead();
   const meta = useStandMeta();
-  const campaigns = meta.data?.campaigns ?? [];
+  const campaigns = React.useMemo(() => meta.data?.campaigns ?? [], [meta.data]);
   const send = React.useCallback((item: QueuedLead) => create.mutateAsync({ ...item.payload, clientId: item.clientId }),
                                  [create]);
   const queue = useStandQueue(send);
@@ -54,20 +54,21 @@ export default function StandSkjema() {
   });
 
   // The last campaign is pre-selected: a promotor stands at one stand all day.
-  React.useEffect(() => {
-    if (form.campaign || campaigns.length === 0) return;
-    let remembered: string | null = null;
-    try { remembered = localStorage.getItem(LAST_CAMPAIGN); } catch { /* storage blocked */ }
-    const pick = campaigns.find((c) => c.id === remembered) ?? campaigns[0];
-    setForm((f) => ({ ...f, campaign: pick.id }));
-  }, [campaigns, form.campaign]);
+  // Derived, not set in an effect: an untouched form shows the remembered campaign.
+  const [remembered] = React.useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return localStorage.getItem(LAST_CAMPAIGN); } catch { return null; }
+  });
+  const campaign = form.campaign
+    || (campaigns.find((c) => c.id === remembered) ?? campaigns[0])?.id
+    || "";
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function reset() {
-    setForm((f) => ({ name: "", phone: "", email: "", campaign: f.campaign, consentContact: false, consentAdAudience: false, note: "" }));
+    setForm({ name: "", phone: "", email: "", campaign, consentContact: false, consentAdAudience: false, note: "" });
     setErrors({});
     setSubmitError(null);
     setDone(null);
@@ -76,7 +77,8 @@ export default function StandSkjema() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    const parsed = standLeadSchema.safeParse(form);
+    const data = { ...form, campaign };
+    const parsed = standLeadSchema.safeParse(data);
     if (!parsed.success) {
       const next: Record<string, string> = {};
       for (const issue of parsed.error.issues) next[String(issue.path[0])] = issue.message;
@@ -84,8 +86,8 @@ export default function StandSkjema() {
       return;
     }
     setErrors({});
-    try { localStorage.setItem(LAST_CAMPAIGN, form.campaign); } catch { /* storage blocked */ }
-    const item: QueuedLead = { clientId: newClientId(), payload: { ...form }, queuedAt: new Date().toISOString() };
+    try { localStorage.setItem(LAST_CAMPAIGN, campaign); } catch { /* storage blocked */ }
+    const item: QueuedLead = { clientId: newClientId(), payload: data, queuedAt: new Date().toISOString() };
     try {
       const lead = await send(item);
       setDone({ name: (lead as { name: string }).name, queued: false });
@@ -171,7 +173,7 @@ export default function StandSkjema() {
             </Field>
 
             <Field label="Kampanje" id="st-campaign" error={errors.campaign}>
-              <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}
+              <Select value={campaign} onValueChange={(v) => set("campaign", v)}
                 disabled={meta.isLoading || campaigns.length === 0}>
                 <SelectTrigger id="st-campaign" className="h-11 text-base">
                   <SelectValue placeholder={meta.isLoading ? "Henter kampanjer…" : meta.isError ? "Kunne ikke hente kampanjer" : "Velg kampanje"} />
