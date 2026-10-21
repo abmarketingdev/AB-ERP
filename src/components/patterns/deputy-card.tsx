@@ -5,10 +5,10 @@ import { UserCog } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDeputy, useSetDeputy, useLeaders } from "@/lib/api/srs";
+import { useApprovers, useDeputy, useSetDeputy } from "@/lib/api/approval";
+import { DatePicker } from "@/components/patterns/date-picker";
 import { errorMessage } from "@/lib/api/client";
 
 /**
@@ -25,7 +25,7 @@ const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" 
 export function DeputyCard() {
   const deputy = useDeputy();
   const setDeputy = useSetDeputy();
-  const leaders = useLeaders();
+  const approvers = useApprovers();
 
   const [open, setOpen] = React.useState(false);
   const [who, setWho] = React.useState("");
@@ -38,8 +38,10 @@ export function DeputyCard() {
   async function save() {
     setError(null);
     if (!who) { setError("Velg hvem som skal være stedfortreder."); return; }
+    // «ikke personavhengig»: a deputy always ends. The server refuses an open-ended one too.
+    if (!from || !to) { setError("Velg både fra- og til-dato."); return; }
     try {
-      await setDeputy.mutateAsync({ deputy: who, from: from || undefined, to: to || undefined });
+      await setDeputy.mutateAsync({ deputyUserId: who, validFrom: from, validUntil: to });
       setOpen(false);
     } catch (err) { setError(errorMessage(err)); }
   }
@@ -55,7 +57,7 @@ export function DeputyCard() {
             <div className="flex items-center gap-2">
               <Badge className="bg-success/10 text-success">{active}</Badge>
               <Button size="sm" variant="ghost" disabled={setDeputy.isPending}
-                onClick={() => setDeputy.mutate({ deputy: null })}>
+                onClick={() => setDeputy.mutate({ deputyUserId: null })}>
                 Fjern
               </Button>
             </div>
@@ -66,7 +68,7 @@ export function DeputyCard() {
 
         <p className="text-xs text-muted-foreground">
           {active
-            ? `${active} kan godkjenne på dine vegne${deputy.data?.from ? ` fra ${dayFmt.format(new Date(deputy.data.from))}` : ""}${deputy.data?.to ? ` til ${dayFmt.format(new Date(deputy.data.to))}` : ", inntil videre"}. Køen stopper ikke når du er borte.`
+            ? `${active} kan godkjenne på dine vegne${deputy.data?.from ? ` fra ${dayFmt.format(new Date(deputy.data.from))}` : ""}${deputy.data?.to ? ` til og med ${dayFmt.format(new Date(deputy.data.to))}` : ""}. Køen stopper ikke når du er borte.`
             : "Uten stedfortreder stopper godkjenningskøen når du er borte. Sett en periode, så utløper den av seg selv."}
         </p>
 
@@ -77,18 +79,19 @@ export function DeputyCard() {
               <Select value={who} onValueChange={setWho}>
                 <SelectTrigger id="dep-who" className="w-[13rem]" aria-label="Hvem"><SelectValue placeholder="Velg person" /></SelectTrigger>
                 <SelectContent>
-                  {(leaders.data ?? []).map((l) => <SelectItem key={l.id} value={l.name}>{l.name}</SelectItem>)}
-                  <SelectItem value="Nasrin Hassan">Nasrin Hassan (HR)</SelectItem>
+                  {(approvers.data?.selectable ?? []).map((p) => (
+                    <SelectItem key={p.userId} value={p.userId}>{p.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="dep-from" className="text-xs text-muted-foreground">Fra</Label>
-              <Input id="dep-from" type="date" className="w-[10.5rem]" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <div className="w-[12rem]"><DatePicker id="dep-from" value={from} onChange={setFrom} /></div>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="dep-to" className="text-xs text-muted-foreground">Til</Label>
-              <Input id="dep-to" type="date" className="w-[10.5rem]" value={to} onChange={(e) => setTo(e.target.value)} />
+              <div className="w-[12rem]"><DatePicker id="dep-to" value={to} onChange={setTo} min={from || undefined} /></div>
             </div>
             <Button size="sm" disabled={setDeputy.isPending} onClick={save}>Lagre</Button>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Avbryt</Button>

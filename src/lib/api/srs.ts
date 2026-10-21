@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { z } from "zod";
 import { apiGet, apiPost, apiUpload, API } from "./client";
 import { qk } from "./keys";
-import { newHireListSchema, newHireSchema, employeeListSchema, employeeSchema } from "@/types/onboarding";
 import { shiftListSchema, swapRequestListSchema, swapRequestSchema, shiftSchema, forecastListSchema } from "@/types/schedule";
 import { leaderTaskListSchema, leaderTaskSchema, complianceListSchema } from "@/types/task";
 import { dashboardSchema } from "@/types/recruitment-dashboard";
@@ -25,64 +24,7 @@ const okSchema = z.object({ ok: z.boolean() }).loose();
 export * from "./ads";
 export * from "./interviews";
 
-// ── Onboarding (ONB) ────────────────────────────────────────────────────────
-
-export function useNewHires() {
-  return useQuery({ queryKey: qk.onboarding.list(), queryFn: () => apiGet(`${API.hr}/onboarding`, newHireListSchema) });
-}
-export function useNewHire(id: string) {
-  return useQuery({
-    queryKey: qk.onboarding.hire(id),
-    queryFn: () => apiGet(`${API.hr}/onboarding/${id}`, newHireSchema),
-    enabled: Boolean(id),
-  });
-}
-function invalidateOnboarding(qc: QueryClient) {
-  qc.invalidateQueries({ queryKey: qk.onboarding.all() });
-  qc.invalidateQueries({ queryKey: ["employees"] });
-  qc.invalidateQueries({ queryKey: qk.quality.audit() });
-}
-function onboardingMutation<V>(path: (v: V & { id: string }) => string, body: (v: V & { id: string }) => unknown) {
-  return function useIt() {
-    const qc = useQueryClient();
-    return useMutation({
-      mutationFn: (v: V & { id: string }) => apiPost(`${API.hr}/onboarding/${v.id}${path(v)}`, newHireSchema, body(v)),
-      onSuccess: () => invalidateOnboarding(qc),
-    });
-  };
-}
-export const useCheckOnboarding = onboardingMutation<{ key: string; done: boolean }>(
-  () => "/check", (v) => ({ key: v.key, done: v.done }),
-);
-export const useContractAction = onboardingMutation<{ action: "send" | "remind" | "sign" }>(
-  () => "/contract", (v) => ({ action: v.action }),
-);
-/* The photo upload takes no payload of its own — the id in the path is all it
-   needs — so its variables type is just the empty object the helper adds the
-   id to. `Record<string, never>` would make `{ id }` itself unassignable. */
-export const useUploadPhoto = onboardingMutation<object>(() => "/photo", () => ({}));
-export const useHandOutEquipment = onboardingMutation<{ kind: string; model: string; serial: string }>(
-  () => "/equipment", (v) => ({ kind: v.kind, model: v.model, serial: v.serial }),
-);
-export const useEquipmentContract = onboardingMutation<{ action: "send" | "sign" }>(
-  () => "/equipment-contract", (v) => ({ action: v.action }),
-);
-export const useFirstDayNoShow = onboardingMutation<{ note: string }>(
-  () => "/no-show", (v) => ({ note: v.note }),
-);
-
-// ── Ansatte ─────────────────────────────────────────────────────────────────
-
-export function useEmployees() {
-  return useQuery({ queryKey: qk.employees.list(), queryFn: () => apiGet(`${API.hr}/employees`, employeeListSchema) });
-}
-export function useEmployee(id: string) {
-  return useQuery({
-    queryKey: qk.employees.employee(id),
-    queryFn: () => apiGet(`${API.hr}/employees/${id}`, employeeSchema),
-    enabled: Boolean(id),
-  });
-}
+// Onboarding (ONB) and Ansatte moved to ./onboarding.ts (A4, recruitment-service).
 
 // ── Vaktplan og oppmøte (BEM) ───────────────────────────────────────────────
 
@@ -218,26 +160,7 @@ export function attachmentUrl(candidateId: string, attachmentId: string) {
   return `${API.recruitment}/candidates/${candidateId}/attachments/${attachmentId}`;
 }
 
-// ── GODK-04 stedfortreder ───────────────────────────────────────────────────
-
-const deputySchema = z.object({
-  deputy: z.string().nullable(),
-  from: z.string().nullable(),
-  to: z.string().nullable(),
-  setAt: z.string().nullable(),
-});
-
-export function useDeputy() {
-  return useQuery({ queryKey: ["approval", "deputy"], queryFn: () => apiGet(`${API.hr}/approval/deputy`, deputySchema) });
-}
-export function useSetDeputy() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { deputy: string | null; from?: string; to?: string }) =>
-      apiPost(`${API.hr}/approval/deputy`, deputySchema, v),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["approval", "deputy"] }); qc.invalidateQueries({ queryKey: qk.quality.audit() }); },
-  });
-}
+// GODK-04 stedfortreder moved to ./approval.ts (A4).
 
 // ── LEAD-11 målgruppeeksport ────────────────────────────────────────────────
 

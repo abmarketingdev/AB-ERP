@@ -3,46 +3,67 @@
 import * as React from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
-  ArrowLeft, Check, Camera, Package, FileSignature, Send, Bell, UserX, Lock,
+  ArrowLeft, Check, Camera, Package, FileSignature, Bell, UserX, Lock, ExternalLink, KeyRound,
+  CircleDashed, CircleCheck, Eye, Send, RefreshCw, CloudOff,
 } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
+import { Mascot } from "@/components/patterns/mascot";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  useNewHire, useCheckOnboarding, useContractAction, useUploadPhoto,
-  useHandOutEquipment, useEquipmentContract, useFirstDayNoShow,
-} from "@/lib/api/srs";
+  useNewHire, useCheckOnboarding, useRemindContract, useUploadPhoto, useProvisionAccount,
+  useCompleteOnboarding, useRetryHandover,
+} from "@/lib/api/onboarding";
 import { errorMessage } from "@/lib/api/client";
-import {
-  CHECKLIST_LABEL, CONTRACT_STATUS_LABEL, EQUIPMENT_KINDS, handOutEquipmentSchema, type NewHire,
-} from "@/types/onboarding";
+import { cn } from "@/lib/utils";
+import { CHECKLIST_LABEL, CONTRACT_STATUS_LABEL, type Contract, type NewHire } from "@/types/onboarding";
 
 /**
  * ONB-02 … ONB-09 — the onboarding of one person.
  *
- * The screen is ordered the way the process runs — contract, photo, equipment,
- * first day — rather than grouped by data type, because it is worked through
- * top to bottom by somebody with the new starter in front of them.
+ * The screen is ordered the way the process runs — contract, account, photo,
+ * equipment, first day, finish — because it is worked through top to bottom by
+ * somebody with the new starter in front of them.
  *
- * Two rules are enforced rather than described, and both refuse with a reason:
- * the first working day cannot be ticked until the contract is signed (ONB-03),
- * and the equipment contract cannot be sent before anything has been handed out
- * (ONB-07 — it is the employee confirming receipt, so there must be something
- * to confirm).
+ * HR owns the case. Nothing here pretends otherwise: contracts are sent by HR the
+ * moment Ole approves (ONB-02) and signed in Scrive, equipment is handed out in
+ * HR's register (ONB-07), attendance is registered in the leader calendar (A5).
+ * Every checklist item says where its tick comes from, and only «personalia» is
+ * confirmed by hand. The rules are enforced by the server and the refusal is
+ * shown with its reason — the first day cannot count before the contract is
+ * signed (ONB-03), and the case cannot be finished with an open item (ONB-09).
  */
 
 const dateFmt = new Intl.DateTimeFormat("nb-NO", { dateStyle: "long" });
 const stampFmt = new Intl.DateTimeFormat("nb-NO", { dateStyle: "medium", timeStyle: "short" });
+const HR_URL = process.env.NEXT_PUBLIC_HR_URL ?? "https://hr.abmarketing.no";
+
+const SOURCE_LABEL: Record<string, string> = {
+  personalia: "Fra kontrakten i Scrive, bekreftes av HR",
+  kontrakt: "Fra Scrive",
+  utstyr: "Fra utstyrsregisteret i HR",
+  bilde: "Tas av Ole",
+  opplaering: "Fra opplæringen",
+  forstedag: "Fra lederkalenderen",
+};
+
+const TEMPLATES = [
+  { key: "promotor", label: "Promotør" },
+  { key: "promotor_pluss", label: "Promotør med ekstra tilgang" },
+  { key: "leder", label: "Leder" },
+];
+
+const KIND_LABEL: Record<string, string> = {
+  ansettelse: "Ansettelseskontrakt", prosjekt: "Prosjektavtale", bil: "Bilavtale", utstyr: "Utstyrsavtale",
+};
 
 export default function OnboardingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -50,18 +71,11 @@ export default function OnboardingDetail() {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <Link
-        href="/onboarding"
-        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
+      <Link href="/onboarding"
+        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <ArrowLeft className="size-4" aria-hidden /> Tilbake til onboarding
       </Link>
-
-      <QueryBoundary
-        query={hire}
-        skeleton={<Skeleton className="h-96 w-full rounded-lg" />}
-        className="flex flex-col gap-6"
-      >
+      <QueryBoundary query={hire} skeleton={<DetailSkeleton />} className="flex flex-col gap-6">
         {(h) => <Detail hire={h} />}
       </QueryBoundary>
     </div>
@@ -70,39 +84,26 @@ export default function OnboardingDetail() {
 
 function Detail({ hire: h }: { hire: NewHire }) {
   const check = useCheckOnboarding();
-  const contract = useContractAction();
+  const remind = useRemindContract();
   const photo = useUploadPhoto();
-  const handOut = useHandOutEquipment();
-  const eqContract = useEquipmentContract();
-  const noShow = useFirstDayNoShow();
+  const provision = useProvisionAccount();
+  const complete = useCompleteOnboarding();
+  const retry = useRetryHandover();
+  const reduce = useReducedMotion();
+  const fileRef = React.useRef<HTMLInputElement>(null);
 
   const [error, setError] = React.useState<string | null>(null);
-  const [eq, setEq] = React.useState({ kind: EQUIPMENT_KINDS[0], model: "", serial: "" });
-  const [eqErrors, setEqErrors] = React.useState<Record<string, string>>({});
-  const [noShowNote, setNoShowNote] = React.useState("");
-  const [noShowOpen, setNoShowOpen] = React.useState(false);
+  const [template, setTemplate] = React.useState(h.manualAccount ? "leder" : "promotor");
 
   const done = h.checklist.filter((c) => c.done).length;
   const pct = Math.round((done / h.checklist.length) * 100);
+  const contracts = h.contracts.length ? h.contracts : [h.contract];
+  const allSigned = contracts.every((c) => c.status === "signert");
+  const closed = h.status === "completed" || h.status === "no_show" || h.status === "cancelled";
 
   async function run(fn: () => Promise<unknown>) {
     setError(null);
     try { await fn(); } catch (err) { setError(errorMessage(err)); }
-  }
-
-  async function addEquipment() {
-    const parsed = handOutEquipmentSchema.safeParse(eq);
-    if (!parsed.success) {
-      const next: Record<string, string> = {};
-      for (const i of parsed.error.issues) next[String(i.path[0])] = i.message;
-      setEqErrors(next);
-      return;
-    }
-    setEqErrors({});
-    await run(async () => {
-      await handOut.mutateAsync({ id: h.id, ...eq });
-      setEq({ kind: EQUIPMENT_KINDS[0], model: "", serial: "" });
-    });
   }
 
   return (
@@ -111,20 +112,49 @@ function Detail({ hire: h }: { hire: NewHire }) {
         title={h.name}
         description={`${h.team} · ${h.campaign} · starter ${dateFmt.format(new Date(h.startDate))}`}
         source={`Registrert av ${h.registeredBy}`}
-        lastUpdated={new Date()}
+        lastUpdated={h.hrSync?.at ? new Date(h.hrSync.at) : new Date()}
       />
 
+      {/* Partial state: HR is the source; when it cannot be reached we say so instead of guessing. */}
+      {h.hrSync?.state === "failed" && (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning-on-tint">
+          <CloudOff className="size-4 shrink-0" aria-hidden />
+          Kunne ikke overføre til HR ennå. Systemet prøver igjen automatisk.
+          <Button size="sm" variant="ghost" className="h-8 gap-1" disabled={retry.isPending}
+            onClick={() => run(() => retry.mutateAsync({ id: h.id }))}>
+            <RefreshCw className="size-3.5" aria-hidden /> Prøv nå
+          </Button>
+        </div>
+      )}
+      {h.status === "pending_handover" && h.hrSync?.state !== "failed" && (
+        <p role="status" className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <Mascot state="thinking" motion="loop" size={32} label="Overfører til HR" />
+          Overføres til HR. Kontrakten sendes til signering så snart HR har tatt imot.
+        </p>
+      )}
+
       {error && (
-        <p className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
           {error}
         </p>
       )}
 
-      {h.completedAt && (
-        <p className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
-          <Check className="size-4 shrink-0" aria-hidden />
-          Onboardingen er fullført. {h.name} er opprettet som ansatt med tilgangsmalen «Promotør».
+      <AnimatePresence>
+        {h.status === "completed" && (
+          <motion.div initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }} role="status"
+            className="flex items-center gap-3 rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+            <Mascot state="win-big" motion="once" size={44} />
+            Onboardingen er fullført. {h.name} er opprettet som ansatt
+            {h.accessTemplate ? ` med tilgangsmalen «${TEMPLATES.find((t) => t.key === h.accessTemplate)?.label ?? h.accessTemplate}»` : ""}.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {h.status === "no_show" && (
+        <p className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+          <UserX className="size-4 shrink-0" aria-hidden /> Møtte ikke første arbeidsdag. Onboardingen er avbrutt.
         </p>
       )}
 
@@ -133,70 +163,77 @@ function Detail({ hire: h }: { hire: NewHire }) {
         <CardContent className="flex flex-col gap-4 py-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-medium">Sjekkliste</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{done}/{h.checklist.length} fullført</span>
+            <span className="text-xs tabular-nums text-muted-foreground">{done} av {h.checklist.length} fullført</span>
           </div>
-          <Progress value={pct} className="h-1.5" />
+          <Progress value={pct} className="h-1.5" aria-label={`${done} av ${h.checklist.length} fullført`} />
           <ul className="flex flex-col divide-y divide-border">
             {h.checklist.map((c) => (
-              <li key={c.key} className="flex items-center justify-between gap-3 py-2.5">
-                <label className="flex items-center gap-3 text-sm">
-                  <Checkbox
-                    checked={c.done}
-                    disabled={check.isPending}
-                    onCheckedChange={(v) => run(() => check.mutateAsync({ id: h.id, key: c.key, done: Boolean(v) }))}
-                  />
-                  <span className={c.done ? "text-muted-foreground line-through" : undefined}>
-                    {CHECKLIST_LABEL[c.key]}
+              <motion.li key={c.key} layout={!reduce} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="flex items-center gap-3 text-sm">
+                  {c.manual ? (
+                    <Checkbox aria-label={CHECKLIST_LABEL[c.key]} checked={c.done} disabled={check.isPending || closed}
+                      onCheckedChange={(v) => run(() => check.mutateAsync({ id: h.id, key: c.key, done: Boolean(v) }))} />
+                  ) : c.done ? (
+                    <CircleCheck className="size-4 text-success" aria-hidden />
+                  ) : (
+                    <CircleDashed className="size-4 text-muted-foreground" aria-hidden />
+                  )}
+                  <span className="flex flex-col">
+                    <span className={c.done ? "text-muted-foreground" : undefined}>
+                      {CHECKLIST_LABEL[c.key]}
+                      <span className="sr-only">{c.done ? " — fullført" : " — ikke fullført"}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground">{SOURCE_LABEL[c.key]}</span>
                   </span>
-                </label>
+                </div>
                 {c.at && <span className="text-xs tabular-nums text-muted-foreground">{stampFmt.format(new Date(c.at))}</span>}
-              </li>
+              </motion.li>
             ))}
           </ul>
         </CardContent>
       </Card>
 
-      {/* ── Contract (ONB-02, ONB-03, ONB-04) ──────────────────────────── */}
+      {/* ── Contracts (ONB-02, ONB-03, ONB-04) ──────────────────────────── */}
       <Card>
-        <CardContent className="flex flex-col gap-4 py-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-medium">
-              <FileSignature className="size-4 text-muted-foreground" aria-hidden /> Arbeidskontrakt
-            </h2>
-            <Badge className={h.contract.status === "signert" ? "bg-success/10 text-success" : "bg-warning/10 text-warning-on-tint"}>
-              {CONTRACT_STATUS_LABEL[h.contract.status]}
-            </Badge>
-          </div>
-          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-            <Row label="Mal i signeringsløsningen" value={h.contract.templateId ?? "—"} mono />
-            <Row label="Sendt" value={h.contract.sentAt ? stampFmt.format(new Date(h.contract.sentAt)) : "—"} />
-            <Row label="Signert" value={h.contract.signedAt ? stampFmt.format(new Date(h.contract.signedAt)) : "—"} />
-            <Row label="Purringer sendt" value={String(h.contract.remindersSent)} />
-          </dl>
+        <CardContent className="flex flex-col gap-5 py-5">
+          <h2 className="flex items-center gap-2 text-sm font-medium">
+            <FileSignature className="size-4 text-muted-foreground" aria-hidden /> Kontrakter
+          </h2>
+          {contracts.map((c, i) => (
+            <ContractTimeline key={c.id ?? i} c={c} disabled={remind.isPending || closed}
+              onRemind={() => run(() => remind.mutateAsync({ id: h.id, contractId: c.id }))} />
+          ))}
           <p className="text-xs text-muted-foreground">
-            Endringer i kontraktmalene skal meldes til Dana før de tas i bruk, slik at onboarding og
-            offboarding fortsetter å virke.
+            Kontrakten sendes automatisk fra HR når Ole godkjenner. Personen kan ikke starte før den er signert.
+            Endringer i kontraktmalene meldes til Dana før de tas i bruk
+            (<Link href="/onboarding/kontraktmaler" className="underline">kontraktmaler</Link>).
           </p>
-          <div className="flex flex-wrap gap-2">
-            {h.contract.status === "ikke-sendt" && (
-              <Button size="sm" className="gap-1.5" disabled={contract.isPending}
-                onClick={() => run(() => contract.mutateAsync({ id: h.id, action: "send" }))}>
-                <Send className="size-4" /> Send til signering
-              </Button>
-            )}
-            {h.contract.status !== "signert" && h.contract.status !== "ikke-sendt" && (
-              <>
-                <Button size="sm" variant="outline" className="gap-1.5" disabled={contract.isPending}
-                  onClick={() => run(() => contract.mutateAsync({ id: h.id, action: "remind" }))}>
-                  <Bell className="size-4" /> Send purring
-                </Button>
-                <Button size="sm" variant="ghost" disabled={contract.isPending}
-                  onClick={() => run(() => contract.mutateAsync({ id: h.id, action: "sign" }))}>
-                  Marker som signert
-                </Button>
-              </>
-            )}
+        </CardContent>
+      </Card>
+
+      {/* ── Account («Opprett brukerkonto», master Q5) ─────────────────── */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 py-5">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <KeyRound className="size-4 text-muted-foreground" aria-hidden /> Brukerkonto
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {h.authUserId
+                ? "Opprettet. Personen får velkomst-e-post med passordlenke når onboardingen fullføres."
+                : h.manualAccount
+                  ? "Ledernivå: kontoen opprettes manuelt i HR (én konto, én rolle)."
+                  : allSigned ? "Kontraktene er signert. Kontoen kan opprettes." : "Kan opprettes når alle kontraktene er signert."}
+            </p>
           </div>
+          {h.authUserId ? (
+            <Badge className="bg-success/10 text-success">Opprettet</Badge>
+          ) : !h.manualAccount ? (
+            <Button size="sm" disabled={!allSigned || provision.isPending || closed}
+              onClick={() => run(() => provision.mutateAsync({ id: h.id }))}>
+              Opprett brukerkonto
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -210,34 +247,48 @@ function Detail({ hire: h }: { hire: NewHire }) {
             <p className="mt-1 text-xs text-muted-foreground">
               {h.photo
                 ? `Lagt inn av ${h.photo.uploadedBy}, ${stampFmt.format(new Date(h.photo.uploadedAt))}`
-                : "Ole tar bildet og kobler det til personen."}
+                : h.authUserId ? "Ole tar bildet og kobler det til personen." : "Kan tas når brukerkontoen er opprettet."}
             </p>
           </div>
-          {h.photo ? (
-            <Badge className="bg-success/10 text-success">Lagt inn</Badge>
-          ) : (
-            <Button size="sm" variant="outline" className="gap-1.5" disabled={photo.isPending}
-              onClick={() => run(() => photo.mutateAsync({ id: h.id }))}>
-              <Camera className="size-4" /> Last opp bilde
-            </Button>
-          )}
+          {/* `capture` opens the camera on a phone; on a desktop it is an ordinary file picker. */}
+          <input ref={fileRef} type="file" accept="image/*" capture="user" className="sr-only" tabIndex={-1}
+            aria-hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) run(() => photo.mutateAsync({ id: h.id, file }));
+            }} />
+          <Button size="sm" variant={h.photo ? "ghost" : "outline"} className="gap-1.5"
+            disabled={photo.isPending || !h.authUserId || closed} onClick={() => fileRef.current?.click()}>
+            {photo.isPending
+              ? <><Mascot state="thinking" motion="loop" size={20} label="Laster opp" /> Laster opp</>
+              : <><Camera className="size-4" aria-hidden /> {h.photo ? "Ta nytt bilde" : "Ta bilde"}</>}
+          </Button>
         </CardContent>
       </Card>
 
       {/* ── Equipment + equipment contract (ONB-07) ─────────────────────── */}
       <Card>
         <CardContent className="flex flex-col gap-4 py-5">
-          <h2 className="flex items-center gap-2 text-sm font-medium">
-            <Package className="size-4 text-muted-foreground" aria-hidden /> Utstyr
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <Package className="size-4 text-muted-foreground" aria-hidden /> Utstyr
+            </h2>
+            <a href={`${HR_URL}/varehus`} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground">
+              Registrer utlevering i HR <ExternalLink className="size-3" aria-hidden />
+            </a>
+          </div>
 
           {h.equipment.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ingenting utlevert ennå.</p>
+            <p className="text-sm text-muted-foreground">
+              Ingenting utlevert ennå. Utstyr registreres med serienummer i utstyrslisten på hr.abmarketing.no.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="pb-2 font-medium">Type</th>
                     <th className="pb-2 font-medium">Modell</th>
                     <th className="pb-2 font-medium">Serienummer</th>
@@ -249,9 +300,9 @@ function Detail({ hire: h }: { hire: NewHire }) {
                     <tr key={e.id}>
                       <td className="py-2">{e.kind}</td>
                       <td className="py-2 text-muted-foreground">{e.model}</td>
-                      <td className="py-2 font-mono text-xs">{e.serial}</td>
+                      <td className="py-2 font-mono text-xs">{e.serial || "—"}</td>
                       <td className="py-2 text-xs tabular-nums text-muted-foreground">
-                        {stampFmt.format(new Date(e.handedOutAt))} · {e.handedOutBy}
+                        {e.handedOutAt ? stampFmt.format(new Date(e.handedOutAt)) : "—"}{e.handedOutBy && ` · ${e.handedOutBy}`}
                       </td>
                     </tr>
                   ))}
@@ -260,105 +311,137 @@ function Detail({ hire: h }: { hire: NewHire }) {
             </div>
           )}
 
-          <div className="grid items-end gap-3 sm:grid-cols-[10rem_1fr_1fr_auto]">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eq-kind" className="text-xs text-muted-foreground">Type</Label>
-              <Select value={eq.kind} onValueChange={(v) => setEq((s) => ({ ...s, kind: v }))}>
-                <SelectTrigger id="eq-kind"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {EQUIPMENT_KINDS.map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eq-model" className="text-xs text-muted-foreground">Modell</Label>
-              <Input id="eq-model" value={eq.model} onChange={(e) => setEq((s) => ({ ...s, model: e.target.value }))} />
-              {eqErrors.model && <p className="text-xs text-danger">{eqErrors.model}</p>}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eq-serial" className="text-xs text-muted-foreground">Serienummer</Label>
-              <Input id="eq-serial" className="font-mono" value={eq.serial} onChange={(e) => setEq((s) => ({ ...s, serial: e.target.value }))} />
-              {eqErrors.serial && <p className="text-xs text-danger">{eqErrors.serial}</p>}
-            </div>
-            <Button size="sm" disabled={handOut.isPending} onClick={addEquipment}>Registrer</Button>
-          </div>
-
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <div>
               <p className="text-sm font-medium">Utstyrskontrakt</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Signeres etter utlevering, der den ansatte bekrefter mottatt utstyr.
+                Sendes fra HR etter utlevering, og den ansatte bekrefter mottatt utstyr.
                 {h.equipmentContract.signedAt && ` Signert ${stampFmt.format(new Date(h.equipmentContract.signedAt))}.`}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className={h.equipmentContract.status === "signert" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}>
-                {CONTRACT_STATUS_LABEL[h.equipmentContract.status]}
-              </Badge>
-              {h.equipmentContract.status === "ikke-sendt" && (
-                <Button size="sm" variant="outline" disabled={eqContract.isPending}
-                  onClick={() => run(() => eqContract.mutateAsync({ id: h.id, action: "send" }))}>
-                  Send til signering
-                </Button>
-              )}
-              {h.equipmentContract.status === "sendt" && (
-                <Button size="sm" variant="ghost" disabled={eqContract.isPending}
-                  onClick={() => run(() => eqContract.mutateAsync({ id: h.id, action: "sign" }))}>
-                  Marker som signert
-                </Button>
-              )}
-            </div>
+            <StatusBadge status={h.equipmentContract.status} />
           </div>
         </CardContent>
       </Card>
 
-      {/* ── First day no-show (ONB-08) ──────────────────────────────────── */}
-      <Card className={h.firstDayNoShow ? "border-danger/40" : undefined}>
-        <CardContent className="flex flex-col gap-3 py-5">
-          <h2 className="flex items-center gap-2 text-sm font-medium">
-            <UserX className="size-4 text-muted-foreground" aria-hidden /> Første arbeidsdag
-          </h2>
-          {h.firstDayNoShow ? (
-            <p className="text-sm">
-              Registrert som ikke møtt {stampFmt.format(new Date(h.firstDayNoShow.at))},
-              fulgt opp av {h.firstDayNoShow.followedUpBy}. {h.firstDayNoShow.note}
+      {/* ── First day (ONB-08) — registered in the leader calendar (A5) ─── */}
+      <Card className={h.status === "no_show" ? "border-danger/40" : undefined}>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-5">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <UserX className="size-4 text-muted-foreground" aria-hidden /> Første arbeidsdag
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {h.firstDayNoShow
+                ? `Registrert som ikke møtt${h.firstDayNoShow.at ? ` ${stampFmt.format(new Date(h.firstDayNoShow.at))}` : ""}, fulgt opp av ${h.firstDayNoShow.followedUpBy}.`
+                : `Starter ${dateFmt.format(new Date(h.startDate))}. Lederen registrerer oppmøte i lederkalenderen.`}
             </p>
-          ) : noShowOpen ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ns-note">Hva skjedde da dere fulgte opp?</Label>
-                <Textarea id="ns-note" rows={2} value={noShowNote} onChange={(e) => setNoShowNote(e.target.value)} />
-              </div>
-              <p className="text-xs text-muted-foreground">Nasrin varsles når dette registreres.</p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="text-danger" disabled={noShow.isPending || !noShowNote.trim()}
-                  onClick={() => run(async () => { await noShow.mutateAsync({ id: h.id, note: noShowNote.trim() }); setNoShowOpen(false); })}>
-                  Registrer ikke møtt
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setNoShowOpen(false)}>Avbryt</Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Starter {dateFmt.format(new Date(h.startDate))}.
+            {h.blockedReasons.length > 0 && !closed && (
+              <p className="mt-1 text-xs text-warning-on-tint">
+                Venter på signert kontrakt. Oppmøte kan ikke registreres som møtt før dette er på plass:{" "}
+                {h.blockedReasons.map((r) => r.label).join(" ")}
               </p>
-              <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setNoShowOpen(true)}>
-                Møtte ikke første dag
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
+          <Link href="/leder/oppmote" className="text-xs text-muted-foreground underline hover:text-foreground">Lederkalender</Link>
         </CardContent>
       </Card>
+
+      {/* ── Finish (ONB-09) ──────────────────────────────────────────────── */}
+      {!closed && (
+        <Card className={h.status === "ready" ? "border-success/40" : undefined}>
+          <CardContent className="flex flex-col gap-3 py-5">
+            <h2 className="text-sm font-medium">Fullfør onboarding</h2>
+            <p className="text-xs text-muted-foreground">
+              Når alle punktene er fullført, opprettes personen som ansatt i HR med valgt tilgangsmal, og legges til i
+              Tripletex og Slack.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1.5">
+                <span id="tpl-label" className="text-xs text-muted-foreground">Tilgangsmal</span>
+                <Select value={template} onValueChange={setTemplate}>
+                  <SelectTrigger aria-labelledby="tpl-label" className="w-[16rem] max-w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATES.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="gap-1.5" disabled={h.status !== "ready" || complete.isPending}
+                onClick={() => run(() => complete.mutateAsync({ id: h.id, accessTemplate: template }))}>
+                <Check className="size-4" aria-hidden /> Fullfør
+              </Button>
+            </div>
+            {h.status !== "ready" && (
+              <p className="text-xs text-muted-foreground">
+                Gjenstår: {h.checklist.filter((c) => !c.done).map((c) => CHECKLIST_LABEL[c.key].toLowerCase()).join(", ")}.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+/** ONB-03 — sendt → åpnet → signert, with the reminders in between. */
+function ContractTimeline({ c, onRemind, disabled }: { c: Contract; onRemind: () => void; disabled: boolean }) {
+  const steps = [
+    { key: "sendt", label: "Sendt", at: c.sentAt, icon: Send },
+    { key: "apnet", label: "Åpnet", at: c.seenAt, icon: Eye },
+    { key: "signert", label: "Signert", at: c.signedAt, icon: Check },
+  ];
+  const pending = c.status === "sendt" || c.status === "apnet";
   return (
-    <div className="flex justify-between gap-3 border-b border-border/60 py-1.5 sm:border-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={mono ? "font-mono text-xs" : "tabular-nums"}>{value}</dd>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm">{c.label ?? (c.kind ? KIND_LABEL[c.kind] ?? c.kind : "Ansettelseskontrakt")}</p>
+          {c.templateName && c.templateName !== c.label && (
+            <p className="text-xs text-muted-foreground">Mal: {c.templateName}</p>
+          )}
+        </div>
+        <StatusBadge status={c.status} />
+      </div>
+      <ol className="grid grid-cols-3 gap-2" aria-label="Signaturstatus">
+        {steps.map((s) => {
+          const Icon = s.icon;
+          return (
+            <li key={s.key} className={cn("flex flex-col gap-0.5 rounded-md border px-2.5 py-2",
+              s.at ? "border-success/30 bg-success/5" : "border-border")}>
+              <span className={cn("flex items-center gap-1.5 text-xs", s.at ? "text-foreground" : "text-muted-foreground")}>
+                <Icon className="size-3.5" aria-hidden /> {s.label}
+              </span>
+              <span className="text-[11px] tabular-nums text-muted-foreground">{s.at ? stampFmt.format(new Date(s.at)) : "—"}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>
+          Purringer sendt: <span className="tabular-nums">{c.remindersSent}</span>
+        </span>
+        {pending && (
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={disabled} onClick={onRemind}>
+            <Bell className="size-3.5" aria-hidden /> Send purring
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: Contract["status"] }) {
+  const tone = status === "signert" ? "bg-success/10 text-success"
+    : status === "avvist" || status === "utlopt" ? "bg-danger/10 text-danger"
+      : status === "ikke-sendt" ? "bg-muted text-muted-foreground" : "bg-warning/10 text-warning-on-tint";
+  return <Badge className={tone}>{CONTRACT_STATUS_LABEL[status]}</Badge>;
+}
+
+function DetailSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      <Skeleton className="h-10 w-2/3" />
+      {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full rounded-lg" />)}
     </div>
   );
 }

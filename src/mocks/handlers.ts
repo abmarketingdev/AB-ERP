@@ -30,6 +30,7 @@ import {
 import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
 import { accessHandlers } from "./access-handlers";
 import { a3Handlers } from "./a3-handlers";
+import { a4Handlers } from "./a4-handlers";
 import type { Lead } from "@/types/lead";
 import { queryLeads, leadCounts, leadMeta, leadById, leadsByIds, patchLead } from "./lead-query";
 import { APPROVAL_GATED, REQUIRES, manualTargets, refuseMove } from "./recruitment-graph";
@@ -41,8 +42,6 @@ const slug = (label: string) =>
     .replace(/å/g, "a").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 import { leadCorpus } from "./leads";
 import { buildDashboard } from "./srs-dashboard";
-import { LEADERS, TEAMS_SRS, dayOffset, iso, isoDay, DEMO_TODAY } from "./srs-seed";
-import type { NewHire, Employee, Equipment, ChecklistKey } from "@/types/onboarding";
 import type { Shift, SwapRequest } from "@/types/schedule";
 import type { LeaderTask } from "@/types/task";
 import type { AuditEntry, CustomerAccount, CustomerAgreement } from "@/types/quality";
@@ -208,6 +207,8 @@ export const handlers = [
   // ── recruitment-service: access (A1) ──────────────────────────────────────
   ...accessHandlers,
   ...a3Handlers,
+  // ── recruitment-service: approvals + onboarding (A4) ──────────────────────
+  ...a4Handlers,
   // ── Promoter ───────────────────────────────────────────────────────────────
   get(
     "/api/dashboard/employee/me/stats",
@@ -288,188 +289,6 @@ export const handlers = [
 
   // ── Recruitment ────────────────────────────────────────────────────────────
   // ── Onboarding (ONB) ───────────────────────────────────────────────────────
-  get("/api/hr/onboarding", () => db.newHires, []),
-
-  http.get("/api/hr/onboarding/:id", async ({ params }) => {
-    await latency();
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    return HttpResponse.json(h);
-  }),
-
-  /** ONB-05 — the checklist. Ticking the last box is what finishes onboarding. */
-  http.post("/api/hr/onboarding/:id/check", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { key: ChecklistKey; done: boolean };
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-
-    /*
-     * ONB-03 — "Ansatt kan ikke starte før kontrakten er signert." So the first
-     * working day cannot be ticked while the contract is outstanding. Refusing
-     * with a reason rather than hiding the control keeps the rule visible.
-     */
-    if (body.key === "forstedag" && body.done && h.contract.status !== "signert") {
-      return HttpResponse.json(
-        { message: "Kontrakten må være signert før første arbeidsdag kan bekreftes." },
-        { status: 409 },
-      );
-    }
-    if (body.key === "utstyr" && body.done && h.equipment.length === 0) {
-      return HttpResponse.json(
-        { message: "Registrer utstyret med serienummer før du huker av." },
-        { status: 409 },
-      );
-    }
-
-    const item = h.checklist.find((c) => c.key === body.key);
-    if (item) {
-      item.done = body.done;
-      item.at = body.done ? new Date().toISOString() : null;
-    }
-
-    // ONB-09 — a completed checklist creates the employee, with the access
-    // template. That transition is the point of the module, so it happens here
-    // rather than being a separate button somebody forgets to press.
-    if (h.checklist.every((c) => c.done) && !h.completedAt) {
-      h.completedAt = new Date().toISOString();
-      const employee: Employee = {
-        id: `emp-${Date.now()}`,
-        name: h.name,
-        phone: h.phone,
-        email: h.email,
-        team: h.team,
-        campaign: h.campaign,
-        role: "Promotør",
-        startDate: h.startDate,
-        active: true,
-        accessTemplate: "Promotør",
-        equipment: h.equipment,
-        photo: Boolean(h.photo),
-        fromNewHireId: h.id,
-      };
-      db.employees.unshift(employee);
-      writeAudit({ actor: "Ole Marius Sormbråten", action: "Opprettet ansatt fra onboarding", area: "Ansatte", affected: h.name, after: "Tilgangsmal: Promotør" });
-    }
-
-    persistDb();
-    return HttpResponse.json(h);
-  }),
-
-  /** ONB-02 / ONB-03 — kontrakt til signering, og purring på det som ikke er signert. */
-  http.post("/api/hr/onboarding/:id/contract", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { action: "send" | "remind" | "sign" };
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    const now = new Date().toISOString();
-    if (body.action === "send") {
-      h.contract.status = "sendt";
-      h.contract.sentAt = now;
-    } else if (body.action === "remind") {
-      h.contract.remindersSent += 1;
-    } else {
-      h.contract.status = "signert";
-      h.contract.signedAt = now;
-      const item = h.checklist.find((c) => c.key === "kontrakt");
-      if (item) { item.done = true; item.at = now; }
-    }
-    writeAudit({ actor: "Ole Marius Sormbråten", action: `Kontrakt: ${body.action}`, area: "Onboarding", affected: h.name, after: h.contract.status });
-    persistDb();
-    return HttpResponse.json(h);
-  }),
-
-  /** ONB-06 — Ole tar bildet og kobler det til personen. */
-  http.post("/api/hr/onboarding/:id/photo", async ({ params }) => {
-    await latency();
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    const now = new Date().toISOString();
-    h.photo = { uploadedAt: now, uploadedBy: "Ole Marius Sormbråten" };
-    const item = h.checklist.find((c) => c.key === "bilde");
-    if (item) { item.done = true; item.at = now; }
-    persistDb();
-    return HttpResponse.json(h);
-  }),
-
-  /**
-   * ONB-07 — utstyr registreres med serienummer, og utstyrskontrakten sendes
-   * *etter* utlevering.
-   *
-   * The order is the requirement: the contract is the employee confirming what
-   * they received, so it cannot be sent before there is anything to confirm.
-   */
-  http.post("/api/hr/onboarding/:id/equipment", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { kind: string; model: string; serial: string };
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    const dupe = db.newHires.flatMap((x) => x.equipment).find((e) => e.serial === body.serial);
-    if (dupe) {
-      return HttpResponse.json(
-        { message: `Serienummeret ${body.serial} er allerede registrert på en annen ansatt.` },
-        { status: 409 },
-      );
-    }
-    const eq: Equipment = {
-      id: `eq-${Date.now()}`,
-      kind: body.kind,
-      model: body.model,
-      serial: body.serial,
-      handedOutAt: new Date().toISOString(),
-      handedOutBy: "Ole Marius Sormbråten",
-    };
-    h.equipment.push(eq);
-    writeAudit({ actor: "Ole Marius Sormbråten", action: "Registrerte utlevert utstyr", area: "Onboarding", affected: h.name, after: `${body.kind} ${body.serial}` });
-    persistDb();
-    return HttpResponse.json(h);
-  }),
-
-  http.post("/api/hr/onboarding/:id/equipment-contract", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { action: "send" | "sign" };
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    if (body.action === "send" && h.equipment.length === 0) {
-      return HttpResponse.json(
-        { message: "Utstyrskontrakten signeres etter utlevering — registrer utstyret først." },
-        { status: 409 },
-      );
-    }
-    const now = new Date().toISOString();
-    if (body.action === "send") {
-      h.equipmentContract = { status: "sendt", sentAt: now, signedAt: null };
-    } else {
-      h.equipmentContract = { ...h.equipmentContract, status: "signert", signedAt: now };
-      const item = h.checklist.find((c) => c.key === "utstyr");
-      if (item) { item.done = true; item.at = now; }
-    }
-    persistDb();
-    return HttpResponse.json(h);
-  }),
-
-  /** ONB-08 — møtte ikke første arbeidsdag, etter at de er fulgt opp. */
-  http.post("/api/hr/onboarding/:id/no-show", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { note: string };
-    const h = db.newHires.find((x) => x.id === params.id);
-    if (!h) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    h.firstDayNoShow = { at: new Date().toISOString(), followedUpBy: "Ole Marius Sormbråten", note: body.note };
-    writeAudit({ actor: "Ole Marius Sormbråten", action: "Registrerte ikke møtt første arbeidsdag", area: "Onboarding", affected: h.name, after: "Ikke møtt" });
-    persistDb();
-    // Nasrin is told, per ONB-08. Modelled as an audit entry here; the real
-    // system sends it on whichever channel §4 settles on.
-    return HttpResponse.json(h);
-  }),
-
-  // ── Ansatte ────────────────────────────────────────────────────────────────
-  get("/api/hr/employees", () => db.employees, []),
-  http.get("/api/hr/employees/:id", async ({ params }) => {
-    await latency();
-    const e = db.employees.find((x) => x.id === params.id);
-    if (!e) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    return HttpResponse.json(e);
-  }),
 
   // ── Vaktplan og oppmøte (BEM) ──────────────────────────────────────────────
   get("/api/hr/shifts", (request) => {
@@ -718,24 +537,6 @@ export const handlers = [
    * named person does another. Stored as a setting, with a window, so it
    * expires by itself rather than quietly leaving two approvers forever.
    */
-  get("/api/hr/approval/deputy", () => db.approvalDeputy),
-
-  http.post("/api/hr/approval/deputy", async ({ request }) => {
-    await latency();
-    const body = (await request.json()) as { deputy: string | null; from?: string; to?: string };
-    db.approvalDeputy = body.deputy
-      ? { deputy: body.deputy, from: body.from ?? null, to: body.to ?? null, setAt: new Date().toISOString() }
-      : { deputy: null, from: null, to: null, setAt: new Date().toISOString() };
-    writeAudit({
-      actor: "Ole Marius Sormbråten",
-      action: body.deputy ? "Satte stedfortreder for godkjenning" : "Fjernet stedfortreder",
-      area: "Godkjenning",
-      affected: body.deputy ?? "—",
-      after: body.deputy ? `${body.from ?? "nå"} – ${body.to ?? "inntil videre"}` : "ingen",
-    });
-    persistDb();
-    return HttpResponse.json(db.approvalDeputy);
-  }),
 
   // ── LEAD-11: målgruppeeksport til Meta og TikTok ──────────────────────────
   /**
@@ -831,63 +632,7 @@ export const handlers = [
    * append-only history and the same audit log rather than in a parallel
    * "approvals" store that the candidate timeline would not show.
    */
-  http.post("/api/hr/recruitment/candidates/:id/decision", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as {
-      decision: "godkjent" | "avvist";
-      comment: string;
-      actor?: string;
-    };
-    const candidate = db.candidates.find((c) => c.id === params.id);
-    if (!candidate) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    if (candidate.stageId !== "til-godkjenning") {
-      return HttpResponse.json(
-        { message: "Kandidaten ligger ikke til godkjenning." },
-        { status: 409 },
-      );
-    }
-
-    const actor = body.actor ?? "Ole Marius Sormbråten";
-    candidate.history.push({
-      id: `h-${Date.now()}`,
-      at: nowStamp(),
-      actor,
-      type: "stage-change",
-      stageId: body.decision,
-      detail:
-        body.decision === "godkjent"
-          ? `Godkjent av ${actor}.${body.comment ? ` Kommentar: ${body.comment}` : ""}`
-          : `Avvist av ${actor}. Begrunnelse: ${body.comment}`,
-    });
-    candidate.stageId = body.decision;
-
-    /*
-     * ONB-05 — approval is what creates the onboarding checklist. Building it
-     * here rather than on the onboarding screen means the progress counter on
-     * the board card is right the moment Ole presses the button.
-     */
-    if (body.decision === "godkjent" && candidate.onboarding.length === 0) {
-      candidate.onboarding = [
-        { id: "ob-1", task: "Personalia registrert", done: false },
-        { id: "ob-2", task: "Kontrakt sendt til signering", done: false },
-        { id: "ob-3", task: "Bilde tatt og lagt inn", done: false },
-        { id: "ob-4", task: "Utstyr utlevert med serienummer", done: false },
-        { id: "ob-5", task: "Opplæring gjennomført", done: false },
-        { id: "ob-6", task: "Første arbeidsdag bekreftet", done: false },
-      ];
-    }
-
-    writeAudit({
-      actor,
-      action: body.decision === "godkjent" ? "Godkjente kandidat" : "Avviste kandidat",
-      area: "Godkjenning",
-      affected: candidate.name,
-      before: "Til godkjenning",
-      after: body.decision === "godkjent" ? "Godkjent" : "Avvist",
-    });
-    persistDb();
-    return HttpResponse.json(candidate);
-  }),
+  // GODK-02 decision moved to ./a4-handlers.ts (/api/recruitment/approval/requests/:id/decision/).
 
   // ── Samleinnboks (LEAD) ────────────────────────────────────────────────────
   /*

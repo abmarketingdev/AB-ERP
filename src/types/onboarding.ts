@@ -23,8 +23,9 @@ export const CHECKLIST_LABEL: Record<ChecklistKey, string> = {
   forstedag: "Første arbeidsdag",
 };
 
-/** ONB-03 — sendt, åpnet, signert. Three states, not a boolean. */
-export const contractStatusSchema = z.enum(["ikke-sendt", "sendt", "apnet", "signert"]);
+/** ONB-03 — sendt, åpnet, signert. Three states, not a boolean — plus the two ends a
+ *  signing can also reach (avvist by the signer, utløpt in Scrive). */
+export const contractStatusSchema = z.enum(["ikke-sendt", "sendt", "apnet", "signert", "avvist", "utlopt"]);
 export type ContractStatus = z.infer<typeof contractStatusSchema>;
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
@@ -32,6 +33,8 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   sendt: "Sendt",
   apnet: "Åpnet",
   signert: "Signert",
+  avvist: "Avvist",
+  utlopt: "Utløpt",
 };
 
 /**
@@ -49,8 +52,37 @@ export const equipmentSchema = z.object({
   serial: z.string(),
   handedOutAt: z.string(),
   handedOutBy: z.string(),
+  /** Receipt status of the hand-out line in HR's register (api mode). */
+  signatureStatus: z.string().nullable().optional(),
 });
 export type Equipment = z.infer<typeof equipmentSchema>;
+
+export const contractSchema = z.object({
+  id: z.string().optional(),
+  kind: z.string().optional(),
+  /** The name HR and Scrive use: «Ansettelseskontrakt», «Prosjektavtale». */
+  label: z.string().optional(),
+  /** What Ole reads instead of a Scrive id: «Prosjektavtale – Norsk Folkehjelp, junior». */
+  templateName: z.string().nullable().optional(),
+  status: contractStatusSchema,
+  /** ONB-04 — the Scrive template id the contract was sent from. */
+  templateId: z.string().nullable(),
+  sentAt: z.string().nullable(),
+  /** ONB-03 «åpnet» — first time the signer opened it in Scrive. */
+  seenAt: z.string().nullable().default(null),
+  signedAt: z.string().nullable(),
+  /** ONB-03 — purring on contracts that are not signed. */
+  remindersSent: z.number(),
+});
+export type Contract = z.infer<typeof contractSchema>;
+
+export const timelineEntrySchema = z.object({
+  at: z.string(),
+  kind: z.string(),
+  actor: z.string().nullable(),
+  payload: z.record(z.string(), z.unknown()).default({}),
+});
+export type TimelineEntry = z.infer<typeof timelineEntrySchema>;
 
 export const newHireSchema = z.object({
   id: z.string(),
@@ -63,16 +95,16 @@ export const newHireSchema = z.object({
   startDate: z.string(),
   /** ONB-01 — who registered the data, per the SRS: salgsleder. */
   registeredBy: z.string(),
-  checklist: z.array(z.object({ key: checklistKeySchema, done: z.boolean(), at: z.string().nullable() })),
-  contract: z.object({
-    status: contractStatusSchema,
-    /** ONB-04 — the Scrive template id the contract was sent from. */
-    templateId: z.string().nullable(),
-    sentAt: z.string().nullable(),
-    signedAt: z.string().nullable(),
-    /** ONB-03 — purring on contracts that are not signed. */
-    remindersSent: z.number(),
-  }),
+  checklist: z.array(z.object({
+    key: checklistKeySchema, done: z.boolean(), at: z.string().nullable(),
+    /** ONB-05 — `system` items follow their source (Scrive, utstyrsregisteret, opplæring,
+     *  lederkalenderen); only `manual` ones are ticked by a person. */
+    source: z.enum(["system", "manual"]).default("system"),
+    manual: z.boolean().default(false),
+  })),
+  contract: contractSchema,
+  /** Every onboarding contract HR sent (ansettelse + prosjekt, …), each with its own timeline. */
+  contracts: z.array(contractSchema).default([]),
   /** ONB-06 — Ole takes the photo and attaches it to the person. */
   photo: z.object({ uploadedAt: z.string(), uploadedBy: z.string() }).nullable(),
   equipment: z.array(equipmentSchema),
@@ -83,8 +115,20 @@ export const newHireSchema = z.object({
     signedAt: z.string().nullable(),
   }),
   /** ONB-08 — did not turn up on day one, after being followed up. */
-  firstDayNoShow: z.object({ at: z.string(), followedUpBy: z.string(), note: z.string() }).nullable(),
+  firstDayNoShow: z.object({ at: z.string().nullable(), followedUpBy: z.string(), note: z.string() }).nullable(),
   completedAt: z.string().nullable(),
+  status: z.enum(["pending_handover", "in_progress", "ready", "completed", "no_show", "cancelled"]).default("in_progress"),
+  /** ONB-03 «kan ikke starte før kontrakten er signert» — why the person is not cleared yet. */
+  blockedReasons: z.array(z.object({ code: z.string(), label: z.string() })).default([]),
+  /** HR is the source; when it cannot be reached the screen shows its last copy, marked stale. */
+  hrSync: z.object({ state: z.enum(["pending", "ok", "failed"]), at: z.string().nullable(), error: z.string().nullable() })
+    .nullable().default(null),
+  timeline: z.array(timelineEntrySchema).default([]),
+  accessTemplate: z.string().default(""),
+  positionLevel: z.string().default("junior"),
+  /** Leader levels need a manager account, made by HR by hand (one account = one role). */
+  manualAccount: z.boolean().default(false),
+  authUserId: z.string().nullable().default(null),
 });
 export type NewHire = z.infer<typeof newHireSchema>;
 export const newHireListSchema = z.array(newHireSchema);
@@ -110,7 +154,7 @@ export const employeeSchema = z.object({
   startDate: z.string(),
   active: z.boolean(),
   /** ONB-09 — the access template applied when onboarding completed. */
-  accessTemplate: z.enum(ACCESS_TEMPLATES),
+  accessTemplate: z.string(),
   equipment: z.array(equipmentSchema),
   photo: z.boolean(),
   /** Which onboarding produced this person, so the trail is followable. */
