@@ -22,7 +22,7 @@ export default function AvmeldSms() {
   const confirm = useConfirmOptOut(code);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground">
+    <main className="light flex min-h-dvh items-center justify-center bg-background px-4 py-10 text-foreground">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <p className="mb-6 text-sm font-medium text-muted-foreground">AB Marketing</p>
         {link.isPending ? (
