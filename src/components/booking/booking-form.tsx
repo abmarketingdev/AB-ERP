@@ -102,12 +102,12 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
 
   return (
     <div className="flex flex-col gap-5">
-      <div className={`grid gap-4 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+      <div className={`grid gap-4 [&>*]:min-w-0 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
         {!fixedCandidate && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="iv-cand">Kandidat</Label>
             <Select value={candidateId} onValueChange={setCandidateId}>
-              <SelectTrigger id="iv-cand"><SelectValue placeholder={candidates.isPending ? "Henter …" : "Velg kandidat"} /></SelectTrigger>
+              <SelectTrigger id="iv-cand" className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder={candidates.isPending ? "Henter …" : "Velg kandidat"} /></SelectTrigger>
               <SelectContent>
                 {bookable.length === 0 && <div className="px-2 py-1.5 text-sm text-muted-foreground">Ingen kandidater klare for intervju</div>}
                 {bookable.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -118,7 +118,8 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iv-leader">Leder</Label>
           <Select value={leaderId} onValueChange={(v) => { setLeaderId(v); setPicked(null); }}>
-            <SelectTrigger id="iv-leader"><SelectValue placeholder={leaders.isPending ? "Henter …" : "Velg leder"} /></SelectTrigger>
+            {/* Real leaders have long names and several teams; the trigger truncates instead of spilling over «Sted». */}
+            <SelectTrigger id="iv-leader" className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder={leaders.isPending ? "Henter …" : "Velg leder"} /></SelectTrigger>
             <SelectContent>
               {(leaders.data ?? []).map((l) => (
                 <SelectItem key={l.id} value={l.id}>{l.name}{l.teams.length ? ` · ${l.teams.join(", ")}` : ""}</SelectItem>

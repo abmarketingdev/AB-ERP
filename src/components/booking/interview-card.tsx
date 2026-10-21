@@ -57,7 +57,9 @@ const rowTime = new Intl.DateTimeFormat("nb-NO", { timeZone: OSLO, weekday: "sho
 export function InterviewRow({ interview: iv }: { interview: Interview }) {
   const [open, setOpen] = React.useState(false);
   const [rebookOpen, setRebookOpen] = React.useState(false);
-  const failed = iv.messages.filter((m) => m.status === "failed" || m.status === "blocked_optout").length;
+  // A blocked message is the person's own choice (§8.1 l.743), not a delivery failure.
+  const failed = iv.messages.filter((m) => m.status === "failed").length;
+  const optedOut = iv.messages.filter((m) => m.status === "blocked_optout").length;
   const detailsId = `iv-details-${iv.id}`;
   return (
     <li className="flex flex-col">
@@ -73,6 +75,11 @@ export function InterviewRow({ interview: iv }: { interview: Interview }) {
             </Badge>
           )}
           {failed > 0 && <Badge variant="outline" className="border-danger/40 text-[10px] text-danger">{failed} ikke levert</Badge>}
+          {optedOut > 0 && (
+            <Badge variant="outline" className="border-warning/40 text-[10px] text-warning-on-tint" title="Mottakeren har meldt seg av SMS">
+              {optedOut} avmeldt SMS
+            </Badge>
+          )}
           <Badge className={STATUS_TONE[iv.status]}>{INTERVIEW_STATUS_LABEL[iv.status]}</Badge>
         </span>
         <span className="col-start-2 row-start-2 flex items-center gap-1 justify-self-end sm:col-start-auto sm:row-start-auto">
@@ -245,7 +252,7 @@ function CancelStep({ iv }: { iv: Interview }) {
 }
 
 function MessageList({ iv }: { iv: Interview }) {
-  const failed = iv.messages.filter((m) => m.status === "failed" || m.status === "blocked_optout").length;
+  const failed = iv.messages.filter((m) => m.status === "failed").length;
   return (
     <details className="text-sm" open={failed > 0}>
       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
