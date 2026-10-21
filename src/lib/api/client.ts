@@ -163,7 +163,7 @@ export async function apiGet<T>(
 }
 
 export async function apiSend<T>(
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   schema: z.ZodType<T>,
   body?: unknown,
@@ -198,6 +198,40 @@ export async function apiUpload<T>(
   if (!res.ok) throw new ApiError(res.status, await safeBody(res));
   return parseOr(schema, await res.json(), path);
 }
+
+/**
+ * A server-generated file (DASH-08 Excel/PDF, privacy export). Same auth, refresh and
+ * error mapping as apiGet; an error body (403/503 message) still reaches errorMessage().
+ * `filename` comes from Content-Disposition, preferring the RFC 5987 `filename*=UTF-8''…`
+ * form so Norwegian letters survive («Rapport_uke_43_Møre.xlsx»).
+ */
+export async function apiDownload(
+  path: string,
+  params?: Params,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const headers = new Headers(authHeaders());
+  headers.delete("Content-Type");
+  const res = await authorizedFetch(buildUrl(path, params), { method: "GET", headers });
+  if (!res.ok) throw new ApiError(res.status, await safeBody(res));
+  return { blob: await res.blob(), filename: filenameFrom(res.headers.get("Content-Disposition")) };
+}
+
+function filenameFrom(disposition: string | null): string | null {
+  if (!disposition) return null;
+  const star = /filename\*\s*=\s*(?:UTF-8|utf-8)''([^;]+)/.exec(disposition);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      /* malformed encoding — fall through to the plain form */
+    }
+  }
+  const plain = /filename\s*=\s*"?([^";]+)"?/.exec(disposition);
+  return plain ? plain[1].trim() : null;
+}
+
+export const apiPut = <T>(path: string, schema: z.ZodType<T>, body?: unknown, params?: Params) =>
+  apiSend("PUT", path, schema, body, params);
 
 export const apiPost = <T>(path: string, schema: z.ZodType<T>, body?: unknown, params?: Params) =>
   apiSend("POST", path, schema, body, params);
