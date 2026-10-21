@@ -171,13 +171,26 @@ export function bookingMessages(iv: Pick<Interview, "id" | "candidateName" | "ca
   return out;
 }
 
+/** The n-th weekday after (or before, n < 0) the demo day — interviews are never on a weekend. */
+function weekday(n: number, hour: number, minute = 0) {
+  let d = 0;
+  let left = Math.abs(n);
+  const step = n < 0 ? -1 : 1;
+  while (left > 0) {
+    d += step;
+    const wd = dayOffset(d).getUTCDay();
+    if (wd !== 0 && wd !== 6) left -= 1;
+  }
+  return dayOffset(d, hour, minute);
+}
+
 export function buildInterviews(): Interview[] {
   const booked = CANDIDATES.filter((c) => c.stageId === "intervju-booket").slice(0, 4);
   const done = CANDIDATES.filter((c) => c.stageId === "intervjuet").slice(0, 3);
   const out: Interview[] = [];
 
   booked.forEach((c, i) => {
-    const startsAt = iso(dayOffset(1 + i, 8 + (i % 4), i % 2 ? 30 : 0));
+    const startsAt = iso(weekday(1 + i, 8 + (i % 4), i % 2 ? 30 : 0));
     const leader = leaderByName(LEADERS[i % LEADERS.length]);
     const id = `iv-${c.id}`;
     const iv: Interview = {
@@ -195,7 +208,7 @@ export function buildInterviews(): Interview[] {
   });
 
   done.forEach((c, i) => {
-    const startsAt = iso(dayOffset(-2 - i, 9, 0));
+    const startsAt = iso(weekday(-1 - i, 9, 0));
     const leader = leaderByName(LEADERS[(i + 1) % LEADERS.length]);
     // One did not turn up — DASH-02 needs something to count.
     const attended = i !== 1;

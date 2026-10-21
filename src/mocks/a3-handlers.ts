@@ -1,4 +1,4 @@
-import { http, HttpResponse, delay } from "msw";
+import { http, HttpResponse, delay, type JsonBodyType } from "msw";
 import { db, persistDb } from "./db";
 import { writeAudit } from "./handlers";
 import { DEMO_TODAY, iso } from "./srs-seed";
@@ -17,6 +17,24 @@ import type { Interview, InterviewMessage } from "@/types/interview";
  */
 
 const R = "/api/recruitment";
+
+/**
+ * The demo scenario switch (?scenario=… on the page URL, carried by the client):
+ * every screen's five states can be shown on purpose — loading, empty, error, and
+ * «stale» (the leader's calendar not answering) — for design review and demos.
+ */
+type Scenario = "loading" | "empty" | "error" | "stale" | null;
+function scenario(request: Request): Scenario {
+  const s = new URL(request.url).searchParams.get("scenario");
+  return s === "loading" || s === "empty" || s === "error" || s === "stale" ? s : null;
+}
+async function scenarioResponse(request: Request, empty: JsonBodyType) {
+  const s = scenario(request);
+  if (s === "loading") { await delay("infinite"); }
+  if (s === "error") return HttpResponse.json({ message: "Tjenesten svarte ikke. Prøv igjen om litt." }, { status: 503 });
+  if (s === "empty") return HttpResponse.json(empty);
+  return null;
+}
 const latency = () => delay(180 + Math.random() * 220);
 const err = (status: number, message: string, code?: string, errors?: Record<string, string[]>) =>
   HttpResponse.json({ message, ...(code ? { code } : {}), ...(errors ? { errors } : {}) }, { status });
@@ -199,6 +217,8 @@ export const a3Handlers = [
   // ── Annonser ──────────────────────────────────────────────────────────────
   http.get(`${R}/ads/`, async ({ request }) => {
     await latency();
+    const forced = await scenarioResponse(request, []);
+    if (forced) return forced;
     const status = new URL(request.url).searchParams.get("status");
     const list = status ? db.ads.filter((a) => status.split(",").includes(a.status)) : db.ads;
     return HttpResponse.json(list.map(withCounts));
@@ -299,8 +319,9 @@ export const a3Handlers = [
   }),
 
   // ── Offentlig søknad ──────────────────────────────────────────────────────
-  http.get(`${R}/public/ads/:publicId/`, async ({ params }) => {
+  http.get(`${R}/public/ads/:publicId/`, async ({ params, request }) => {
     await latency();
+    if (scenario(request) === "loading") await delay("infinite");
     const ad = db.ads.find((a) => a.publicId === params.publicId && a.status !== "utkast");
     if (!ad) return err(404, "Fant ikke annonsen.");
     const open = withCounts(ad).acceptingApplications;
@@ -335,6 +356,8 @@ export const a3Handlers = [
   // ── Intervjuer ────────────────────────────────────────────────────────────
   http.get(`${R}/interviews/`, async ({ request }) => {
     await latency();
+    const forced = await scenarioResponse(request, []);
+    if (forced) return forced;
     const p = new URL(request.url).searchParams;
     let list = db.interviews;
     if (p.get("scope") === "mine") list = list.filter((iv) => iv.leader.id === DEMO_LEADER.id);
@@ -353,8 +376,12 @@ export const a3Handlers = [
     if (!leaderById(leader)) return err(400, "Ukjent leder.", undefined, { leader: ["Ukjent leder."] });
     const from = p.get("from") || iso(DEMO_TODAY).slice(0, 10);
     const days = Math.min(Number(p.get("days") ?? 7), 31);
-    return HttpResponse.json({ source: "kalender", stale: false, computedAt: new Date().toISOString(),
-      calendarSyncedAt: new Date(Date.now() - 4 * 60_000).toISOString(), slots: slotsFor(leader, from, days) });
+    const forced = await scenarioResponse(request, { source: "erklært", stale: false, computedAt: new Date().toISOString(),
+      calendarSyncedAt: null, slots: [] });
+    if (forced) return forced;
+    const stale = scenario(request) === "stale";
+    return HttpResponse.json({ source: "kalender", stale, computedAt: new Date().toISOString(),
+      calendarSyncedAt: new Date(Date.now() - (stale ? 47 : 4) * 60_000).toISOString(), slots: slotsFor(leader, from, days) });
   }),
   http.post(`${R}/interviews/`, async ({ request }) => {
     await latency();
@@ -450,8 +477,9 @@ export const a3Handlers = [
   }),
 
   // ── Kandidatlenken (offentlig) ────────────────────────────────────────────
-  http.get(`${R}/public/interview/:token/`, async ({ params }) => {
+  http.get(`${R}/public/interview/:token/`, async ({ params, request }) => {
     await latency();
+    if (scenario(request) === "loading") await delay("infinite");
     const iv = byToken(String(params.token));
     if (!iv) return err(404, "Lenken er ugyldig eller utløpt. Ta kontakt med oss hvis du trenger hjelp.");
     return HttpResponse.json(publicView(iv));

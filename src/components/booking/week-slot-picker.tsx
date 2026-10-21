@@ -34,6 +34,8 @@ const timeFmt = new Intl.DateTimeFormat("nb-NO", { timeZone: OSLO, hour: "2-digi
 const syncFmt = new Intl.DateTimeFormat("nb-NO", { timeZone: OSLO, hour: "2-digit", minute: "2-digit" });
 
 const dayKey = (iso: string) => dayKeyFmt.format(new Date(iso));
+/** «Man. 19. okt.» — only the first letter up; CSS `capitalize` would also give «Okt.». */
+const head = (iso: string) => { const s = dayHead.format(new Date(iso)); return s.charAt(0).toUpperCase() + s.slice(1); };
 
 function addDays(ymd: string, n: number) {
   const d = new Date(`${ymd}T12:00:00Z`);
@@ -121,7 +123,7 @@ export function WeekSlotPicker({
                   <button key={k} type="button" role="tab" aria-selected={active} onClick={() => setMobileDay(k)}
                     className={`flex min-w-[4.5rem] shrink-0 flex-col items-center rounded-lg border px-2 py-2 text-xs transition-colors ${
                       active ? "border-[var(--ab-accent-9)] bg-[var(--ab-accent-3)]" : "border-border"}`}>
-                    <span className="capitalize">{dayHead.format(new Date(s[0].startsAt))}</span>
+                    <span>{head(s[0].startsAt)}</span>
                     <span className="tabular-nums text-muted-foreground">{free} ledig{free === 1 ? "" : "e"}</span>
                   </button>
                 );
@@ -138,8 +140,8 @@ export function WeekSlotPicker({
           <div className="hidden gap-2 overflow-x-auto pb-1 sm:grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(7.5rem, 1fr))` }}>
             {days.map(([k, s]) => (
               <div key={k} className="rounded-lg border border-border">
-                <p className="border-b border-border px-2.5 py-2 text-xs capitalize text-muted-foreground" title={dayLong.format(new Date(s[0].startsAt))}>
-                  {dayHead.format(new Date(s[0].startsAt))}
+                <p className="border-b border-border px-2.5 py-2 text-xs text-muted-foreground" title={dayLong.format(new Date(s[0].startsAt))}>
+                  {head(s[0].startsAt)}
                 </p>
                 <ul className="flex flex-col gap-1 p-1.5">
                   {s.map((slot) => (
