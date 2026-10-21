@@ -184,7 +184,8 @@ function publicView(iv: Interview) {
 /** The mock link token: «tok-<candidateId>», as seeded. */
 const byToken = (token: string) => {
   const chain = db.interviews.filter((iv) => `tok-${iv.candidateId}` === token);
-  return chain.sort((a, b) => b.bookedAt.localeCompare(a.bookedAt))[0];
+  // The chain's current booking: an open one if there is one, else the latest.
+  return chain.sort((a, b) => Number(b.status === "booket") - Number(a.status === "booket") || b.bookedAt.localeCompare(a.bookedAt))[0];
 };
 
 function rebook(iv: Interview, startsAt: string, by: string): Interview {
