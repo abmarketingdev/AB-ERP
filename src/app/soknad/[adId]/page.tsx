@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,17 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAd, useApply } from "@/lib/api/srs";
-import { errorMessage } from "@/lib/api/client";
-import { applicationSchema } from "@/types/ad";
+import { usePublicAd, useApply } from "@/lib/api/ads";
+import { ApiError, errorMessage } from "@/lib/api/client";
+import { Mascot } from "@/components/patterns/mascot";
+import { applicationSchema, CONSENT_TEXT } from "@/types/ad";
 
 /**
  * ANN-04 — søknadsskjemaet bak sporingslenken.
  *
  * Public: no login, no shell, no navigation. The candidate has arrived from a
- * job ad and has one thing to do. The `?kanal=` parameter from the tracking
- * link is carried through to the lead so the samleinnboks knows which platform
- * the person came from — that is the whole mechanism behind DASH-04.
+ * job ad and has one thing to do. The `?k=` token from the tracking link is sent
+ * with the application, and the SERVER resolves it to the platform the person
+ * came from (ANN-04, LEAD-04, LEAD-12) — a channel name in the URL could be
+ * edited, a token cannot. Without a token the lead lands as «Nettside».
+ *
+ * The consent wording is the server's versioned text (LEAD-10), word for word.
  *
  * Always light. This is a page an applicant sees once, and it should look like
  * the company's website rather than inherit whatever theme a staff member set.
@@ -28,14 +31,18 @@ import { applicationSchema } from "@/types/ad";
 export default function Soknad() {
   const { adId } = useParams<{ adId: string }>();
   const params = useSearchParams();
-  const channel = params.get("kanal") ?? "nettside";
-  const ad = useAd(adId);
+  const token = params.get("k") ?? undefined;
+  const legacyChannel = params.get("kanal") ?? undefined;
+  const ad = usePublicAd(adId);
   const apply = useApply();
 
   const [form, setForm] = React.useState({
     name: "", phone: "", email: "", message: "",
     consentContact: false, consentAdAudience: false,
   });
+  // Honeypot: invisible to people, filled in by bots. The server drops those quietly.
+  const [website, setWebsite] = React.useState("");
+  const [closed, setClosed] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState(false);
@@ -52,10 +59,11 @@ export default function Soknad() {
     }
     setErrors({});
     try {
-      await apply.mutateAsync({ ...form, adId, channel });
+      await apply.mutateAsync({ ...form, adId, k: token, channel: legacyChannel, website });
       setSent(true);
     } catch (err) {
-      setSubmitError(errorMessage(err));
+      if (err instanceof ApiError && err.status === 410) setClosed(true);
+      else setSubmitError(errorMessage(err));
     }
   }
 
@@ -77,12 +85,28 @@ export default function Soknad() {
           )}
         </header>
 
-        {sent ? (
+        {ad.isError ? (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+              <Mascot state="sleeping" size={72} label="Fant ikke annonsen" />
+              <p className="text-base font-medium">Vi fant ikke denne annonsen</p>
+              <p className="text-sm text-muted-foreground">Lenken kan være feil, eller annonsen er fjernet.</p>
+            </CardContent>
+          </Card>
+        ) : closed || (ad.data && !ad.data.open) ? (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+              <Mascot state="sleeping" size={72} label="Søknadsfristen er ute" />
+              <p className="text-base font-medium">Søknadsfristen er ute</p>
+              <p className="text-sm text-muted-foreground">
+                Denne stillingen tar ikke imot flere søknader. Takk for interessen!
+              </p>
+            </CardContent>
+          </Card>
+        ) : sent ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-              <span className="flex size-12 items-center justify-center rounded-full bg-success/10 text-success">
-                <Check className="size-6" aria-hidden />
-              </span>
+              <Mascot state="win-small" size={72} label="Søknaden er sendt" />
               <div>
                 <p className="text-base font-medium">Takk for søknaden</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -101,7 +125,18 @@ export default function Soknad() {
               </Card>
             )}
 
-            <form onSubmit={submit} className="flex flex-col gap-5">
+            <form onSubmit={submit} noValidate className="relative flex flex-col gap-5">
+              {/* Error summary first (GOV.UK pattern): on a phone the field errors can be off-screen. */}
+              {Object.keys(errors).length > 0 && (
+                <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 p-4 text-sm">
+                  <p className="font-medium text-danger">Noe mangler før du kan sende</p>
+                  <ul className="mt-2 list-disc pl-5">
+                    {Object.entries(errors).map(([k, m]) => (
+                      <li key={k}><a className="underline underline-offset-2" href={`#ap-${{ name: "name", phone: "phone", email: "email" }[k] ?? "name"}`}>{m}</a></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <Card>
                 <CardContent className="flex flex-col gap-4 py-5">
                   <h2 className="text-sm font-medium">Dine opplysninger</h2>
@@ -130,16 +165,13 @@ export default function Soknad() {
                   <label className="flex min-h-11 items-start gap-3 text-[15px]">
                     <Checkbox className="mt-0.5 size-5" checked={form.consentContact}
                       onCheckedChange={(v) => setForm((f) => ({ ...f, consentContact: Boolean(v) }))} />
-                    <span>Jeg samtykker til at AB Marketing kontakter meg om denne stillingen.</span>
+                    <span>{CONSENT_TEXT.contact}</span>
                   </label>
                   {errors.consentContact && <p className="text-sm text-danger">{errors.consentContact}</p>}
                   <label className="flex min-h-11 items-start gap-3 text-[15px]">
                     <Checkbox className="mt-0.5 size-5" checked={form.consentAdAudience}
                       onCheckedChange={(v) => setForm((f) => ({ ...f, consentAdAudience: Boolean(v) }))} />
-                    <span>
-                      Jeg samtykker også til at opplysningene brukes til å finne lignende kandidater
-                      i annonser på Facebook, Instagram og TikTok.
-                    </span>
+                    <span>{CONSENT_TEXT.adAudience} <span className="text-muted-foreground">(valgfritt)</span></span>
                   </label>
                   <p className="text-xs text-muted-foreground">
                     Søknader fra kandidater som ikke blir ansatt slettes etter tre år, med mindre du
@@ -148,7 +180,12 @@ export default function Soknad() {
                 </CardContent>
               </Card>
 
-              {submitError && <p className="text-sm text-danger">{submitError}</p>}
+              <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+                <label htmlFor="ap-website">Nettside</label>
+                <input id="ap-website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+              </div>
+
+              {submitError && <p role="alert" className="text-sm text-danger">{submitError}</p>}
 
               <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={apply.isPending}>
                 {apply.isPending ? "Sender…" : "Send søknad"}

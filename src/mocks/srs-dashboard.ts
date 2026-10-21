@@ -232,7 +232,7 @@ export function buildDashboard(url: URL): RecruitmentDashboard {
     ),
     noShowByLeader: noShowsBy(
       scopedInterviews,
-      (iv) => iv.leader,
+      (iv) => iv.leader.name,
       [...firstDayByLeader].map(([key, v]) => ({ key, ...v })),
     ),
     promoterQuality,

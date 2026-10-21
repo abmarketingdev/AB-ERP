@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { z } from "zod";
 import { apiGet, apiPost, API } from "./client";
 import { qk } from "./keys";
-import { adListSchema, adSchema, adTemplateListSchema } from "@/types/ad";
-import { interviewListSchema, interviewSchema, slotListSchema, publicInterviewSchema } from "@/types/interview";
 import { newHireListSchema, newHireSchema, employeeListSchema, employeeSchema } from "@/types/onboarding";
 import { shiftListSchema, swapRequestListSchema, swapRequestSchema, shiftSchema, forecastListSchema } from "@/types/schedule";
 import { leaderTaskListSchema, leaderTaskSchema, complianceListSchema } from "@/types/task";
@@ -21,125 +19,11 @@ import { candidateSchema } from "@/types/recruitment";
 
 const okSchema = z.object({ ok: z.boolean() }).loose();
 
-// ── Annonser (ANN) ──────────────────────────────────────────────────────────
-
-export function useAds() {
-  return useQuery({ queryKey: qk.ads.list(), queryFn: () => apiGet(`${API.hr}/ads`, adListSchema) });
-}
-export function useAd(id: string) {
-  return useQuery({
-    queryKey: qk.ads.ad(id),
-    queryFn: () => apiGet(`${API.hr}/ads/${id}`, adSchema),
-    enabled: Boolean(id),
-  });
-}
-export function useAdTemplates() {
-  return useQuery({
-    queryKey: qk.ads.templates(),
-    queryFn: () => apiGet(`${API.hr}/ads/templates`, adTemplateListSchema),
-    staleTime: Infinity,
-  });
-}
-export function useAdMeta() {
-  return useQuery({
-    queryKey: qk.ads.meta(),
-    queryFn: () => apiGet(`${API.hr}/ads/meta`, z.object({ jobTypes: z.array(z.string()), locations: z.array(z.string()) })),
-    staleTime: Infinity,
-  });
-}
-function invalidateAds(qc: QueryClient) {
-  qc.invalidateQueries({ queryKey: ["ads"] });
-  qc.invalidateQueries({ queryKey: qk.quality.audit() });
-}
-export function useCreateAd() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Record<string, unknown>) => apiPost(`${API.hr}/ads`, adSchema, input),
-    onSuccess: () => invalidateAds(qc),
-  });
-}
-export function usePublishAd() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { id: string; platforms: string[] }) =>
-      apiPost(`${API.hr}/ads/${v.id}/publish`, adSchema, { platforms: v.platforms }),
-    onSuccess: () => invalidateAds(qc),
-  });
-}
-export function useUnpublishAd() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { id: string }) => apiPost(`${API.hr}/ads/${v.id}/unpublish`, adSchema, {}),
-    onSuccess: () => invalidateAds(qc),
-  });
-}
-
-// ── Intervju (BOOK) ─────────────────────────────────────────────────────────
-
-export function useInterviews(leader?: string) {
-  return useQuery({
-    queryKey: qk.interviews.list(leader),
-    queryFn: () => apiGet(`${API.hr}/interviews${leader ? `?leader=${encodeURIComponent(leader)}` : ""}`, interviewListSchema),
-  });
-}
-export function useLeaders() {
-  return useQuery({
-    queryKey: qk.interviews.leaders(),
-    queryFn: () => apiGet(`${API.hr}/interviews/leaders`, z.array(z.string())),
-    staleTime: Infinity,
-  });
-}
-export function useSlots(leader: string) {
-  return useQuery({
-    queryKey: qk.interviews.slots(leader),
-    queryFn: () => apiGet(`${API.hr}/interviews/slots?leader=${encodeURIComponent(leader)}`, slotListSchema),
-    enabled: Boolean(leader),
-  });
-}
-function invalidateInterviews(qc: QueryClient) {
-  qc.invalidateQueries({ queryKey: qk.interviews.all() });
-  qc.invalidateQueries({ queryKey: qk.recruitment.candidates() });
-  qc.invalidateQueries({ queryKey: qk.tasks.all() });
-  qc.invalidateQueries({ queryKey: qk.quality.audit() });
-}
-export function useBookInterview() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Record<string, unknown>) => apiPost(`${API.hr}/interviews`, interviewSchema, input),
-    onSuccess: () => invalidateInterviews(qc),
-  });
-}
-export function useInterviewOutcome() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { id: string; attended: boolean; assessment: string }) =>
-      apiPost(`${API.hr}/interviews/${v.id}/outcome`, interviewSchema, { attended: v.attended, assessment: v.assessment }),
-    onSuccess: () => invalidateInterviews(qc),
-  });
-}
-
-/** The public cancel/rebook page. No session — the token is the credential. */
-export function usePublicInterview(token: string) {
-  return useQuery({
-    queryKey: ["public-interview", token],
-    queryFn: () => apiGet(`/api/public/interview/${token}`, publicInterviewSchema),
-    enabled: Boolean(token),
-    retry: false,
-  });
-}
-export function useCancelPublicInterview(token: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { rebookTo?: string }) =>
-      apiPost(`/api/public/interview/${token}/cancel`, okSchema, v),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["public-interview", token] }),
-  });
-}
-export function useApply() {
-  return useMutation({
-    mutationFn: (input: Record<string, unknown>) => apiPost(`/api/public/apply`, okSchema, input),
-  });
-}
+// ── Annonser (ANN) og Intervju (BOOK) — A3 ─────────────────────────────────
+// Moved to their own files (they talk to recruitment-service and have grown
+// their own logic); re-exported so existing imports keep working.
+export * from "./ads";
+export * from "./interviews";
 
 // ── Onboarding (ONB) ────────────────────────────────────────────────────────
 

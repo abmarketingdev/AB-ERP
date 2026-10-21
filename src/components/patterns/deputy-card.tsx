@@ -77,7 +77,7 @@ export function DeputyCard() {
               <Select value={who} onValueChange={setWho}>
                 <SelectTrigger id="dep-who" className="w-[13rem]" aria-label="Hvem"><SelectValue placeholder="Velg person" /></SelectTrigger>
                 <SelectContent>
-                  {(leaders.data ?? []).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  {(leaders.data ?? []).map((l) => <SelectItem key={l.id} value={l.name}>{l.name}</SelectItem>)}
                   <SelectItem value="Nasrin Hassan">Nasrin Hassan (HR)</SelectItem>
                 </SelectContent>
               </Select>

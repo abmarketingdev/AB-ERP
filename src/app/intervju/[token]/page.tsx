@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { Check, CalendarX, CalendarClock } from "lucide-react";
+import { CalendarX, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePublicInterview, useCancelPublicInterview } from "@/lib/api/srs";
+import { usePublicInterview, useCancelPublicInterview } from "@/lib/api/interviews";
+import { Mascot } from "@/components/patterns/mascot";
 import { errorMessage } from "@/lib/api/client";
 
 /**
@@ -19,8 +20,9 @@ import { errorMessage } from "@/lib/api/client";
  * that leads with "Finn et annet tidspunkt".
  *
  * Public and unauthenticated: the token is the credential. It is per booking
- * and unguessable, and it grants exactly one thing — moving or cancelling that
- * one interview.
+ * chain and unguessable, and it grants exactly one thing — moving or cancelling
+ * that one interview. After a move the same link shows the new time, so an old
+ * SMS never points at a stale booking. Cancelling twice is harmless (idempotent).
  */
 
 const fullFmt = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Oslo" });
@@ -39,7 +41,9 @@ export default function PublicInterview() {
       await cancel.mutateAsync({ rebookTo });
       setDone(rebookTo ? "flyttet" : "avlyst");
     } catch (err) {
+      // 409 slot_taken: someone took that time a moment ago; the list refreshes with fresh alternatives.
       setError(errorMessage(err));
+      interview.refetch();
     }
   }
 
@@ -56,28 +60,39 @@ export default function PublicInterview() {
         ) : interview.isError ? (
           <Card>
             <CardContent className="py-10 text-center">
-              <p className="text-base font-medium">Vi fant ikke dette intervjuet</p>
+              <Mascot state="sleeping" size={72} label="Fant ikke intervjuet" className="mx-auto" />
+              <p className="mt-3 text-base font-medium">Vi fant ikke dette intervjuet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Lenken kan være utløpt. Ring oss på 23 96 00 00, så hjelper vi deg.
+                Lenken kan være feil eller utløpt. Svar på SMS-en du fikk fra oss, eller kontakt den som booket intervjuet.
               </p>
             </CardContent>
           </Card>
         ) : done ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-              <span className="flex size-12 items-center justify-center rounded-full bg-success/10 text-success">
-                <Check className="size-6" aria-hidden />
-              </span>
+              <Mascot state={done === "flyttet" ? "win-small" : "idle"} size={72}
+                label={done === "flyttet" ? "Intervjuet er flyttet" : "Intervjuet er avbestilt"} />
               <div>
                 <p className="text-base font-medium">
                   {done === "flyttet" ? "Intervjuet er flyttet" : "Intervjuet er avbestilt"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {done === "flyttet"
-                    ? "Du får en SMS med det nye tidspunktet. Vi sees!"
-                    : "Vi har gitt beskjed til lederen din kontaktperson. Vil du avtale en ny tid, ring oss på 23 96 00 00."}
+                    ? `Nytt tidspunkt: ${interview.data ? fullFmt.format(new Date(interview.data.startsAt)) : ""}. Du får en SMS med det nye tidspunktet. Vi sees!`
+                    : "Takk for at du sa ifra. Lederen har fått beskjed. Vil du ha en ny tid, kan du svare på SMS-en eller kontakte oss."}
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        ) : interview.data && !interview.data.canChange ? (
+          <Card>
+            <CardContent className="flex flex-col gap-2 py-8 text-center">
+              <p className="text-base font-medium">
+                {{ avlyst: "Intervjuet er avbestilt", passert: "Intervjuet er passert", gjennomfort: "Intervjuet er gjennomført",
+                   "no-show": "Intervjuet er passert", ombooket: "Intervjuet er flyttet", booket: "Intervjuet kan ikke endres her" }[interview.data.status]}
+              </p>
+              <p className="text-sm tabular-nums text-muted-foreground">{fullFmt.format(new Date(interview.data.startsAt))} · {interview.data.location}</p>
+              <p className="text-sm text-muted-foreground">Trenger du hjelp, kontakt den som booket intervjuet.</p>
             </CardContent>
           </Card>
         ) : interview.data ? (
@@ -97,6 +112,9 @@ export default function PublicInterview() {
                   <CalendarClock className="size-4 text-muted-foreground" aria-hidden />
                   Passer det ikke? Velg et annet tidspunkt
                 </h2>
+                {interview.data.alternatives.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Ingen ledige tider akkurat nå. Avbestill, så tar vi kontakt for en ny tid.</p>
+                )}
                 <ul className="flex flex-col gap-2">
                   {interview.data.alternatives.map((a) => (
                     <li key={a}>
@@ -142,7 +160,7 @@ export default function PublicInterview() {
               </CardContent>
             </Card>
 
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {error && <p role="alert" className="text-sm text-danger">{error}</p>}
           </>
         ) : null}
       </div>

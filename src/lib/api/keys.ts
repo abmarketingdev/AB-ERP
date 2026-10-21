@@ -40,9 +40,9 @@ export const qk = {
     meta: () => ["ads", "all", "meta"] as const,
   },
   interviews: {
-    list: (leader?: string) => ["interviews", "all", "list", leader ?? ""] as const,
+    list: (filter: Record<string, string | undefined> = {}) => ["interviews", "all", "list", filter] as const,
     leaders: () => ["interviews", "all", "leaders"] as const,
-    slots: (leader: string) => ["interviews", "all", "slots", leader] as const,
+    slots: (leaderId: string, from: string) => ["interviews", "all", "slots", leaderId, from] as const,
     all: () => ["interviews"] as const,
   },
   onboarding: {
