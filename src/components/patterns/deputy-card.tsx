@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApprovers, useDeputy, useSetDeputy } from "@/lib/api/approval";
-import { DateField } from "@/components/patterns/date-field";
+import { DatePicker } from "@/components/patterns/date-picker";
 import { errorMessage } from "@/lib/api/client";
 
 /**
@@ -87,11 +87,11 @@ export function DeputyCard() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="dep-from" className="text-xs text-muted-foreground">Fra</Label>
-              <div className="w-[12rem]"><DateField id="dep-from" value={from} onChange={setFrom} /></div>
+              <div className="w-[12rem]"><DatePicker id="dep-from" value={from} onChange={setFrom} /></div>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="dep-to" className="text-xs text-muted-foreground">Til</Label>
-              <div className="w-[12rem]"><DateField id="dep-to" value={to} onChange={setTo} min={from || undefined} /></div>
+              <div className="w-[12rem]"><DatePicker id="dep-to" value={to} onChange={setTo} min={from || undefined} /></div>
             </div>
             <Button size="sm" disabled={setDeputy.isPending} onClick={save}>Lagre</Button>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Avbryt</Button>

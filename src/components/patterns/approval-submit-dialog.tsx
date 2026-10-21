@@ -10,7 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
-import { DateField } from "@/components/patterns/date-field";
+import { DatePicker } from "@/components/patterns/date-picker";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import { FormErrorSummary, errorsFromApi, type FieldError } from "@/components/patterns/form-error-summary";
 import { useApprovalFormOptions, useSubmitApproval } from "@/lib/api/approval";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -172,12 +173,11 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
 
         <fieldset id="positionLevel" className="flex flex-col gap-1.5 sm:col-span-2">
           <legend className="mb-1.5 text-sm font-medium">Junior eller senior <span aria-hidden className="text-danger">*</span></legend>
-          <div className="flex flex-wrap gap-2">
+          <div role="radiogroup" aria-label="Nivå" className="flex flex-wrap gap-2">
             {(showLeader ? levels : juniorSenior).map((l) => (
-              <Button key={l.key} type="button" size="sm" className="min-h-11 sm:min-h-8"
-                variant={level === l.key ? "default" : "outline"} aria-pressed={level === l.key} onClick={() => setLevel(l.key)}>
+              <SelectableButton key={l.key} role="radio" selected={level === l.key} onClick={() => setLevel(l.key)}>
                 {l.label}
-              </Button>
+              </SelectableButton>
             ))}
             {leaderLevels.length > 0 && !showLeader && (
               <Button type="button" size="sm" variant="ghost" className="min-h-11 sm:min-h-8" onClick={() => setShowLeader(true)}>
@@ -194,8 +194,7 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="startDate">Oppstartsdato <span aria-hidden className="text-danger">*</span></Label>
-          <DateField id="startDate" value={startDate} onChange={setStartDate} min={todayIso()}
-            invalid={!!errorFor("startDate")} describedBy={errorFor("startDate") ? "startDate-error" : undefined} />
+          <DatePicker id="startDate" value={startDate} onChange={setStartDate} min={todayIso()} {...aria("startDate")} />
           {fieldError("startDate")}
         </div>
 
@@ -213,11 +212,10 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
           <legend className="mb-1.5 text-sm font-medium">Hvilke dager skal personen jobbe <span aria-hidden className="text-danger">*</span></legend>
           <div className="grid grid-cols-7 gap-1.5 sm:flex sm:flex-wrap">
             {base.weekdays.map((d) => (
-              <Button key={d.key} type="button" size="sm" className="min-h-11 px-0 sm:min-h-8 sm:min-w-11 sm:px-3"
-                variant={days.includes(d.key) ? "default" : "outline"} aria-pressed={days.includes(d.key)} aria-label={d.label}
-                onClick={() => setDays(toggle(days, d.key))}>
+              <SelectableButton key={d.key} className="px-0 sm:min-w-14 sm:px-3" selected={days.includes(d.key)}
+                aria-label={d.label} onClick={() => setDays(toggle(days, d.key))}>
                 {d.label.slice(0, 3)}
-              </Button>
+              </SelectableButton>
             ))}
           </div>
           {fieldError("workDays")}
@@ -225,12 +223,11 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
 
         <fieldset id="isStudent" className="flex flex-col gap-1.5">
           <legend className="mb-1.5 text-sm font-medium">Student <span aria-hidden className="text-danger">*</span></legend>
-          <div className="flex gap-2">
+          <div role="radiogroup" aria-label="Student" className="flex gap-2">
             {[{ v: true, l: "Ja" }, { v: false, l: "Nei" }].map((o) => (
-              <Button key={o.l} type="button" size="sm" className="min-h-11 min-w-16 sm:min-h-8"
-                variant={student === o.v ? "default" : "outline"} aria-pressed={student === o.v} onClick={() => setStudent(o.v)}>
+              <SelectableButton key={o.l} role="radio" className="min-w-16" selected={student === o.v} onClick={() => setStudent(o.v)}>
                 {o.l}
-              </Button>
+              </SelectableButton>
             ))}
           </div>
           {fieldError("isStudent")}
