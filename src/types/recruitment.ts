@@ -12,6 +12,8 @@ export const recruitmentStageSchema = z.object({
       id: z.string(),
       label: z.string(),
       placeholder: z.string().optional(),
+      /** "date" → rendered with the shared nb-NO DatePicker. */
+      kind: z.enum(["text", "date"]).optional(),
     }),
   ),
   terminal: z.enum(["hired", "withdrawn"]).optional(),

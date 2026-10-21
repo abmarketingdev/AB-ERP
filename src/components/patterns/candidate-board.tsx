@@ -176,7 +176,9 @@ export function CandidateBoard({
 
         {/* The card follows the cursor at full fidelity rather than a ghost
             outline, so it stays readable over a dense board. */}
-        <DragOverlay>
+        {/* No drop animation: a drop opens a form (or explains a refusal), and a card flying
+            back across the board under the sheet reads as «it didn't work». */}
+        <DragOverlay dropAnimation={null}>
           {dragging ? <CardFace candidate={dragging} overlay /> : null}
         </DragOverlay>
       </DndContext>

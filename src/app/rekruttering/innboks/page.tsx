@@ -24,7 +24,7 @@ import { ChannelMark, ChannelLabel } from "@/components/patterns/channel-mark";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 import { errorMessage } from "@/lib/api/client";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
-import { DatePicker } from "@/components/patterns/date-picker";
+import { DateRangePicker } from "@/components/patterns/date-picker";
 import { usePhone } from "@/lib/use-media-query";
 import { contactLine } from "@/lib/phone";
 import { formatPhone } from "@/lib/format";
@@ -101,8 +101,6 @@ function SamleinnboksPage() {
   const setStatus = (v: string) => url.set({ status: v, page: null });
   const setPromoter = (v: string) => url.set({ promoter: v, page: null });
   const setAssignedTo = (v: string) => url.set({ assignedTo: v, page: null });
-  const setFrom = (v: string) => url.set({ from: v, page: null });
-  const setTo = (v: string) => url.set({ to: v, page: null });
   const setDuplicatesOnly = (v: boolean) => url.set({ duplicates: v ? "1" : null, page: null });
   const setPage = (fn: (p: number) => number) => url.set({ page: String(fn(page)) });
   // The selection belongs to the filter it was made under: change the filter and it is
@@ -251,15 +249,12 @@ function SamleinnboksPage() {
           <FilterSelect label="Tildelt" value={assignedTo} onChange={setAssignedTo}
             options={[{ value: "__none__", label: "Admin-kø (ikke tildelt)" },
                       ...(meta.data?.recruiters ?? []).map((r) => ({ value: r.id, label: r.name }))]} />
-          {/* One period, two ends: a group with one label, not two loose date fields. */}
-          <fieldset className="flex flex-col gap-1.5">
-            <legend className="mb-1.5 text-xs text-muted-foreground">Periode</legend>
-            <div className="flex items-center gap-1.5">
-              <DatePicker id="lead-from" aria-label="Fra dato" value={from} onChange={setFrom} max={to || undefined} />
-              <span className="text-muted-foreground" aria-hidden>–</span>
-              <DatePicker id="lead-to" aria-label="Til dato" value={to} onChange={setTo} min={from || undefined} />
-            </div>
-          </fieldset>
+          {/* One period, one field (A1's DateRangePicker, compact for a filter bar). */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="lead-period" className="text-xs text-muted-foreground">Periode</Label>
+            <DateRangePicker id="lead-period" size="sm" from={from} to={to} aria-label="Periode"
+              onChange={(r) => url.set({ from: r.from || null, to: r.to || null, page: null })} />
+          </div>
           <label className="flex h-9 items-center gap-2 text-sm">
             <Checkbox checked={duplicatesOnly} onCheckedChange={(v) => setDuplicatesOnly(Boolean(v))} />
             Bare duplikater

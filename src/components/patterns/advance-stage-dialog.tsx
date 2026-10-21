@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/patterns/date-picker";
 import { useAdvanceStage, useCandidateReasons, useRejectionPreview } from "@/lib/api/recruitment";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { TERMINAL_STAGE_IDS } from "@/lib/recruitment";
@@ -146,7 +147,10 @@ function AdvanceStageSheet({
               .map((f) => (
                 <div key={f.id} className="flex flex-col gap-1.5">
                   <Label htmlFor={`adv-${f.id}`}>{f.label}</Label>
-                  {f.id.includes("notat") || f.id.includes("vurdering") ? (
+                  {f.kind === "date" ? (
+                    <DatePicker id={`adv-${f.id}`} value={fields[f.id] ?? ""}
+                      onChange={(v) => setFields((s) => ({ ...s, [f.id]: v }))} />
+                  ) : f.id.includes("notat") || f.id.includes("vurdering") ? (
                     <Textarea
                       id={`adv-${f.id}`}
                       rows={3}

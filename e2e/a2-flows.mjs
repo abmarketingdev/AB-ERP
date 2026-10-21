@@ -1,7 +1,7 @@
 /**
  * A2 end-to-end flows in API mode against staging (brief §Tests, 08-DESIGN-REVIEW):
  *   1. Recruiter sends a lead on from the samleinnboks (LEAD-08).
- *   2. Recruiter drags a card Ny → Kontaktet with the KEYBOARD, fills the form, card lands (KAND-02).
+ *   2. Recruiter drags a card Ny → Kvalifisert with the KEYBOARD, fills the form, card lands (KAND-02).
  *   3. A drop onto «Intervju booket» is refused and explains itself IN the column (KAND-02).
  *   4. Promotor+ on a phone (400 px): empty submit → error summary with focus; filled → registered (LEAD-05).
  * Usage: BASE=http://127.0.0.1:3100 TOKENS=<dir with rek_rekrutterer, rek_promotor_pluss> node e2e/a2-flows.mjs
@@ -63,14 +63,13 @@ const browser = await chromium.launch();
     await keyboardDrag(page, ny, 30);
     const sheet = page.getByRole("dialog");
     await sheet.waitFor({ timeout: 10000 }).catch(() => {});
-    check("2 slipp på Kontaktet åpner skjemaet", await sheet.isVisible());
-    if (process.env.DEBUG_SHOT) await page.screenshot({ path: process.env.DEBUG_SHOT });
-    await sheet.getByLabel("Kontaktet på").fill("Telefon");
-    await sheet.getByRole("button", { name: /^Flytt til Kontaktet/ }).click();
+    check("2 slipp på Kvalifisert åpner skjemaet", await sheet.isVisible());
+    await sheet.getByLabel("Kort vurdering").fill("Ryddig og motivert, kan jobbe helger");
+    await sheet.getByRole("button", { name: /^Flytt til Kvalifisert/ }).click();
     await sheet.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
-    const landed = page.locator('[data-board-column="kontaktet"]').getByText(name, { exact: true });
+    const landed = page.locator('[data-board-column="kvalifisert"]').getByText(name, { exact: true });
     await landed.waitFor({ timeout: 10000 }).catch(() => {});
-    check("2 kortet ligger i Kontaktet", await landed.isVisible(), name);
+    check("2 kortet ligger i Kvalifisert", await landed.isVisible(), name);
   } else {
     console.log("SKIP 2 ingen kandidater i Ny");
   }
