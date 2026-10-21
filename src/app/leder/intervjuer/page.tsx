@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { mascotFor } from "@/lib/use-mascot";
+import { formatPhone, phoneHref } from "@/lib/format";
 import { Mascot } from "@/components/patterns/mascot";
 import { SelectableButton } from "@/components/patterns/selectable-button";
 import { useInterviews, useInterviewOutcome } from "@/lib/api/interviews";
@@ -140,8 +141,8 @@ function InterviewRow({ iv, awaiting, today }: { iv: Interview; awaiting?: boole
           <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><MapPin className="size-3" aria-hidden />{iv.location}</span>
             {iv.candidatePhone && (
-              <a href={`tel:${iv.candidatePhone.replace(/\s/g, "")}`} className="flex min-h-9 items-center gap-1 underline-offset-2 hover:underline">
-                <Phone className="size-3" aria-hidden />{iv.candidatePhone}
+              <a href={phoneHref(iv.candidatePhone)} className="flex min-h-9 items-center gap-1 underline-offset-2 hover:underline">
+                <Phone className="size-3" aria-hidden />{formatPhone(iv.candidatePhone)}
               </a>
             )}
           </p>

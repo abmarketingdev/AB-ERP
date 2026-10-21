@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicInterview, useCancelPublicInterview } from "@/lib/api/interviews";
 import { Mascot } from "@/components/patterns/mascot";
+import { formatPhone, phoneHref } from "@/lib/format";
 import { mascotFor } from "@/lib/use-mascot";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { errorMessage } from "@/lib/api/client";
@@ -161,8 +162,8 @@ export default function PublicInterview() {
             <Phone className="size-4" aria-hidden />
             Spørsmål? Kontakt {interview.data.contact.name}
             {interview.data.contact.phone && (
-              <>, <a className="font-medium text-foreground underline underline-offset-2" href={`tel:${interview.data.contact.phone.replace(/\s/g, "")}`}>
-                {interview.data.contact.phone}</a></>
+              <>, <a className="font-medium text-foreground underline underline-offset-2" href={phoneHref(interview.data.contact.phone)}>
+                {formatPhone(interview.data.contact.phone)}</a></>
             )}
           </p>
         )}

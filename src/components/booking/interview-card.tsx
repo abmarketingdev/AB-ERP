@@ -67,7 +67,10 @@ export function InterviewRow({ interview: iv }: { interview: Interview }) {
         <span className="hidden min-w-0 truncate text-sm text-muted-foreground sm:block">{iv.leader.name}</span>
         <span className="col-start-2 row-start-1 flex items-center gap-1.5 justify-self-end sm:col-start-auto sm:row-start-auto">
           {iv.calendarState === "feilet" && (
-            <span title={CALENDAR_STATE_LABEL.feilet} className="text-danger"><AlertTriangle className="size-3.5" aria-label={CALENDAR_STATE_LABEL.feilet} /></span>
+            // An icon alone carries no meaning (08 §2): the words go with it.
+            <Badge variant="outline" className="gap-1 border-danger/40 text-[10px] text-danger">
+              <AlertTriangle className="size-3" aria-hidden /> {CALENDAR_STATE_LABEL.feilet}
+            </Badge>
           )}
           {failed > 0 && <Badge variant="outline" className="border-danger/40 text-[10px] text-danger">{failed} ikke levert</Badge>}
           <Badge className={STATUS_TONE[iv.status]}>{INTERVIEW_STATUS_LABEL[iv.status]}</Badge>
