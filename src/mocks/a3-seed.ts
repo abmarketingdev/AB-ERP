@@ -238,7 +238,7 @@ export function buildInterviews(): Interview[] {
       calendarState: "synket", reminderEnabled: true, reminderSentAt: iso(weekday(-2 - i, 17)), attended,
       assessment: attended
         ? ["God muntlig framstilling, virker motivert. Anbefaler videre.", "Litt usikker, men lærevillig. Kan prøves på et mindre team."][i % 2]
-        : "Møtte ikke, svarte ikke på telefon.",
+        : "Svarte ikke på telefon eller SMS.",
       rating: attended ? [4, 3][i % 2] : null, recommend: attended ? i % 2 === 0 : null, outcomeAt: iso(weekday(-1 - i, 12)),
       bookedBy: c.owner, bookedAt: iso(weekday(-4 - i, 9)), cancelledAt: null, cancelledBy: "", rebookedTo: null, messages: [],
     };

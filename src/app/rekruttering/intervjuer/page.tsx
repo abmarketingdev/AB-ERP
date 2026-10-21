@@ -30,7 +30,11 @@ function IntervjuerPage() {
   const interviews = useInterviews();
 
   const all = interviews.data ?? [];
-  const upcoming = all.filter((iv) => iv.status === "booket").sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const [now] = React.useState(() => Date.now());
+  const isPast = (iv: Interview) => new Date(iv.startsAt).getTime() <= now;
+  const upcoming = all.filter((iv) => iv.status === "booket" && !isPast(iv)).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  // Happened, but the leader has not recorded the outcome yet (BOOK-08) — not «kommende».
+  const awaiting = all.filter((iv) => iv.status === "booket" && isPast(iv)).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   // A rebooked row is history of the booking that replaced it; showing it as its own
   // card would list the same interview twice.
   const past = all.filter((iv) => iv.status !== "booket" && iv.status !== "ombooket")
@@ -62,6 +66,12 @@ function IntervjuerPage() {
       >
         {() => (
           <>
+            {awaiting.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h2 className="text-sm font-medium text-muted-foreground">Venter på oppmøte fra leder</h2>
+                <Card className="border-warning/40"><ul className="divide-y divide-border">{awaiting.map((iv) => <InterviewRow key={iv.id} interview={iv} />)}</ul></Card>
+              </section>
+            )}
             <section className="flex flex-col gap-2">
               <h2 className="text-sm font-medium text-muted-foreground">Kommende</h2>
               {upcoming.length === 0 ? (
