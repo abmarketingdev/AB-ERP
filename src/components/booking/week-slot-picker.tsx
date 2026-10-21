@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import { CalendarClock, ChevronLeft, ChevronRight, CloudOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -165,39 +166,30 @@ export function WeekSlotPicker({
   );
 }
 
-function SlotButton({ slot, active, onPick, reduce, big }: {
-  slot: Slot; active: boolean; onPick: (s: string) => void; reduce: boolean; big?: boolean;
+/** A slot is A1's SelectableButton (accent border + ✓ + aria-pressed). A taken slot stays
+ *  visible, disabled, with its reason written under the time — never an unexplained gap. */
+function SlotButton({ slot, active, onPick, big }: {
+  slot: Slot; active: boolean; onPick: (s: string) => void; reduce?: boolean; big?: boolean;
 }) {
   const label = timeFmt.format(new Date(slot.startsAt));
+  if (!slot.available) {
+    return (
+      <div className={`flex flex-col rounded-lg px-2 text-muted-foreground ${big ? "min-h-11 justify-center py-1.5 text-sm" : "py-1 text-[12.5px]"}`}
+        aria-label={`${label}: ${slot.reason}`}>
+        <span className="tabular-nums line-through">{label}</span>
+        <span className="text-[10.5px] leading-tight">{slot.reason}</span>
+      </div>
+    );
+  }
   return (
-    <button
-      type="button"
-      disabled={!slot.available}
+    <SelectableButton
+      selected={active}
       onClick={() => onPick(slot.startsAt)}
-      aria-pressed={active}
-      aria-label={slot.available ? `${dayLong.format(new Date(slot.startsAt))} kl. ${label}` : `${label}: ${slot.reason}`}
-      title={slot.reason ?? undefined}
-      className={`relative w-full rounded-md text-left tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        big ? "min-h-11 px-3 py-2 text-sm" : "px-2 py-1.5 text-[12.5px]"
-      } ${active
-        ? "text-[var(--primary-foreground)]"
-        : slot.available
-          ? "hover:bg-secondary"
-          : "cursor-not-allowed text-muted-foreground/70"}`}
+      aria-label={`${dayLong.format(new Date(slot.startsAt))} kl. ${label}`}
+      className={`w-full justify-start tabular-nums ${big ? "" : "min-h-9 px-2 text-[12.5px] sm:min-h-8"}`}
     >
-      {/* The highlight is one shared element that moves to the picked slot (layout animation). */}
-      {active && (
-        <motion.span
-          layoutId="picked-slot"
-          className="absolute inset-0 rounded-md bg-[var(--ab-accent-9)]"
-          transition={reduce ? { duration: 0.12 } : { type: "spring", stiffness: 520, damping: 38 }}
-        />
-      )}
-      <span className="relative flex flex-col">
-        <span className={slot.available ? undefined : "line-through"}>{label}</span>
-        {!slot.available && <span className="text-[10.5px] leading-tight no-underline">{slot.reason}</span>}
-      </span>
-    </button>
+      {label}
+    </SelectableButton>
   );
 }
 

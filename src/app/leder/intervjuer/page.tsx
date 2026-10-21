@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, MapPin, Phone, X } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { mascotFor } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import { useInterviews, useInterviewOutcome } from "@/lib/api/interviews";
 import { errorMessage } from "@/lib/api/client";
 import { INTERVIEW_STATUS_LABEL, outcomeSchema, type Interview } from "@/types/interview";
@@ -38,9 +39,6 @@ const OSLO = "Europe/Oslo";
 const fullFmt = new Intl.DateTimeFormat("nb-NO", { timeZone: OSLO, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: OSLO });
 
-/** A chosen answer must read as chosen in both themes: accent ring + accent fill + ✓, not a lighter grey. */
-const chosen = (on: boolean) =>
-  on ? "border-[var(--ab-accent-9)] bg-[var(--ab-accent-3)] text-[var(--ab-accent-12)] ring-2 ring-[var(--ab-accent-9)] hover:bg-[var(--ab-accent-4)]" : "";
 
 function LederIntervjuerPage() {
   const interviews = useInterviews({ scope: "mine" });
@@ -194,16 +192,9 @@ function OutcomeSheet({ iv, open, onOpenChange }: { iv: Interview; open: boolean
       <div className="flex flex-col gap-5 pt-1">
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Møtte kandidaten? <span className="text-danger" aria-hidden>*</span></legend>
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant="outline" className={`min-h-12 gap-1.5 ${chosen(attended === true)}`} aria-pressed={attended === true}
-              onClick={() => setAttended(true)}>
-              <Check className="size-4" /> Møtte
-            </Button>
-            <Button type="button" variant="outline" aria-pressed={attended === false}
-              className={`min-h-12 gap-1.5 ${attended === false ? "border-danger bg-danger/10 text-danger ring-2 ring-danger hover:bg-danger/15" : ""}`}
-              onClick={() => setAttended(false)}>
-              <X className="size-4" /> Møtte ikke
-            </Button>
+          <div role="radiogroup" aria-label="Møtte kandidaten?" className="grid grid-cols-2 gap-2">
+            <SelectableButton role="radio" selected={attended === true} className="min-h-12" onClick={() => setAttended(true)}>Møtte</SelectableButton>
+            <SelectableButton role="radio" selected={attended === false} className="min-h-12" onClick={() => setAttended(false)}>Møtte ikke</SelectableButton>
           </div>
         </fieldset>
 
@@ -217,23 +208,20 @@ function OutcomeSheet({ iv, open, onOpenChange }: { iv: Interview; open: boolean
           <>
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm font-medium">Helhetsinntrykk <span className="font-normal text-muted-foreground">(valgfritt)</span></legend>
-              <div className="flex gap-2">
+              <div role="radiogroup" aria-label="Helhetsinntrykk" className="flex flex-wrap gap-2">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <Button key={n} type="button" variant="outline" className={`relative size-11 tabular-nums ${chosen(rating === n)}`}
-                    aria-pressed={rating === n} aria-label={`${n} av 5`} onClick={() => setRating(rating === n ? null : n)}>
+                  <SelectableButton key={n} role="radio" selected={rating === n} className="min-w-11 tabular-nums"
+                    aria-label={`${n} av 5`} onClick={() => setRating(rating === n ? null : n)}>
                     {n}
-                    {rating === n && <Check className="absolute -right-1 -top-1 size-4 rounded-full bg-[var(--ab-accent-9)] p-0.5 text-[var(--primary-foreground)]" aria-hidden />}
-                  </Button>
+                  </SelectableButton>
                 ))}
               </div>
             </fieldset>
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm font-medium">Anbefales videre til godkjenning? <span className="font-normal text-muted-foreground">(valgfritt)</span></legend>
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" variant="outline" className={`min-h-11 gap-1.5 ${chosen(recommend === true)}`} aria-pressed={recommend === true}
-                  onClick={() => setRecommend(recommend === true ? null : true)}>{recommend === true && <Check className="size-4" aria-hidden />}Ja</Button>
-                <Button type="button" variant="outline" className={`min-h-11 gap-1.5 ${chosen(recommend === false)}`} aria-pressed={recommend === false}
-                  onClick={() => setRecommend(recommend === false ? null : false)}>{recommend === false && <Check className="size-4" aria-hidden />}Nei</Button>
+              <div role="radiogroup" aria-label="Anbefales videre til godkjenning?" className="grid grid-cols-2 gap-2">
+                <SelectableButton role="radio" selected={recommend === true} onClick={() => setRecommend(recommend === true ? null : true)}>Ja</SelectableButton>
+                <SelectableButton role="radio" selected={recommend === false} onClick={() => setRecommend(recommend === false ? null : false)}>Nei</SelectableButton>
               </div>
             </fieldset>
           </>

@@ -15,7 +15,7 @@ import { useAdTemplates, useAdMeta, useCreateAd, useWordingCheck } from "@/lib/a
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { newAdSchema, type WordingCheck } from "@/types/ad";
 import { LEAD_CAMPAIGNS } from "@/mocks/leads";
-import { NbDateField } from "@/components/booking/nb-date-field";
+import { DatePicker } from "@/components/patterns/date-picker";
 
 /**
  * ANN-01 / ANN-03 — lag annonsen én gang, fra en mal, og publiser til flere
@@ -199,7 +199,7 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
           </div>
 
           <Field id="ad-deadline" label="Søknadsfrist" hint="Valgfritt. Annonsen avpubliseres automatisk når fristdagen er over">
-            <NbDateField id="ad-deadline" value={form.deadline} min={new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Oslo" }).format(new Date())}
+            <DatePicker id="ad-deadline" value={form.deadline} min={new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Oslo" }).format(new Date())}
               onChange={(iso) => setForm((f) => ({ ...f, deadline: iso }))} />
           </Field>
 
