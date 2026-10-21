@@ -81,8 +81,10 @@ export const a5Handlers = [
       const mine = rows.filter((s) => s.employeeId === me);
       if (!q.get("swap_targets")) return mine;
       const teams = new Set(mine.map((s) => s.teamId));
+      // Same rule as the server: never offer a date the promoter already works.
+      const busy = new Set(db.shifts.filter((s) => s.employeeId === me).map((s) => s.date));
       const targets = rows
-        .filter((s) => s.employeeId !== me && teams.has(s.teamId) && s.kind === "arbeid" && s.date > TODAY)
+        .filter((s) => s.employeeId !== me && teams.has(s.teamId) && s.kind === "arbeid" && s.date > TODAY && !busy.has(s.date))
         .map(({ id, personRef, employeeId, employeeName, teamId, team, date, kind, source, swapPending, swapState }) =>
           ({ id, personRef, employeeId, employeeName, teamId, team, date, kind, source, swapPending, swapState }));
       return [...mine, ...targets] as Shift[];
