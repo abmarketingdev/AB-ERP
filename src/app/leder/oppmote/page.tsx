@@ -263,14 +263,26 @@ function OppmotePage() {
                         <td className="py-2">{f.team}</td>
                         <td className="py-2 text-right tabular-nums">{f.plannedDays}</td>
                         <td className="py-2 text-right tabular-nums">
-                          <span className="font-medium">{f.expectedDays.toLocaleString("nb-NO")}</span>
-                          <span className="ml-1 text-xs text-muted-foreground">({f.expectedLow}–{f.expectedHigh})</span>
+                          {f.basisDays === 0 ? <span className="text-muted-foreground">—</span> : (
+                            <>
+                              <span className={f.reliable ? "font-medium" : "text-muted-foreground"}>
+                                {f.reliable ? "" : "≈ "}{f.expectedDays.toLocaleString("nb-NO")}
+                              </span>
+                              <span className="ml-1 text-xs text-muted-foreground">({f.expectedLow}–{f.expectedHigh})</span>
+                            </>
+                          )}
                         </td>
-                        <td className="py-2 text-right tabular-nums">{pctFmt.format(f.showRate)}</td>
-                        {target && <td className="py-2 text-right tabular-nums">{f.neededForTarget ?? "—"}</td>}
+                        {/* With no registered history the rate is only the model's starting
+                            guess (50 %) — never shown as if it were a fact. */}
+                        <td className="py-2 text-right tabular-nums">
+                          {f.basisDays === 0 ? <span className="text-muted-foreground">—</span>
+                            : <span className={f.reliable ? "" : "text-muted-foreground"}>{f.reliable ? "" : "≈ "}{pctFmt.format(f.showRate)}</span>}
+                        </td>
+                        {target && <td className="py-2 text-right tabular-nums">{f.basisDays === 0 ? "—" : f.neededForTarget ?? "—"}</td>}
                         <td className="py-2 pl-6 text-xs text-muted-foreground">
-                          {f.basisDays} registrerte dager, {f.windowWeeks} uker
-                          {!f.reliable && (
+                          {f.basisDays === 0 ? "Ingen registrert oppmøte ennå — prognosen kommer når det finnes historikk."
+                            : `${f.basisDays} registrerte dager, ${f.windowWeeks} uker`}
+                          {!f.reliable && f.basisDays > 0 && (
                             <span className="ml-1.5 inline-flex items-center gap-1 text-warning-on-tint">
                               <AlertTriangle className="size-3" aria-hidden /> lite historikk — usikkert
                             </span>
@@ -372,8 +384,14 @@ function DayDialog({ shift: s, onClose }: { shift: Shift | null; onClose: () => 
           </div>
           {current && (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="att-reason">Begrunnelse hvis du retter registreringen</Label>
-              <Input id="att-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="f.eks. kom etter lunsj" />
+              <Label htmlFor="att-reason">Årsak hvis du retter registreringen</Label>
+              <Select value={reason} onValueChange={setReason}>
+                <SelectTrigger id="att-reason" className="min-h-10"><SelectValue placeholder="Velg årsak" /></SelectTrigger>
+                <SelectContent>
+                  {(s.correctionReasons ?? []).map((r) => <SelectItem key={r.code} value={r.code}>{r.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Skriv det du vil si om fraværet i oppfølgingen under — det kan slettes ved personvernforespørsel.</p>
             </div>
           )}
           {(s.attendanceHistory ?? []).length > 0 && (

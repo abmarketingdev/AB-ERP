@@ -325,6 +325,11 @@ export function buildEmployees(): Employee[] {
  * whole blue/green/red distinction meaningless, which is the one thing BEM-01
  * is about.
  */
+const CORRECTION_REASONS = [
+  { code: "registrert_feil", label: "Registrert feil" }, { code: "kom_senere", label: "Kom senere på dagen" },
+  { code: "dro_tidlig", label: "Dro tidlig" }, { code: "avtalt_fravaer", label: "Avtalt fravær" }, { code: "annet", label: "Annet" },
+];
+
 /** Mock team ids: the real API keys teams by uuid, the demo by a slug of the name. */
 export function teamIdOf(team: string) {
   return `team-${team.toLowerCase().replace(/[^a-zæøå0-9]+/g, "-")}`;
@@ -377,6 +382,7 @@ export function buildShifts(employees: Employee[]): Shift[] {
         followUps: followUp ? [followUp] : [],
         followUp,
         clearance: null,
+        correctionReasons: CORRECTION_REASONS,
         swapPending: false,
         swapState: "none",
       });

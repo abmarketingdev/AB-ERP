@@ -107,11 +107,12 @@ export const a5Handlers = [
     }
     const current = s.attendance === "mott" || s.attendance === "ikke-mott" ? s.attendance : null;
     if (current && current !== body.status && !body.reason?.trim()) {
-      return refuse(422, "Skriv hvorfor oppmøtet rettes.", "reason_required", { errors: { reason: "Påkrevd ved retting" } });
+      return refuse(422, "Velg hvorfor oppmøtet rettes.", "reason_required", { errors: { reason: "Påkrevd ved retting" } });
     }
     if (current !== body.status) {
       s.attendanceHistory = [...(s.attendanceHistory ?? []), { status: body.status, at: new Date().toISOString(),
-        by: caller(request)?.name ?? "Leder", reason: body.reason?.trim() || null, correction: Boolean(current) }];
+        by: caller(request)?.name ?? "Leder",
+        reason: s.correctionReasons?.find((r) => r.code === body.reason)?.label ?? null, correction: Boolean(current) }];
       s.attendance = body.status;
     }
     persistDb();

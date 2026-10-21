@@ -72,6 +72,8 @@ export const shiftSchema = z.object({
   followUps: z.array(followUpSchema).optional(),
   followUp: followUpSchema.nullable().optional(),
   clearance: clearanceSchema.nullable().optional(),
+  /** Correction reasons are codes (append-only rows hold no free text, IFK-01). */
+  correctionReasons: z.array(z.object({ code: z.string(), label: z.string() })).optional(),
 });
 export type Shift = z.infer<typeof shiftSchema>;
 export const shiftListSchema = z.array(shiftSchema);
