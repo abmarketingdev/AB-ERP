@@ -142,7 +142,7 @@ function DashboardPage() {
       {exportError && <p className="text-sm text-danger" role="alert">{exportError}</p>}
 
       {/* DASH-07 — periode, region, team og kanal; bare verdier du har tilgang til. */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-print-hide>
+      <div className="flex flex-wrap items-end gap-3" data-print-hide>
         <Filter id="d-period" label="Periode" value={f.days} onChange={(v) => set({ periode: v })} options={PERIODS} />
         <Filter id="d-region" label="Region" value={f.region ?? "alle"} onChange={(v) => set({ region: v })}
           options={[{ v: "alle", l: "Alle regioner" }, ...(opt?.regions ?? []).map((r) => ({ v: r, l: r }))]} />
@@ -203,16 +203,17 @@ function Content({ d, groupBy, onGroupBy }: { d: RecruitmentDashboard; groupBy: 
   const t = d.timing;
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="Leads mottatt" value={num.format(d.basis.leads)} />
-        <Stat label="Ansatt" value={num.format(hired)}
-          hint={`${d.basis.leads ? `${pct1.format(hired / d.basis.leads)} av leads` : "ingen leads"}${t.leadToHire.median === null ? "" : ` · median ${dec.format(t.leadToHire.median)} d`}`} />
+        <Stat label="Ansatt" value={num.format(hired)} hint={d.basis.leads ? `${pct1.format(hired / d.basis.leads)} av leads` : "ingen leads"} />
         <Stat label="Ikke møtt til intervju" value={ivN ? pct.format(ivBad / ivN) : "—"} hint={`${ivBad} av ${ivN}`} />
         <Stat label="Ikke møtt første dag" value={fdN ? pct.format(fdBad / fdN) : "—"} hint={`${fdBad} av ${fdN}`} />
-        <Stat label="Dager fra lead til intervju"
-          value={t.leadToInterview.median === null ? "—" : `${dec.format(t.leadToInterview.median)} d`}
-          hint={t.leadToInterview.median === null ? "ingen intervjuer ennå"
-            : `median av ${t.leadToInterview.n} · 75 % innen ${dec.format(t.leadToInterview.p75 ?? 0)} d`} />
+        <Stat label="Dager fra lead til intervju" value={t.leadToInterview.median === null ? "—" : `${dec.format(t.leadToInterview.median)} d`}
+          hint={t.leadToInterview.n ? `median · n = ${t.leadToInterview.n}` : "ingen intervjuer ennå"}
+          title={t.leadToInterview.p75 === null ? undefined : `75 % innen ${dec.format(t.leadToInterview.p75)} dager`} />
+        <Stat label="Dager fra lead til ansatt" value={t.leadToHire.median === null ? "—" : `${dec.format(t.leadToHire.median)} d`}
+          hint={t.leadToHire.n ? `median · n = ${t.leadToHire.n}` : "ingen ansatt ennå"}
+          title={t.leadToHire.p75 === null ? undefined : `75 % innen ${dec.format(t.leadToHire.p75)} dager`} />
       </div>
 
       <Funnel steps={d.funnel} />
@@ -247,10 +248,10 @@ function Filter({ id, label, value, onChange, options }: {
   id: string; label: string; value: string; onChange: (v: string) => void; options: { v: string; l: string }[];
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex w-full flex-col gap-1.5 sm:w-44">
       <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id} aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectTrigger id={id} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
         <SelectContent>{options.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
       </Select>
     </div>
@@ -258,9 +259,9 @@ function Filter({ id, label, value, onChange, options }: {
 }
 
 /** Figures appear at their value — never counted up (04-analytics). */
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Stat({ label, value, hint, title }: { label: string; value: string; hint?: string; title?: string }) {
   return (
-    <Card>
+    <Card title={title}>
       <CardContent className="flex flex-col gap-1 py-4">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-2xl tabular-nums">{value}</p>
@@ -347,6 +348,15 @@ function NoShowChart({ title, rows, marks }: { title: string; rows: NoShowRow[];
   );
 }
 
+/** «2026-U43» → «Uke 43, 2026»; «2026-10» → «oktober 2026». */
+function periodLabel(key: string) {
+  const w = /^(\d{4})-U(\d{2})$/.exec(key);
+  if (w) return `Uke ${Number(w[2])}, ${w[1]}`;
+  const m = /^(\d{4})-(\d{2})$/.exec(key);
+  if (m) return new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${key}-01T00:00:00Z`));
+  return key;
+}
+
 /** DASH-02 «per periode» — a table: two measures per row. */
 function PeriodTable({ rows, groupBy, onGroupBy }: { rows: NoShowRow[]; groupBy: "uke" | "maned"; onGroupBy: (v: string) => void }) {
   return (
@@ -370,7 +380,7 @@ function PeriodTable({ rows, groupBy, onGroupBy }: { rows: NoShowRow[]; groupBy:
               <tbody className="divide-y divide-border">
                 {rows.map((r) => (
                   <tr key={r.key}>
-                    <td className="py-2 tabular-nums">{r.key}</td>
+                    <td className="py-2 tabular-nums">{periodLabel(r.key)}</td>
                     <td className="py-2 text-right tabular-nums">{r.interviewNoShows} av {r.interviewsHeldOrMissed}
                       <span className="ml-1.5 text-muted-foreground">{r.interviewRate === null ? "" : pct.format(r.interviewRate)}</span></td>
                     <td className="py-2 text-right tabular-nums">{r.firstDayNoShows} av {r.firstDayExpected}

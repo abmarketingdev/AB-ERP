@@ -15,7 +15,8 @@ import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { useShifts, useSwapRequests, useRequestSwap, useRespondSwap, useWithdrawSwap, useSetDayKind } from "@/lib/api/staffing";
 import { errorMessage } from "@/lib/api/client";
 import { DAY_KIND_LABEL, SWAP_STATUS_LABEL, type Shift, type SwapRequest } from "@/types/schedule";
-import { cellStyle, LEGEND, monthBounds, shiftMonth, TODAY } from "@/lib/shift-cell";
+import { cellStyle, datesBetween, LEGEND, monthBounds, shiftMonth, TODAY } from "@/lib/shift-cell";
+import { usePhone } from "@/lib/use-media-query";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
@@ -60,6 +61,14 @@ function VaktplanPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   const mine = (shifts.data ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  const phone = usePhone();
+  const [showEarlier, setShowEarlier] = React.useState(false);
+  const byDate = new Map(mine.map((x) => [x.date, x]));
+  const allDays = datesBetween(from, to);
+  const inThisMonth = TODAY >= from && TODAY <= to;
+  const earlier = inThisMonth ? allDays.filter((d) => d < TODAY) : [];
+  const fromToday = inThisMonth ? allDays.filter((d) => d >= TODAY) : allDays;
+  const monthName = new Intl.DateTimeFormat("nb-NO", { month: "long", timeZone: "UTC" }).format(day(from));
   const myIds = new Set(mine.map((s) => s.id));
   const me = mine[0]?.employeeId ?? (pool.data ?? []).find((s) => s.attendanceHistory !== undefined)?.employeeId;
   const targets = (pool.data ?? []).filter((s) => !myIds.has(s.id) && s.employeeId !== me);
@@ -102,7 +111,8 @@ function VaktplanPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
+    // Bottom padding: the fixed tab bar on a phone must never cover the last card.
+    <div className="flex flex-1 flex-col gap-6 pb-24 sm:pb-0">
       <PageHeader
         title="Min vaktplan"
         description={`${workDays} arbeidsdager · ${vacation} feriedager · ${sickDays} sykedager`}
@@ -113,6 +123,7 @@ function VaktplanPage() {
             <Button size="icon" variant="outline" aria-label="Forrige måned" onClick={() => setAnchor(shiftMonth(anchor, -1))}>
               <ChevronLeft className="size-4" />
             </Button>
+            <span className="min-w-[8rem] text-center text-sm tabular-nums" aria-live="polite">{monthFmt.format(day(from))}</span>
             <Button size="icon" variant="outline" aria-label="Neste måned" onClick={() => setAnchor(shiftMonth(anchor, 1))}>
               <ChevronRight className="size-4" />
             </Button>
@@ -143,43 +154,17 @@ function VaktplanPage() {
       >
         {() => (
           <>
+            {/* The whole month (BEM-06). On a phone it opens at today; earlier days fold away. */}
+            {earlier.length > 0 && (phone && !showEarlier ? (
+              <Button variant="outline" className="min-h-11 w-full" onClick={() => setShowEarlier(true)}>
+                Vis tidligere dager i {monthName} ({earlier.length})
+              </Button>
+            ) : null)}
             <ul className="flex flex-col gap-2">
-              {mine.map((s) => {
-                const past = s.date < TODAY;
-                const { cls, label, title } = cellStyle(s);
-                return (
-                  <li key={s.id}>
-                    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 ${past ? "opacity-75" : ""}`}>
-                      <div className="flex items-center gap-3">
-                        <span className={`flex size-9 shrink-0 items-center justify-center rounded text-xs font-medium ${cls}`} aria-hidden>{label}</span>
-                        <div className="flex flex-col">
-                          <span className="text-sm tabular-nums">{dayTitle(s.date)}</span>
-                          <span className="text-xs text-muted-foreground">{title}</span>
-                        </div>
-                        {s.date === TODAY && <Badge className="bg-[var(--ab-accent-9)] text-[var(--primary-foreground)]">I dag</Badge>}
-                        {s.swapPending && (
-                          <Badge className="gap-1 bg-warning/10 text-warning-on-tint"><Clock className="size-3" aria-hidden /> Bytte venter</Badge>
-                        )}
-                      </div>
-                      {s.kind === "arbeid" && !past && (
-                        <div className="flex gap-1">
-                          {!s.swapPending && s.date > TODAY && (
-                            <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => { setSwapFrom(s); setError(null); }}>
-                              <Repeat className="size-3.5" /> Be om bytte
-                            </Button>
-                          )}
-                          {/* Not on a day already registered: the server would refuse it (already_attended). */}
-                          {(s.attendance === "planlagt" || !s.attendance) && (
-                            <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => { setSick(s); setError(null); }}>
-                              <Thermometer className="size-3.5" /> Meld syk
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
+              {(phone && !showEarlier ? fromToday : allDays).map((d) => (
+                <li key={d}><DayRow date={d} s={byDate.get(d)} onSwap={(x) => { setSwapFrom(x); setError(null); }}
+                  onSick={(x) => { setSick(x); setError(null); }} /></li>
+              ))}
             </ul>
 
             {outgoing.length > 0 && (
@@ -233,6 +218,50 @@ function VaktplanPage() {
         </>}>
         {error ? <p className="text-sm text-danger" role="alert">{error}</p> : <span />}
       </ResponsiveSheet>
+    </div>
+  );
+}
+
+function DayRow({ date, s, onSwap, onSick }: { date: string; s?: Shift; onSwap: (s: Shift) => void; onSick: (s: Shift) => void }) {
+  const past = date < TODAY;
+  if (!s) {
+    return (
+      <div className={`flex items-center gap-3 rounded-lg border border-dashed border-border px-3 py-2 ${past ? "opacity-60" : ""}`}>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded text-xs text-muted-foreground" aria-hidden>–</span>
+        <span className="text-sm tabular-nums text-muted-foreground">{dayTitle(date)} · ingen vakt</span>
+        {date === TODAY && <Badge className="bg-[var(--ab-accent-9)] text-[var(--primary-foreground)]">I dag</Badge>}
+      </div>
+    );
+  }
+  const { cls, label, title } = cellStyle(s);
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 ${past ? "opacity-75" : ""}`}>
+      <div className="flex items-center gap-3">
+        <span className={`flex size-9 shrink-0 items-center justify-center rounded text-xs font-medium ${cls}`} aria-hidden>{label}</span>
+        <div className="flex flex-col">
+          <span className="text-sm tabular-nums">{dayTitle(date)}</span>
+          <span className="text-xs text-muted-foreground">{title}</span>
+        </div>
+        {date === TODAY && <Badge className="bg-[var(--ab-accent-9)] text-[var(--primary-foreground)]">I dag</Badge>}
+        {s.swapPending && (
+          <Badge className="gap-1 bg-warning/10 text-warning-on-tint"><Clock className="size-3" aria-hidden /> Bytte venter</Badge>
+        )}
+      </div>
+      {s.kind === "arbeid" && !past && (
+        <div className="flex gap-1">
+          {!s.swapPending && date > TODAY && (
+            <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => onSwap(s)}>
+              <Repeat className="size-3.5" /> Be om bytte
+            </Button>
+          )}
+          {/* Not on a day already registered: the server would refuse it (already_attended). */}
+          {(s.attendance === "planlagt" || !s.attendance) && (
+            <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => onSick(s)}>
+              <Thermometer className="size-3.5" /> Meld syk
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

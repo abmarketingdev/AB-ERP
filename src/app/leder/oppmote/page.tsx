@@ -18,8 +18,9 @@ import { useMascotOnDone } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
 import { useShifts, useSwapRequests, useDecideSwap, useFollowUpAbsence, useForecast, useRecordAttendance } from "@/lib/api/staffing";
 import { ApiError, errorMessage } from "@/lib/api/client";
-import { SWAP_STATUS_LABEL, type Shift } from "@/types/schedule";
-import { cellStyle, LEGEND, monthBounds, shiftMonth, TODAY } from "@/lib/shift-cell";
+import { SWAP_STATUS_LABEL, type Forecast, type Shift } from "@/types/schedule";
+import { cellStyle, datesBetween, LEGEND, monthBounds, shiftMonth, TODAY, weekday2 } from "@/lib/shift-cell";
+import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { SlackPreview } from "@/components/patterns/slack-preview";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 
@@ -42,7 +43,6 @@ import { PermissionGate } from "@/components/patterns/permission-gate";
 
 const pctFmt = new Intl.NumberFormat("nb-NO", { style: "percent", maximumFractionDigits: 0 });
 const dayNum = new Intl.DateTimeFormat("nb-NO", { day: "numeric", timeZone: "UTC" });
-const weekday = new Intl.DateTimeFormat("nb-NO", { weekday: "narrow", timeZone: "UTC" });
 const fullDay = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 const monthFmt = new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeric", timeZone: "UTC" });
 const stamp = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -54,15 +54,16 @@ function OppmotePage() {
   const { from, to } = monthBounds(anchor);
   const shifts = useShifts({ from, to, teamId: team === "alle" ? undefined : team });
   const swaps = useSwapRequests();
-  const [target, setTarget] = React.useState("");
-  const forecast = useForecast({ teamId: team === "alle" ? undefined : team, target: Number(target) || undefined });
+  const [targets, setTargets] = React.useState<Record<string, string>>({});
+  const forecast = useForecast({ teamId: team === "alle" ? undefined : team });
   const decide = useDecideSwap();
   const [open, setOpen] = React.useState<Shift | null>(null);
 
   const rows = React.useMemo(() => shifts.data ?? [], [shifts.data]);
   const teams = React.useMemo(() => [...new Map(rows.map((s) => [s.teamId, s.team])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1], "nb")), [rows]);
-  const dates = React.useMemo(() => [...new Set(rows.map((s) => s.date))].sort(), [rows]);
+  // The whole month, every date (BEM-01 «per ansatt og dag») — not only days with a shift.
+  const dates = React.useMemo(() => datesBetween(from, to), [from, to]);
   const people = React.useMemo(() => {
     const map = new Map<string, { name: string; days: Shift[] }>();
     for (const s of rows) {
@@ -139,10 +140,9 @@ function OppmotePage() {
                         onClick={() => decide.mutate({ id: s.id, approve: true })}>
                         <Check className="size-3.5" /> Godkjenn
                       </Button>
-                      <Button size="sm" variant="outline" className="min-h-10 gap-1.5 text-danger" disabled={decide.isPending}
-                        onClick={() => decide.mutate({ id: s.id, approve: false })}>
-                        <X className="size-3.5" /> Avvis
-                      </Button>
+                      <ConfirmStep trigger="Avvis" confirmLabel="Avvis bytte" pending={decide.isPending}
+                        consequence={`${s.fromEmployee} og ${s.toEmployee} beholder sine vakter. Begge ser at byttet er avvist.`}
+                        onConfirm={() => decide.mutate({ id: s.id, approve: false })} />
                     </span>
                   ) : (
                     <Badge variant="outline" className="ml-auto">{SWAP_STATUS_LABEL[s.status]}</Badge>
@@ -173,8 +173,9 @@ function OppmotePage() {
                     <tr>
                       <th className="sticky left-0 z-10 bg-card px-2 py-1 text-left text-xs font-medium text-muted-foreground">Ansatt</th>
                       {dates.map((d) => (
-                        <th key={d} className="px-0.5 py-1 text-center text-[10px] font-normal text-muted-foreground">
-                          <span className="block capitalize">{weekday.format(day(d))}</span>
+                        <th key={d} aria-current={d === TODAY ? "date" : undefined}
+                          className={`px-0.5 py-1 text-center text-[10px] font-normal ${d === TODAY ? "rounded-t bg-planned-tint font-medium text-planned-on-tint" : "text-muted-foreground"}`}>
+                          <span className="block">{d === TODAY ? "i dag" : weekday2(d)}</span>
                           <span className="block tabular-nums">{dayNum.format(day(d))}</span>
                         </th>
                       ))}
@@ -190,7 +191,7 @@ function OppmotePage() {
                         <tr key={id}>
                           <td className="sticky left-0 z-10 whitespace-nowrap bg-card px-2 py-1 text-xs">{p.name}</td>
                           {dates.map((d) => (
-                            <td key={d} className="p-0"><Cell s={byDate.get(d)} name={p.name} date={d} size="h-7 w-full min-w-6" onOpen={setOpen} /></td>
+                            <td key={d} className={`p-0 ${d === TODAY ? "bg-planned-tint/60" : ""}`}><Cell s={byDate.get(d)} name={p.name} date={d} size="h-7 w-full min-w-6" onOpen={setOpen} /></td>
                           ))}
                           <td className="px-2 text-right text-xs tabular-nums text-muted-foreground">{came} / {planned}</td>
                         </tr>
@@ -208,7 +209,7 @@ function OppmotePage() {
                       <div className="flex gap-1.5 overflow-x-auto">
                         {week.map((s) => (
                           <div key={s.id} className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] capitalize text-muted-foreground">{weekday.format(day(s.date))} {dayNum.format(day(s.date))}</span>
+                            <span className={`text-[10px] ${s.date === TODAY ? "font-medium text-foreground" : "text-muted-foreground"}`}>{s.date === TODAY ? "i dag" : weekday2(s.date)} {dayNum.format(day(s.date))}</span>
                             <Cell s={s} name={p.name} date={s.date} size="size-10 text-xs" onOpen={setOpen} />
                           </div>
                         ))}
@@ -239,11 +240,7 @@ function OppmotePage() {
                   </h2>
                   <p className="mt-1 max-w-prose text-xs text-muted-foreground">{list[0]?.explanation}</p>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="fc-target" className="text-xs">Mål: dagsverk vi trenger</Label>
-                  <Input id="fc-target" type="number" inputMode="numeric" className="h-9 w-28" value={target}
-                    onChange={(e) => setTarget(e.target.value)} placeholder="f.eks. 120" />
-                </div>
+
               </div>
               {/* Phone: one card per team rather than a squashed table (08-DESIGN-REVIEW). */}
               <ul className="flex flex-col gap-2 sm:hidden">
@@ -258,7 +255,9 @@ function OppmotePage() {
                         <dt className="text-muted-foreground">Forventet levert</dt>
                         <dd className="text-right">{f.reliable ? "" : "≈ "}{f.expectedDays.toLocaleString("nb-NO")} <span className="text-xs text-muted-foreground">({f.expectedLow}–{f.expectedHigh})</span></dd>
                         <dt className="text-muted-foreground">Oppmøtegrad</dt><dd className="text-right">{f.reliable ? "" : "≈ "}{pctFmt.format(f.showRate)}</dd>
-                        {target && <><dt className="text-muted-foreground">Må planlegges</dt><dd className="text-right">{f.neededForTarget ?? "—"}</dd></>}
+                        <dt className="text-muted-foreground"><Label htmlFor={`m-${f.teamId}`}>Mål (dagsverk)</Label></dt>
+                        <dd className="text-right"><TargetInput id={`m-${f.teamId}`} f={f} value={targets[f.teamId] ?? ""}
+                          onChange={(v) => setTargets((t) => ({ ...t, [f.teamId]: v }))} /></dd>
                       </dl>
                     )}
                     <p className="mt-2 text-xs text-muted-foreground">{f.basisDays} registrerte dager{!f.reliable && f.basisDays > 0 && " · lite historikk — usikkert"}</p>
@@ -273,7 +272,7 @@ function OppmotePage() {
                       <th className="pb-2 text-right font-medium">Planlagt</th>
                       <th className="pb-2 text-right font-medium">Forventet levert</th>
                       <th className="pb-2 text-right font-medium">Oppmøtegrad</th>
-                      {target && <th className="pb-2 text-right font-medium">Må planlegges</th>}
+                      <th className="pb-2 pl-6 font-medium">Mål</th>
                       <th className="pb-2 pl-6 font-medium">Grunnlag</th>
                     </tr>
                   </thead>
@@ -298,7 +297,10 @@ function OppmotePage() {
                           {f.basisDays === 0 ? <span className="text-muted-foreground">—</span>
                             : <span className={f.reliable ? "" : "text-muted-foreground"}>{f.reliable ? "" : "≈ "}{pctFmt.format(f.showRate)}</span>}
                         </td>
-                        {target && <td className="py-2 text-right tabular-nums">{f.basisDays === 0 ? "—" : f.neededForTarget ?? "—"}</td>}
+                        <td className="py-2 pl-6">
+                          <TargetInput id={`t-${f.teamId}`} f={f} value={targets[f.teamId] ?? ""}
+                            onChange={(v) => setTargets((t) => ({ ...t, [f.teamId]: v }))} />
+                        </td>
                         <td className="py-2 pl-6 text-xs text-muted-foreground">
                           {f.basisDays === 0 ? "Ingen registrert oppmøte ennå — prognosen kommer når det finnes historikk."
                             : `${f.basisDays} registrerte dager, ${f.windowWeeks} uker`}
@@ -328,6 +330,23 @@ function OppmotePage() {
 }
 
 /** Pandi once when the last of today's registrations is made — not on every visit. */
+/**
+ * BEM-03 «reelt behov»: type the day-works the team needs; the answer — how many days
+ * must be planned at this team's real attendance rate — appears on the same row.
+ * Same formula as the server's needed_for_target: ⌈mål ÷ oppmøtegrad⌉.
+ */
+function TargetInput({ id, f, value, onChange }: { id: string; f: Forecast; value: string; onChange: (v: string) => void }) {
+  const n = Number(value);
+  const answer = !value || !(n > 0) ? null : f.basisDays === 0 || f.showRate <= 0 ? "ingen historikk ennå" : `planlegg ${Math.ceil(n / f.showRate)} dager`;
+  return (
+    <span className="flex flex-wrap items-center justify-end gap-2 sm:justify-start">
+      <Input id={id} type="number" inputMode="numeric" min={1} className="h-9 w-24" value={value}
+        aria-label={`Mål i dagsverk for ${f.team}`} placeholder="dagsverk" onChange={(e) => onChange(e.target.value)} />
+      {answer && <span className="text-xs tabular-nums text-muted-foreground">{answer}{f.reliable || f.basisDays === 0 ? "" : " (usikkert)"}</span>}
+    </span>
+  );
+}
+
 function TodayDone({ done, count }: { done: boolean; count: number }) {
   const { key, ...mascot } = useMascotOnDone(done);
   if (!done) return null;

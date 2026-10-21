@@ -66,3 +66,21 @@ export function shiftMonth(anchor: string, delta: number) {
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
   return d.toISOString().slice(0, 10);
 }
+
+/** Every date of [from, to] — BEM-01/06 «hele måneden», not only the days that have a shift. */
+export function datesBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  const d = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (d <= end) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+const WD = new Intl.DateTimeFormat("nb-NO", { weekday: "short", timeZone: "UTC" });
+/** «ma ti on to fr lø sø» — two letters, unambiguous (narrow gives two «T»s). */
+export function weekday2(date: string): string {
+  return WD.format(new Date(`${date}T00:00:00Z`)).replace(".", "").slice(0, 2).toLowerCase();
+}
