@@ -7,6 +7,8 @@ export interface NavItem {
   label: string;
   href: string;
   icon?: string;
+  /** Menu section heading («Rekruttering», «Administrasjon»…). Long menus group by it. */
+  section?: string;
 }
 
 /**

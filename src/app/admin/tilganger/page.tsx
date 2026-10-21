@@ -2,195 +2,181 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Minus, Plus, RotateCcw, Search, ShieldAlert, UserX, UserCheck } from "lucide-react";
+import { ChevronDown, Search, ShieldAlert, UserCheck, UserX } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { EmptyState } from "@/components/patterns/empty-state";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  useUserAccess,
+  useAccessTemplates,
   usePermissionCatalogue,
+  useSetModule,
   useSetPermission,
+  useSetTemplate,
   useSetUserActive,
+  useUserAccess,
 } from "@/lib/api/quality";
 import { errorMessage } from "@/lib/api/client";
-import {
-  effectivePermissions,
-  provenanceOf,
-  actionsFor,
-  PROVENANCE_LABEL,
-  type Provenance,
-} from "@/lib/access";
+import { effectivePermissions, provenanceOf, type Provenance } from "@/lib/access";
+import { IS_MOCK } from "@/lib/data-source";
+import { mascotFor } from "@/lib/use-mascot";
 import type { Permission, UserAccess } from "@/types/quality";
 
 /**
- * FR-A-02 / FR-S-04 — the access surface.
+ * SRS §2.2 «Tilgang er modulbasert og settes per bruker … (hent inspirasjon fra Microsoft
+ * Teams)» and §8.1 l.735. The shape follows Teams' app-permission policies: a person gets a
+ * TEMPLATE (the policy), and anything else is an exception someone made and had to justify.
  *
- * Doc 01 calls this "the new architectural surface", and the reason is the
- * model: access is user-specific, not role-based. A role is a *starting point*,
- * and everything after it is an individual decision someone made and should
- * have to justify.
- *
- * So the screen never shows a flat list of what someone can do. It shows, for
- * every permission, **where it came from** — role default, granted by hand, or
- * revoked by hand — because only the last two are anyone's to change, and an
- * administrator who cannot tell them apart will eventually remove access that
- * the job requires and wonder why.
- *
- * Every change takes a mandatory reason and writes an audit entry with the
- * effective set before and after. An access grant with no recorded why is the
- * hardest thing to unpick six months later, and this log is what an audit reads.
+ * So the screen leads with the template («Mal: Rekrutterer · Endre mal») — the one change
+ * an admin makes most — then the modules as switches (on / off / partly), and keeps
+ * individual exceptions in their own section, because they are what an audit asks about.
+ * Every change takes a reason and is written to the audit log with before and after.
  */
+
+/** Module key → the group a person recognises (master, design review round 1). */
+const GROUPS: { title: string; modules: string[] }[] = [
+  { title: "Samleinnboks", modules: ["leads", "stand"] },
+  { title: "Kandidater", modules: ["candidates", "candidates_master", "private_notes", "audience_export", "recman_import", "recruitment"] },
+  { title: "Annonser", modules: ["ads"] },
+  { title: "Intervjuer", modules: ["booking", "interviews_own", "interviews"] },
+  { title: "Godkjenning", modules: ["approval"] },
+  { title: "Onboarding", modules: ["onboarding"] },
+  { title: "Ansatte", modules: ["employees"] },
+  { title: "Bemanning og vaktplan", modules: ["staffing", "schedule", "promoter", "leader", "saleschief"] },
+  { title: "Oppgaver", modules: ["tasks"] },
+  { title: "Dashboard", modules: ["dashboard", "recruitdash", "kpi"] },
+  { title: "Personvern", modules: ["privacy"] },
+  { title: "Administrasjon", modules: ["access", "audit", "integrations", "notify", "admin", "import", "privatenotes"] },
+];
+
+const moduleOf = (p: Permission) => p.module ?? p.key.split(".")[0];
+
+type Filter = "with" | "without" | "inactive";
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "with", label: "Med tilgang" },
+  { key: "without", label: "Uten tilgang" },
+  { key: "inactive", label: "Deaktivert" },
+];
+
+function bucket(u: UserAccess): Filter {
+  if (!u.active) return "inactive";
+  return effectivePermissions(u).length > 0 ? "with" : "without";
+}
+
+type Pending = {
+  title: string;
+  body: string;
+  run: (reason: string) => void;
+};
+
 export default function AdminTilganger() {
-  const now = new Date();
   const users = useUserAccess();
   const catalogue = usePermissionCatalogue();
-  const setPermission = useSetPermission();
-  const setActive = useSetUserActive();
-
   const [q, setQ] = React.useState("");
+  const [filter, setFilter] = React.useState<Filter>("with");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [failed, setFailed] = React.useState<string | null>(null);
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader
         title="Tilganger"
-        description="Rolledefault, individuelle tillegg og fjerninger — og hvem som bestemte hva"
+        description="Hvem har hvilke moduler: malen er utgangspunktet, unntakene står for seg"
         source="Tilgangsstyring"
-        lastUpdated={now}
+        lastUpdated={users.dataUpdatedAt ? new Date(users.dataUpdatedAt) : new Date()}
       />
-
-      {failed && (
-        <p className="rounded-md border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
-          {failed}
-        </p>
-      )}
 
       <QueryBoundary
         query={users}
-        skeleton={<Skeleton className="h-96 rounded-xl" />}
+        skeleton={
+          <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+            <Skeleton className="h-[28rem] rounded-xl" />
+            <Skeleton className="h-[28rem] rounded-xl" />
+          </div>
+        }
         isEmpty={(d) => d.length === 0}
-        emptyTitle="Ingen brukere"
+        emptyTitle="Ingen brukere ennå"
+        emptyDescription="Brukerne hentes fra innloggingen. Nye ansatte dukker opp her etter at kontoen er opprettet."
         className="flex flex-1 flex-col gap-4"
       >
         {(list) => {
           const needle = q.trim().toLowerCase();
-          const matches = needle
-            ? list.filter(
-                (u) =>
-                  u.name.toLowerCase().includes(needle) ||
-                  u.email.toLowerCase().includes(needle) ||
-                  u.role.toLowerCase().includes(needle) ||
-                  (u.team ?? "").toLowerCase().includes(needle),
-              )
-            : list;
-          const selected = matches.find((u) => u.id === selectedId) ?? matches[0] ?? null;
+          const counts = { with: 0, without: 0, inactive: 0 } as Record<Filter, number>;
+          for (const u of list) counts[bucket(u)]++;
+          const matches = list.filter(
+            (u) =>
+              bucket(u) === filter &&
+              (!needle ||
+                u.name.toLowerCase().includes(needle) ||
+                u.email.toLowerCase().includes(needle) ||
+                u.role.toLowerCase().includes(needle) ||
+                (u.team ?? "").toLowerCase().includes(needle)),
+          );
+          const selected = list.find((u) => u.id === selectedId) ?? matches[0] ?? null;
 
           return (
-            <>
-              <div className="relative max-w-md">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  aria-label="Søk etter bruker"
-                  placeholder="Søk etter navn, e-post, rolle eller team…"
-                  className="pl-9"
-                />
-              </div>
-
-              {matches.length === 0 ? (
-                <EmptyState
-                  title="Ingen brukere matcher søket"
-                  description="Prøv et navn, en e-postadresse eller et teamnavn."
-                  mascot="thinking"
-                />
-              ) : (
-                <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
-                  {/* List left, detail right — the same shape as KPI-ordbok, because
-                      it is the same job: pick a record, inspect its provenance. */}
-                  <ul
-                    className="flex max-h-[70vh] flex-col gap-1.5 self-start overflow-y-auto rounded-xl border border-border bg-card p-2"
-                    aria-label="Brukere"
-                  >
-                    {matches.map((u) => (
-                      <li key={u.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(u.id)}
-                          aria-pressed={selected?.id === u.id}
-                          className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                            selected?.id === u.id
-                              ? "bg-[var(--ab-accent-9)]/12 ring-1 ring-[var(--ab-accent-9)]/30"
-                              : "hover:bg-secondary/60"
-                          }`}
-                        >
-                          <span className="flex items-center justify-between gap-2">
-                            <span
-                              className={`truncate text-[13.5px] ${u.active ? "text-foreground" : "text-muted-foreground line-through"}`}
-                            >
-                              {u.name}
-                            </span>
-                            {(u.granted.length > 0 || u.revoked.length > 0) && (
-                              <span
-                                className="size-1.5 shrink-0 rounded-full bg-[var(--ab-accent-9)]"
-                                title="Har individuelle endringer"
-                              />
-                            )}
-                          </span>
-                          <span className="mt-0.5 block truncate font-mono text-[10.5px] text-muted-foreground">
-                            {u.role}
-                            {u.team && ` · ${u.team}`}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {selected && (
-                    <QueryBoundary
-                      query={catalogue}
-                      skeleton={<Skeleton className="h-96 rounded-xl" />}
-                    >
-                      {(perms) => (
-                        <UserDetail
-                          key={selected.id}
-                          user={selected}
-                          catalogue={perms}
-                          pending={setPermission.isPending || setActive.isPending}
-                          onChange={(permission, action, reason) => {
-                            setFailed(null);
-                            setPermission.mutate(
-                              { id: selected.id, permission, action, reason },
-                              { onError: (e) => setFailed(errorMessage(e)) },
-                            );
-                          }}
-                          onToggleActive={(active, reason) => {
-                            setFailed(null);
-                            setActive.mutate(
-                              { id: selected.id, active, reason },
-                              { onError: (e) => setFailed(errorMessage(e)) },
-                            );
-                          }}
-                        />
-                      )}
-                    </QueryBoundary>
-                  )}
+            <div className="grid flex-1 grid-cols-1 items-start gap-4 lg:grid-cols-[320px_1fr]">
+              {/* The list scrolls on its own and stays put while the detail scrolls. */}
+              <aside className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                  <Input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Søk etter bruker"
+                    placeholder="Søk på navn, e-post eller team" className="h-11 pl-9" />
                 </div>
-              )}
+                <div role="radiogroup" aria-label="Vis" className="flex flex-wrap gap-1.5">
+                  {FILTERS.map((f) => (
+                    <SelectableButton key={f.key} role="radio" selected={filter === f.key}
+                      onClick={() => setFilter(f.key)} className="px-2.5 text-[13px]">
+                      {f.label} <span className="tabular-nums text-muted-foreground">{counts[f.key]}</span>
+                    </SelectableButton>
+                  ))}
+                </div>
+                {matches.length === 0 ? (
+                  <EmptyState
+                    title={needle ? "Ingen treff" : filter === "inactive" ? "Ingen deaktiverte brukere" : "Ingen her"}
+                    description={needle ? "Prøv et annet navn, en e-postadresse eller et team." : undefined}
+                    mascot={mascotFor("empty").state}
+                    className="py-6"
+                  />
+                ) : (
+                  <ul aria-label="Brukere" className="-mx-1 flex max-h-[40dvh] flex-col gap-1 overflow-y-auto px-1 lg:max-h-none lg:flex-1">
+                    {matches.map((u) => {
+                      const isSel = selected?.id === u.id;
+                      return (
+                        <li key={u.id}>
+                          <button type="button" onClick={() => setSelectedId(u.id)} aria-current={isSel ? "true" : undefined}
+                            className={`flex min-h-11 w-full flex-col rounded-lg px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                              isSel ? "bg-[var(--ab-accent-9)]/10 ring-1 ring-inset ring-[var(--ab-accent-9)]/40" : "hover:bg-muted"}`}>
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="truncate text-[14px] text-foreground">{u.name}</span>
+                              {(u.granted.length > 0 || u.revoked.length > 0) && (
+                                <span className="shrink-0 text-[11px] text-muted-foreground">unntak</span>
+                              )}
+                            </span>
+                            <span className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                              {u.role}{u.team ? ` · ${u.team}` : ""}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </aside>
 
-              <p className="font-mono text-[10.5px] text-muted-foreground">
-                Effektiv tilgang = rollens standardsett + individuelle tillegg − individuelle
-                fjerninger · alle endringer krever begrunnelse og logges i revisjonsloggen
-              </p>
-            </>
+              {selected ? (
+                <QueryBoundary query={catalogue} skeleton={<Skeleton className="h-[28rem] rounded-xl" />}>
+                  {(perms) => <UserDetail key={selected.id} user={selected} catalogue={perms} />}
+                </QueryBoundary>
+              ) : (
+                <EmptyState title="Velg en bruker" description="Velg en person i listen for å se og endre tilgangene." />
+              )}
+            </div>
           );
         }}
       </QueryBoundary>
@@ -198,264 +184,259 @@ export default function AdminTilganger() {
   );
 }
 
-function UserDetail({
-  user,
-  catalogue,
-  pending,
-  onChange,
-  onToggleActive,
-}: {
-  user: UserAccess;
-  catalogue: Permission[];
-  pending: boolean;
-  onChange: (permission: string, action: "grant" | "revoke" | "reset", reason: string) => void;
-  onToggleActive: (active: boolean, reason: string) => void;
-}) {
-  const effective = effectivePermissions(user);
-  const [editing, setEditing] = React.useState<
-    { permission: string; action: "grant" | "revoke" | "reset"; label: string } | null
-  >(null);
-  const [deactivating, setDeactivating] = React.useState(false);
+function UserDetail({ user, catalogue }: { user: UserAccess; catalogue: Permission[] }) {
+  const setPermission = useSetPermission();
+  const setActive = useSetUserActive();
+  const setTemplate = useSetTemplate();
+  const setModule = useSetModule();
+  const templates = useAccessTemplates();
+  const [pending, setPending] = React.useState<Pending | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const busy = setPermission.isPending || setActive.isPending || setTemplate.isPending || setModule.isPending;
+  const effective = new Set(effectivePermissions(user));
+  const onError = (e: unknown) => setError(errorMessage(e));
+  const ask = (p: Pending) => { setError(null); setPending(p); };
+
+  const [nextTemplate, setNextTemplate] = React.useState<string>(user.template ?? "");
+  const exceptions = catalogue.filter((p) => {
+    const prov = provenanceOf(user, p.key);
+    return prov === "granted" || prov === "revoked";
+  });
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+    <section aria-label={`Tilganger for ${user.name}`} className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5">
+      {/* Who, and the template — the main action on this screen. */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[16px] text-foreground">{user.name}</p>
-          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-            {user.email} · {user.role}
-            {user.team && ` · ${user.team}`}
-            {user.mfa && " · 2FA påkrevd"}
+          <h2 className="text-lg font-medium text-foreground">{user.name}</h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            {user.email}{user.team ? ` · ${user.team}` : ""}
+            {user.mfa && <> · <ShieldAlert className="inline size-3.5 align-[-2px]" aria-hidden /> krever tofaktor</>}
           </p>
-          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-            {user.active ? `Sist pålogget ${user.lastSeen ?? "ukjent"}` : "Kontoen er deaktivert"}
-          </p>
+          {!user.active && <p className="mt-1 text-[13px] font-medium text-danger">Kontoen er deaktivert</p>}
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => setDeactivating(true)}
-          disabled={pending}
-        >
-          {user.active ? <UserX className="size-3.5" /> : <UserCheck className="size-3.5" />}
+        <Button variant="outline" className="min-h-11 gap-1.5 sm:min-h-9" disabled={busy}
+          onClick={() => ask({
+            title: user.active ? `Deaktiver ${user.name}?` : `Aktiver ${user.name}?`,
+            body: user.active
+              ? "Personen mister all tilgang med en gang. Malen og unntakene beholdes, så en aktivering gir alt tilbake."
+              : "Personen får tilbake malen og unntakene som står under.",
+            run: (reason) => setActive.mutate({ id: user.id, active: !user.active, reason }, { onError }),
+          })}>
+          {user.active ? <UserX className="size-4" aria-hidden /> : <UserCheck className="size-4" aria-hidden />}
           {user.active ? "Deaktiver" : "Aktiver"}
         </Button>
       </div>
 
-      {deactivating && (
-        <ReasonPrompt
-          title={user.active ? `Deaktiver ${user.name}?` : `Aktiver ${user.name}?`}
-          body={
-            user.active
-              ? "Brukeren mister all tilgang umiddelbart. Kontoen beholdes for revisjonssporet."
-              : "Brukeren får tilbake den effektive tilgangen som står nedenfor."
-          }
-          pending={pending}
-          onCancel={() => setDeactivating(false)}
-          onConfirm={(reason) => {
-            onToggleActive(!user.active, reason);
-            setDeactivating(false);
-          }}
-        />
-      )}
-
-      {/* The effective set, stated once and plainly — this is what the person
-          can actually do right now. */}
-      <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.09em] text-muted-foreground">
-          Effektiv tilgang
-        </p>
-        <p className="mt-1.5 text-[13px] text-foreground">
-          {!user.active
-            ? "Ingen — kontoen er deaktivert."
-            : effective.length === 0
-              ? "Ingen tilganger."
-              : catalogue
-                  .filter((p) => effective.includes(p.key))
-                  .map((p) => p.label)
-                  .join(", ")}
-        </p>
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-muted/30 p-4">
+        <div className="min-w-[14rem] flex-1 space-y-1.5">
+          <Label htmlFor="mal">Mal</Label>
+          {IS_MOCK ? (
+            <p id="mal" className="text-[15px] font-medium text-foreground">{user.role}</p>
+          ) : (
+            <select id="mal" value={nextTemplate} disabled={busy || !user.active}
+              onChange={(e) => setNextTemplate(e.target.value)}
+              className="h-11 w-full rounded-md border border-input bg-background px-3 text-[15px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="">Ingen mal (bare unntak)</option>
+              {(templates.data ?? []).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          )}
+        </div>
+        {!IS_MOCK && (
+          <Button className="min-h-11" disabled={busy || !user.active || nextTemplate === (user.template ?? "")}
+            onClick={() => {
+              const label = templates.data?.find((t) => t.key === nextTemplate)?.label ?? "ingen mal";
+              ask({
+                title: `Endre mal for ${user.name} til «${label}»?`,
+                body: "Modulene under følger den nye malen. Unntakene du har gitt eller fjernet, beholdes.",
+                run: (reason) => setTemplate.mutate({ id: user.id, template: nextTemplate || null, reason }, { onError }),
+              });
+            }}>
+            Endre mal
+          </Button>
+        )}
       </div>
 
-      <ul className="flex flex-col divide-y divide-border">
-        {catalogue.map((p) => {
-          const prov = provenanceOf(user, p.key);
-          const can = actionsFor(prov);
-          const isOpen = editing?.permission === p.key;
+      {pending && (
+        <ReasonPrompt {...pending} pending={busy} onCancel={() => setPending(null)}
+          onConfirm={(reason) => { pending.run(reason); setPending(null); }} />
+      )}
+      {error && <p role="alert" className="rounded-md border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">{error}</p>}
 
-          return (
-            <li key={p.key} className="py-3 first:pt-0 last:pb-0">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-[13.5px] text-foreground">
-                    {p.label}
-                    {p.sensitive && (
-                      <span className="inline-flex items-center gap-1 rounded border border-warning/30 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-warning">
-                        <ShieldAlert className="size-3" aria-hidden />
-                        Sensitiv
-                      </span>
-                    )}
-                    <ProvenanceChip provenance={prov} />
-                  </p>
-                  <p className="mt-1 text-[12.5px] text-muted-foreground">{p.description}</p>
-                  {user.reasons[p.key] && (
-                    <p className="mt-1.5 text-[12.5px] text-muted-foreground">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.09em]">
-                        Begrunnelse
-                      </span>{" "}
-                      {user.reasons[p.key]}
-                    </p>
-                  )}
-                </div>
+      {exceptions.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-[13px] font-medium text-foreground">Unntak fra malen</h3>
+          <ul className="flex flex-col gap-1.5">
+            {exceptions.map((p) => {
+              const prov = provenanceOf(user, p.key);
+              return (
+                <li key={p.key} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+                  <span className="min-w-0 text-[13.5px] text-foreground">
+                    <ProvenanceChip provenance={prov} /> {p.label}
+                    {user.reasons[p.key] && <span className="block text-[12.5px] text-muted-foreground">«{user.reasons[p.key]}»</span>}
+                  </span>
+                  <Button variant="ghost" className="min-h-11 sm:min-h-8" disabled={busy || !user.active}
+                    onClick={() => ask({
+                      title: `Fjern unntaket «${p.label}»?`, body: "Malen gjelder igjen for denne tilgangen.",
+                      run: (reason) => setPermission.mutate({ id: user.id, permission: p.key, action: "reset", reason }, { onError }),
+                    })}>
+                    Tilbake til malen
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
-                <div className="flex shrink-0 gap-1.5">
-                  {can.grant && (
-                    <Action
-                      icon={Plus}
-                      label="Gi"
-                      disabled={pending || !user.active}
-                      onClick={() =>
-                        setEditing({ permission: p.key, action: "grant", label: p.label })
-                      }
-                    />
-                  )}
-                  {can.revoke && (
-                    <Action
-                      icon={Minus}
-                      label="Fjern"
-                      disabled={pending || !user.active}
-                      onClick={() =>
-                        setEditing({ permission: p.key, action: "revoke", label: p.label })
-                      }
-                    />
-                  )}
-                  {can.reset && (
-                    <Action
-                      icon={RotateCcw}
-                      label="Tilbakestill"
-                      disabled={pending || !user.active}
-                      onClick={() =>
-                        setEditing({ permission: p.key, action: "reset", label: p.label })
-                      }
-                    />
-                  )}
-                </div>
-              </div>
-
-              {isOpen && editing && (
-                <ReasonPrompt
-                  className="mt-3"
-                  title={
-                    editing.action === "grant"
-                      ? `Gi ${user.name} tilgang til ${editing.label}?`
-                      : editing.action === "revoke"
-                        ? `Fjern ${editing.label} for ${user.name}?`
-                        : `Tilbakestill ${editing.label} til rollens standard?`
-                  }
-                  body={
-                    editing.action === "revoke" && prov === "role"
-                      ? "Tilgangen følger rollen. Den fjernes bare for denne brukeren, og rollen endres ikke."
-                      : editing.action === "reset"
-                        ? "Den individuelle endringen fjernes, og rollens standard gjelder igjen."
-                        : "Tilgangen gis bare til denne brukeren, utover rollens standard."
-                  }
-                  pending={pending}
-                  onCancel={() => setEditing(null)}
-                  onConfirm={(reason) => {
-                    onChange(editing.permission, editing.action, reason);
-                    setEditing(null);
-                  }}
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+      <div className="space-y-2">
+        <h3 className="text-[13px] font-medium text-foreground">Moduler</h3>
+        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+          {GROUPS.map((g) => {
+            const keys = catalogue.filter((p) => g.modules.includes(moduleOf(p)));
+            if (keys.length === 0) return null;
+            return <ModuleRow key={g.title} title={g.title} keys={keys} user={user} effective={effective} busy={busy}
+              onAsk={ask} onError={onError} setModule={setModule} setPermission={setPermission} />;
+          })}
+        </ul>
+        <p className="text-[12px] text-muted-foreground">
+          Alle endringer krever begrunnelse og står i revisjonsloggen. Handlinger merket med skjold krever tofaktor.
+        </p>
+      </div>
+    </section>
   );
 }
+
+function ModuleRow({ title, keys, user, effective, busy, onAsk, onError, setModule, setPermission }: {
+  title: string;
+  keys: Permission[];
+  user: UserAccess;
+  effective: Set<string>;
+  busy: boolean;
+  onAsk: (p: Pending) => void;
+  onError: (e: unknown) => void;
+  setModule: ReturnType<typeof useSetModule>;
+  setPermission: ReturnType<typeof useSetPermission>;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const reduced = useReducedMotion();
+  const held = keys.filter((p) => effective.has(p.key));
+  const on = held.length > 0;
+  const state =
+    held.length === 0 ? (keys.some((p) => provenanceOf(user, p.key) === "revoked") ? "Fjernet" : "Av")
+      : held.length < keys.length ? "Delvis"
+        : keys.every((p) => provenanceOf(user, p.key) === "role") ? "Fra malen"
+          : keys.some((p) => provenanceOf(user, p.key) === "granted") ? "Gitt" : "På";
+  const panelId = `mod-${title.replace(/\W+/g, "-")}`;
+
+  function toggle(next: boolean) {
+    const grant: string[] = [], revoke: string[] = [], reset: string[] = [];
+    for (const p of keys) {
+      const prov = provenanceOf(user, p.key);
+      if (next && !effective.has(p.key)) (prov === "revoked" ? reset : grant).push(p.key);
+      if (!next && effective.has(p.key)) (prov === "granted" ? reset : revoke).push(p.key);
+    }
+    onAsk({
+      title: next ? `Gi ${user.name} hele modulen «${title}»?` : `Fjern modulen «${title}» for ${user.name}?`,
+      body: next ? "Alle handlingene i modulen gis til denne personen, utover malen."
+        : "Personen mister alle handlingene i modulen. Malen endres ikke for andre.",
+      run: (reason) => (IS_MOCK
+        ? [...grant.map((k) => ["grant", k]), ...revoke.map((k) => ["revoke", k]), ...reset.map((k) => ["reset", k])]
+            .forEach(([action, permission]) => setPermission.mutate({ id: user.id, permission, action: action as "grant", reason }, { onError }))
+        : setModule.mutate({ id: user.id, grant, revoke, reset, reason }, { onError })),
+    });
+  }
+
+  return (
+    <li>
+      <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+        <Switch checked={on} disabled={busy || !user.active} onCheckedChange={toggle}
+          aria-label={`${title}: ${on ? "på" : "av"}`} />
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={panelId}
+          className="flex min-h-11 flex-1 items-center justify-between gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="text-[14px] font-medium text-foreground">{title}</span>
+          <span className="flex items-center gap-2">
+            {state !== "Av" && <StateChip state={state} />}
+            <span className="text-[12px] tabular-nums text-muted-foreground">{held.length} av {keys.length}</span>
+            <ChevronDown className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+          </span>
+        </button>
+      </div>
+      {open && (
+        <motion.ul id={panelId} initial={reduced ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+          transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }} className="flex flex-col gap-1 bg-muted/20 px-4 pb-3 pt-1">
+          {keys.map((p) => {
+            const prov = provenanceOf(user, p.key);
+            const has = effective.has(p.key);
+            return (
+              <li key={p.key} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                <span className="min-w-0 text-[13.5px] text-foreground">
+                  {p.label}
+                  {p.sensitive && <ShieldAlert className="ml-1.5 inline size-3.5 align-[-2px] text-muted-foreground" aria-label="krever tofaktor" />}
+                  {p.description && p.description !== p.label && (
+                    <span className="block text-[12.5px] text-muted-foreground">{p.description}</span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2">
+                  {prov !== "none" && <ProvenanceChip provenance={prov} />}
+                  <Switch checked={has} disabled={busy || !user.active}
+                    aria-label={`${p.label}: ${has ? "på" : "av"}`}
+                    onCheckedChange={(next) => onAsk({
+                      title: next ? `Gi ${user.name} «${p.label}»?` : `Fjern «${p.label}» for ${user.name}?`,
+                      body: next ? "Gjelder bare denne personen." : "Gjelder bare denne personen. Malen endres ikke.",
+                      run: (reason) => setPermission.mutate({
+                        id: user.id, permission: p.key, reason,
+                        action: next ? (prov === "revoked" ? "reset" : "grant") : (prov === "granted" ? "reset" : "revoke"),
+                      }, { onError }),
+                    })} />
+                </span>
+              </li>
+            );
+          })}
+        </motion.ul>
+      )}
+    </li>
+  );
+}
+
+const PROV: Record<Exclude<Provenance, "none">, { label: string; cls: string }> = {
+  role: { label: "Fra malen", cls: "border-border text-muted-foreground" },
+  granted: { label: "Gitt", cls: "border-[var(--ab-accent-9)]/40 bg-[var(--ab-accent-9)]/10 text-foreground" },
+  revoked: { label: "Fjernet", cls: "border-danger/35 bg-danger/10 text-danger" },
+};
 
 function ProvenanceChip({ provenance }: { provenance: Provenance }) {
-  const tone: Record<Provenance, string> = {
-    role: "border-border text-muted-foreground",
-    granted: "border-[var(--ab-accent-9)]/35 bg-[var(--ab-accent-9)]/10 text-[var(--ab-accent-11)]",
-    revoked: "border-danger/30 bg-danger/10 text-danger",
-    none: "border-border text-muted-foreground",
-  };
-  return (
-    <span
-      className={`rounded-full border px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-wide ${tone[provenance]}`}
-    >
-      {PROVENANCE_LABEL[provenance]}
-    </span>
-  );
+  if (provenance === "none") return null;
+  const p = PROV[provenance];
+  return <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] ${p.cls}`}>{p.label}</span>;
 }
 
-function Action({
-  icon: Icon,
-  label,
-  disabled,
-  onClick,
-}: {
-  icon: typeof Plus;
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Button size="sm" variant="outline" className="gap-1.5" disabled={disabled} onClick={onClick}>
-      <Icon className="size-3.5" aria-hidden />
-      {label}
-    </Button>
-  );
+function StateChip({ state }: { state: string }) {
+  const cls = state === "Fjernet" ? PROV.revoked.cls : state === "Gitt" ? PROV.granted.cls : PROV.role.cls;
+  return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${cls}`}>{state}</span>;
 }
 
-/** Nothing changes without a reason, so the reason is part of the control. */
-function ReasonPrompt({
-  title,
-  body,
-  pending,
-  className,
-  onCancel,
-  onConfirm,
-}: {
-  title: string;
-  body: string;
-  pending: boolean;
-  className?: string;
-  onCancel: () => void;
-  onConfirm: (reason: string) => void;
+/** Nothing changes without a reason, so the reason is part of the control (FR-A-02). */
+function ReasonPrompt({ title, body, pending, onCancel, onConfirm }: {
+  title: string; body: string; pending: boolean; onCancel: () => void; onConfirm: (reason: string) => void;
 }) {
   const reduced = useReducedMotion();
   const [reason, setReason] = React.useState("");
-
+  const id = React.useId();
   return (
-    <motion.div
-      initial={reduced ? false : { opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-      className={className}
-    >
-      <div className="rounded-lg border border-border bg-secondary/40 px-4 py-3.5">
-        <p className="text-[13.5px] text-foreground">{title}</p>
-        <p className="mt-1 text-[12.5px] text-muted-foreground">{body}</p>
-        <Textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Begrunnelse (påkrevd)"
-          aria-label="Begrunnelse"
-          className="mt-2.5 min-h-16 text-sm"
-          autoFocus
-        />
-        <div className="mt-2.5 flex gap-2">
-          <Button size="sm" disabled={!reason.trim() || pending} onClick={() => onConfirm(reason.trim())}>
-            {pending ? "Lagrer…" : "Bekreft"}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onCancel}>
-            Avbryt
-          </Button>
-        </div>
+    <motion.div role="group" aria-label={title} initial={reduced ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }} onKeyDown={(e) => e.key === "Escape" && onCancel()}
+      className="rounded-lg border border-[var(--ab-accent-9)]/40 bg-[var(--ab-accent-9)]/5 p-4">
+      <p className="text-[14px] font-medium text-foreground">{title}</p>
+      <p className="mt-1 text-[13px] text-muted-foreground">{body}</p>
+      <Label htmlFor={id} className="mt-3 block">Begrunnelse <span className="text-muted-foreground">(påkrevd)</span></Label>
+      <Textarea id={id} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus
+        placeholder="For eksempel: Vikar for Ole i uke 44" className="mt-1.5 min-h-16 text-sm" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button className="min-h-11 sm:min-h-9" disabled={!reason.trim() || pending} onClick={() => onConfirm(reason.trim())}>
+          {pending ? "Lagrer…" : "Lagre endringen"}
+        </Button>
+        <Button variant="ghost" className="min-h-11 sm:min-h-9" onClick={onCancel}>Avbryt</Button>
       </div>
     </motion.div>
   );

@@ -17,16 +17,17 @@ import { IS_MOCK } from "@/lib/data-source";
 import { MOCK_USERS } from "@/lib/mock-users";
 
 const DEMO_PRESETS: { userKey: keyof typeof MOCK_USERS; name: string; role: string; icon: React.ElementType }[] = [
-  { userKey: "promoter", name: "Kari Nordmann", role: "Promoter", icon: Target },
-  { userKey: "leader", name: "Ola Nordmann", role: "Team lead", icon: Users },
+  { userKey: "promoter", name: "Kari Nordmann", role: "Promotør", icon: Target },
+  { userKey: "leader", name: "Ola Nordmann", role: "Leder", icon: Users },
   { userKey: "recruitment", name: "Fredrik Amundsen", role: "Rekrutterer", icon: UserSearch },
   { userKey: "admin", name: "Administrator", role: "Admin (2FA)", icon: ShieldCheck },
 ];
 
+// What a person gets from logging in — not how the system is built (design review round 1).
 const HIGHLIGHTS = [
-  "Ett innlogg for promotere, ledere og kunder",
-  "Sanntidstall med godkjent-data-merking",
-  "Ingen rollelogikk hardkodet i grensesnittet",
+  "Én innlogging for hele laget",
+  "Se bare det du trenger",
+  "Alt på norsk, også på mobil",
 ];
 
 type Step = "credentials" | "twofactor";
@@ -48,6 +49,12 @@ export default function LoginPage() {
   const [pendingToken, setPendingToken] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [shake, setShake] = React.useState(0);
+  // Each failed attempt moves focus to the message, so it is announced and the next Tab
+  // lands back in the form (design review round 1, point 2).
+  const errorRef = React.useRef<HTMLParagraphElement>(null);
+  React.useEffect(() => {
+    if (shake > 0) errorRef.current?.focus();
+  }, [shake]);
   const [submitting, setSubmitting] = React.useState(false);
   const [transitioning, setTransitioning] = React.useState<{ label: string } | null>(null);
   const [mascotState, setMascotState] = React.useState<"greeting" | "ready" | "thinking" | "concerned">("greeting");
@@ -235,7 +242,8 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-medium text-danger">
+                  <motion.p ref={errorRef} tabIndex={-1} role="alert" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-md text-sm font-medium text-danger outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     {error}
                   </motion.p>
                 )}
@@ -333,7 +341,8 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-medium text-danger">
+                  <motion.p ref={errorRef} tabIndex={-1} role="alert" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-md text-sm font-medium text-danger outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     {error}
                   </motion.p>
                 )}
