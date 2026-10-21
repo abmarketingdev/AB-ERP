@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, ArrowRight, Users, Copy, Trash2, X, Share2 } from "lucide-react";
+import { Search, ArrowRight, Users, Copy, X, Share2 } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,8 @@ import { AudienceExportDialog } from "@/components/patterns/audience-export";
 import { ChannelMark, ChannelLabel } from "@/components/patterns/channel-mark";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 import { errorMessage } from "@/lib/api/client";
+import { ConfirmStep } from "@/components/patterns/confirm-step";
+import { usePhone } from "@/lib/use-media-query";
 
 /**
  * LEAD-01 — the samleinnboks.
@@ -43,6 +45,7 @@ import { errorMessage } from "@/lib/api/client";
  */
 
 const PAGE_SIZE = 50;
+const EMPTY: Set<string> = new Set();
 const ALL = "alle";
 
 const STATUS_TONE: Record<LeadStatus, string> = {
@@ -99,10 +102,24 @@ function SamleinnboksPage() {
   const setTo = (v: string) => url.set({ to: v, page: null });
   const setDuplicatesOnly = (v: boolean) => url.set({ duplicates: v ? "1" : null, page: null });
   const setPage = (fn: (p: number) => number) => url.set({ page: String(fn(page)) });
-  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  // The selection belongs to the filter it was made under: change the filter and it is
+  // gone (page 7 of the old result set is not page 7 of the new one). Derived, not reset
+  // in an effect. Each filter setter clears `page` in the URL.
+  const filterKey = [url.get("q"), url.get("channel"), url.get("status"), url.get("promoter"),
+                     url.get("assignedTo"), url.get("from"), url.get("to"), url.get("duplicates")].join("|");
+  const [selection, setSelection] = React.useState<{ key: string; ids: Set<string> }>({ key: "", ids: new Set() });
+  const selected = selection.key === filterKey ? selection.ids : EMPTY;
+  const setSelected = React.useCallback(
+    (next: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+      setSelection((cur) => {
+        const prev = cur.key === filterKey ? cur.ids : EMPTY;
+        return { key: filterKey, ids: typeof next === "function" ? next(prev) : next };
+      }),
+    [filterKey]);
   const [mergeFor, setMergeFor] = React.useState<Lead | null>(null);
   const [audienceOpen, setAudienceOpen] = React.useState(false);
   const meta = useLeadMeta();
+  const phone = usePhone();
   const [assignTarget, setAssignTarget] = React.useState("");
   const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
   const kindByName = React.useMemo(
@@ -133,11 +150,6 @@ function SamleinnboksPage() {
     [debouncedQ, channel, status, promoter, assignedTo, from, to, duplicatesOnly, page],
   );
 
-  // Any filter change resets the page (each setter clears `page` in the URL) and
-  // the selection — page 7 of the old result set is not page 7 of the new one.
-  React.useEffect(() => {
-    setSelected(new Set());
-  }, [debouncedQ, channel, status, promoter, assignedTo, from, to, duplicatesOnly]);
 
   const leads = useLeads(filter);
   const counts = useLeadCounts();
@@ -272,10 +284,15 @@ function SamleinnboksPage() {
                 <Users className="size-4" /> Tildel
               </Button>
             </div>
-            <Button size="sm" variant="ghost" className="gap-1.5 text-danger" disabled={busy}
-              onClick={async () => { await discard.mutateAsync({ ids: [...selected] }); setSelected(new Set()); }}>
-              <Trash2 className="size-4" /> Forkast
-            </Button>
+            {/* Destructive, so it confirms in place (08-DESIGN-REVIEW: never confirm()). Not
+                deleted — a discarded lead stays under its filter — so no typed word. */}
+            <ConfirmStep
+              trigger={`Forkast ${selected.size}`}
+              consequence={`${selected.size === 1 ? "Leadet" : `${selected.size} leads`} merkes som forkastet og forsvinner fra arbeidslisten. Ingenting slettes.`}
+              confirmLabel="Forkast"
+              pending={discard.isPending}
+              onConfirm={async () => { await discard.mutateAsync({ ids: [...selected] }); setSelected(new Set()); }}
+            />
             {sendable.length < selected.size && (
               <span className="text-xs text-muted-foreground">
                 {selected.size - sendable.length} er allerede behandlet og hoppes over
@@ -312,14 +329,20 @@ function SamleinnboksPage() {
             ? "Prøv å fjerne et filter, eller utvid datoperioden."
             : "Alt er sendt videre. Nye leads fra Meta, TikTok, Finn, Nav, Indeed, nettsiden og stand dukker opp her automatisk."
         }
-        emptyPose={activeFilters ? undefined : "hammock"}
+        // A1's mascot events: tomt fordi alt er gjort = allClear; tomt søk = empty.
+        emptyPose={activeFilters ? "cloudwatching" : "hammock"}
       >
         {() => (
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {phone ? (
+                <LeadCards rows={rows} selected={selected} onToggle={toggle} onMerge={setMergeFor} />
+              ) : (
+              /* The table scrolls inside its own box so the header can stay put (sticky
+                 only sticks inside the box that scrolls). */
+              <div className="max-h-[calc(100vh-22rem)] min-h-[20rem] overflow-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                     <TableRow>
                       <TableHead className="w-10">
                         <Checkbox
@@ -381,6 +404,7 @@ function SamleinnboksPage() {
                   </TableBody>
                 </Table>
               </div>
+              )}
 
               {/* Paging + the IFK-07 timing, stated rather than claimed. */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
@@ -405,6 +429,42 @@ function SamleinnboksPage() {
       <MergeDuplicatesDialog lead={mergeFor} onClose={() => setMergeFor(null)} />
       <AudienceExportDialog open={audienceOpen} onClose={() => setAudienceOpen(false)} />
     </div>
+  );
+}
+
+/** IFK-08 — at phone width the inbox is a list of cards, never a squashed table. */
+function LeadCards({ rows, selected, onToggle, onMerge }: {
+  rows: Lead[]; selected: Set<string>; onToggle: (id: string) => void; onMerge: (l: Lead) => void;
+}) {
+  return (
+    <ul className="flex flex-col divide-y divide-border">
+      {rows.map((lead) => (
+        <li key={lead.id} className="flex items-start gap-3 px-4 py-3" data-state={selected.has(lead.id) ? "selected" : undefined}>
+          <Checkbox className="mt-1 size-5" aria-label={`Velg ${lead.name}`}
+            checked={selected.has(lead.id)} onCheckedChange={() => onToggle(lead.id)} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate font-medium">{lead.name}</p>
+              <Badge className={STATUS_TONE[lead.status]}>{LEAD_STATUS_LABEL[lead.status]}</Badge>
+            </div>
+            <p className="mt-0.5 truncate text-sm tabular-nums text-muted-foreground">{lead.phone}</p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><ChannelMark channel={lead.channel} />{lead.channel}</span>
+              <span>·</span>
+              <span className="tabular-nums">{dateFmt.format(new Date(lead.receivedAt))}</span>
+              <span>·</span>
+              <span>{lead.assignedTo ?? "Admin-kø"}</span>
+            </p>
+          </div>
+          {lead.duplicateOf.length > 0 && (
+            <Button size="sm" variant="outline" className="h-11 shrink-0 gap-1.5" onClick={() => onMerge(lead)}
+              aria-label={`${lead.duplicateOf.length} mulige duplikater for ${lead.name}`}>
+              <Copy className="size-4" /> {lead.duplicateOf.length}
+            </Button>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

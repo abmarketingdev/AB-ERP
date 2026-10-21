@@ -15,6 +15,13 @@ import { errorMessage } from "@/lib/api/client";
 import { standLeadSchema } from "@/types/lead";
 import { useSession } from "@/lib/permissions";
 import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
+import { FormErrorSummary, type FieldError } from "@/components/patterns/form-error-summary";
+
+/** Field → input id, so the error summary can link to (and focus) the field. */
+const FIELD_IDS: Record<string, string> = {
+  name: "st-name", phone: "st-phone", email: "st-email", campaign: "st-campaign", consentContact: "st-consent",
+};
 import { isRetryable, newClientId, useStandQueue, type QueuedLead } from "@/lib/stand-queue";
 
 const LAST_CAMPAIGN = "ab-erp:stand-campaign";
@@ -114,7 +121,8 @@ export default function StandSkjema() {
                 <CloudOff className="size-6" aria-hidden />
               </span>
             ) : (
-              <Mascot state="win-small" motion="once" size={72} label="Registrert" />
+              // The screen exists because a lead was just sent — a real transition, so `once` is right.
+              <Mascot {...mascotFor("allDone", "Registrert")} motion="once" size={72} />
             )}
             <div>
               <p className="text-base font-medium">
@@ -154,15 +162,16 @@ export default function StandSkjema() {
         </div>
       )}
 
-      <form onSubmit={submit} className="flex flex-col gap-5">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+        <FormErrorSummary errors={Object.entries(errors).map(([field, message]): FieldError => ({ field: FIELD_IDS[field] ?? field, message }))} />
         <Card>
           <CardContent className="flex flex-col gap-4 py-5">
-            <Field label="Navn" id="st-name" error={errors.name}>
+            <Field label="Navn" id="st-name" error={errors.name} required>
               <Input id="st-name" className="h-11 text-base" autoComplete="name"
                 value={form.name} onChange={(e) => set("name", e.target.value)} />
             </Field>
 
-            <Field label="Telefon" id="st-phone" error={errors.phone}>
+            <Field label="Telefon" id="st-phone" error={errors.phone} required>
               <Input id="st-phone" className="h-11 text-base" type="tel" inputMode="tel" autoComplete="tel"
                 value={form.phone} onChange={(e) => set("phone", e.target.value)} />
             </Field>
@@ -172,7 +181,7 @@ export default function StandSkjema() {
                 value={form.email} onChange={(e) => set("email", e.target.value)} />
             </Field>
 
-            <Field label="Kampanje" id="st-campaign" error={errors.campaign}>
+            <Field label="Kampanje" id="st-campaign" error={errors.campaign} required>
               <Select value={campaign} onValueChange={(v) => set("campaign", v)}
                 disabled={meta.isLoading || campaigns.length === 0}>
                 <SelectTrigger id="st-campaign" className="h-11 text-base">
@@ -201,9 +210,9 @@ export default function StandSkjema() {
           <CardContent className="flex flex-col gap-4 py-5">
             <p className="text-sm font-medium">Samtykke</p>
             <label className="flex min-h-11 items-start gap-3 text-[15px]">
-              <Checkbox className="mt-0.5 size-5" checked={form.consentContact}
+              <Checkbox id="st-consent" className="mt-0.5 size-5" checked={form.consentContact} aria-required="true"
                 onCheckedChange={(v) => set("consentContact", Boolean(v))} />
-              <span>Jeg samtykker til å bli kontaktet om stilling hos AB Marketing.</span>
+              <span>Jeg samtykker til å bli kontaktet om stilling hos AB Marketing. <span className="text-danger" aria-hidden>*</span></span>
             </label>
             {errors.consentContact && <p className="text-sm text-danger">{errors.consentContact}</p>}
 
@@ -226,14 +235,16 @@ export default function StandSkjema() {
 }
 
 function Field({
-  label, id, error, hint, children,
+  label, id, error, hint, required, children,
 }: {
-  label: string; id: string; error?: string; hint?: string; children: React.ReactNode;
+  label: string; id: string; error?: string; hint?: string; required?: boolean; children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-sm">
         {label}
+        {required && <span className="ml-0.5 text-danger" aria-hidden>*</span>}
+        {required && <span className="sr-only"> (påkrevd)</span>}
         {hint && <span className="ml-1.5 font-normal text-muted-foreground">{hint}</span>}
       </Label>
       {children}

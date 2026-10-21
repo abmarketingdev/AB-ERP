@@ -2,9 +2,7 @@
 
 import * as React from "react";
 import { ArrowRight } from "lucide-react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +29,17 @@ import { moveRefusalSchema, type Candidate, type RecruitmentStage } from "@/type
  * Free text typed here is stored as a note on the candidate, never in the status
  * log, which outlives the 3-year anonymisation (IFK-01).
  */
-export function AdvanceStageDialog({
+export function AdvanceStageDialog(props: {
+  candidate: Candidate | null;
+  stage: RecruitmentStage | null;
+  onClose: () => void;
+}) {
+  // A fresh form per opening — stale answers from the previous card would be filed
+  // against this one. Keyed remount instead of resetting state in an effect.
+  return <AdvanceStageSheet key={`${props.candidate?.id}-${props.stage?.id}`} {...props} />;
+}
+
+function AdvanceStageSheet({
   candidate, stage, onClose,
 }: {
   candidate: Candidate | null;
@@ -44,13 +52,6 @@ export function AdvanceStageDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [sendRejection, setSendRejection] = React.useState(false);
 
-  // A fresh form per opening — stale answers from the previous card would be
-  // filed against this one.
-  React.useEffect(() => {
-    setFields({});
-    setError(null);
-    setSendRejection(false);
-  }, [candidate?.id, stage?.id]);
 
   const isRejection = stage?.id === "avvist" || stage?.id === "trukket";
   const reopening = Boolean(candidate && TERMINAL_STAGE_IDS.includes(candidate.stageId) && stage?.id === "kvalifisert");
@@ -75,22 +76,24 @@ export function AdvanceStageDialog({
     }
   }
 
+  const formId = "advance-stage-form";
   return (
-    <Dialog open={Boolean(candidate && stage)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center gap-2">
-              {candidate?.name}
-              <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
-              {stage?.label}
-            </DialogTitle>
-            <DialogDescription>
-              Registrer det dette steget krever. Oppføringen legges til i historikken — den
-              erstatter ingenting.
-            </DialogDescription>
-          </DialogHeader>
-
+    <ResponsiveSheet
+      open={Boolean(candidate && stage)}
+      onOpenChange={(open) => !open && onClose()}
+      title={candidate && stage ? `${candidate.name} → ${stage.label}` : ""}
+      description="Registrer det dette steget krever. Oppføringen legges til i historikken — den erstatter ingenting."
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>Avbryt</Button>
+          <Button type="submit" form={formId} className="gap-1.5"
+            disabled={advance.isPending || (isRejection && !fields.arsak)}>
+            {advance.isPending ? "Lagrer…" : <>Flytt til {stage?.label} <ArrowRight className="size-4" aria-hidden /></>}
+          </Button>
+        </>
+      }
+    >
+        <form id={formId} onSubmit={submit}>
           <div className="flex flex-col gap-4 py-4">
             {isRejection && (
               <div className="flex flex-col gap-1.5">
@@ -165,14 +168,7 @@ export function AdvanceStageDialog({
             {error && <p className="text-sm text-danger">{error}</p>}
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>Avbryt</Button>
-            <Button type="submit" disabled={advance.isPending || (isRejection && !fields.arsak)}>
-              {advance.isPending ? "Lagrer…" : `Flytt til ${stage?.label}`}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveSheet>
   );
 }

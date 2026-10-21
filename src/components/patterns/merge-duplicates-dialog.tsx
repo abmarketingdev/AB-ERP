@@ -34,7 +34,7 @@ import { ChannelMark } from "@/components/patterns/channel-mark";
 export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
   const merge = useMergeLeads();
   const dismiss = useDismissDuplicate();
-  const [keepId, setKeepId] = React.useState<string | null>(null);
+  const [picked, setKeepId] = React.useState<string | null>(null);
 
   /*
    * The duplicates are fetched rather than passed in: the matches are computed
@@ -57,16 +57,16 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
   const loading = dupes.isPending || byEmail.isPending;
 
   /** Completeness beats age: more filled-in fields wins, ties go to the oldest. */
-  React.useEffect(() => {
-    if (!group.length) { setKeepId(null); return; }
+  const bestId = React.useMemo(() => {
+    if (!group.length) return null;
     // A lead already sent on is a candidate: it must be the one kept (the server
     // refuses folding a candidate into an inbox lead).
     const score = (l: Lead) =>
       (l.candidateId ? 10 : 0) + (l.email ? 2 : 0) + (l.phone ? 2 : 0) + (l.promoter ? 1 : 0) +
       (l.assignedTo ? 1 : 0) + (l.consent.adAudience ? 1 : 0);
-    const best = [...group].sort((a, b) => score(b) - score(a) || (a.receivedAt < b.receivedAt ? -1 : 1))[0];
-    setKeepId(best.id);
+    return [...group].sort((a, b) => score(b) - score(a) || (a.receivedAt < b.receivedAt ? -1 : 1))[0].id;
   }, [group]);
+  const keepId = picked && group.some((l) => l.id === picked) ? picked : bestId;
 
   const others = group.filter((l) => l.id !== keepId);
 

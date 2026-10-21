@@ -78,7 +78,14 @@ export function CandidateBoard({
   const reduced = useReducedMotion();
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
-  const [refusal, setRefusal] = React.useState<{ message: string; href?: string; cta?: string } | null>(null);
+  // A refused drop explains itself IN the column it was dropped on (master: «avvist drop
+  // må forklare seg på stedet»), and fades after a while; a live region reads it aloud.
+  const [refusal, setRefusal] = React.useState<{ stageId: string; message: string; href?: string; cta?: string } | null>(null);
+  React.useEffect(() => {
+    if (!refusal) return;
+    const t = window.setTimeout(() => setRefusal(null), 8000);
+    return () => window.clearTimeout(t);
+  }, [refusal]);
 
   const sensors = useSensors(
     // A small distance threshold keeps a click on the card a click, not a drag.
@@ -115,11 +122,11 @@ export function CandidateBoard({
     const decision = decideDrop(stages, candidate.stageId, toId);
     if (decision.kind === "requires") {
       setRefusal(decision.requires === "booking"
-        ? { message: decision.message, href: `/rekruttering/intervjuer?kandidat=${candidate.id}`, cta: "Book intervju" }
-        : { message: decision.message, href: `/rekruttering/kandidater/${candidate.id}`, cta: "Åpne kandidaten" });
+        ? { stageId: toId, message: decision.message, href: `/rekruttering/intervjuer?kandidat=${candidate.id}`, cta: "Book intervju" }
+        : { stageId: toId, message: decision.message, href: `/rekruttering/kandidater/${candidate.id}`, cta: "Åpne kandidaten" });
       return;
     }
-    if (decision.kind === "refused") { setRefusal({ message: decision.message }); return; }
+    if (decision.kind === "refused") { setRefusal({ stageId: toId, message: decision.message }); return; }
 
     const stage = stages.find((s) => s.id === toId);
     if (stage) setPending({ candidate, stage });
@@ -127,18 +134,7 @@ export function CandidateBoard({
 
   return (
     <>
-      {refusal && (
-        <p
-          role="status"
-          className="mb-3 flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[13px] text-warning-on-tint"
-        >
-          <Lock className="size-3.5 shrink-0" aria-hidden />
-          <span className="flex-1">{refusal.message}</span>
-          {refusal.href && (
-            <Link href={refusal.href} className="shrink-0 font-medium underline underline-offset-2">{refusal.cta}</Link>
-          )}
-        </p>
-      )}
+      <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         {/*
@@ -157,6 +153,8 @@ export function CandidateBoard({
                 reduced={Boolean(reduced)}
                 draggingFrom={dragging?.stageId ?? null}
                 stages={stages}
+                refusal={refusal?.stageId === stage.id ? refusal : null}
+                onDismissRefusal={() => setRefusal(null)}
               />
             ))}
           </ul>
@@ -179,7 +177,7 @@ export function CandidateBoard({
 }
 
 function StageColumn({
-  stage, index, items, reduced, draggingFrom, stages,
+  stage, index, items, reduced, draggingFrom, stages, refusal, onDismissRefusal,
 }: {
   stage: RecruitmentStage;
   index: number;
@@ -187,6 +185,8 @@ function StageColumn({
   reduced: boolean;
   draggingFrom: string | null;
   stages: RecruitmentStage[];
+  refusal: { message: string; href?: string; cta?: string } | null;
+  onDismissRefusal: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const terminal = Boolean(stage.terminal);
@@ -221,17 +221,47 @@ function StageColumn({
           </span>
         </div>
 
+        {/* While a drag is in flight a blocked column says why BEFORE the drop… */}
+        {blocked && !refusal && (
+          <p className="mx-2 mt-2 rounded-md border border-dashed border-border px-2.5 py-1.5 text-[12px] leading-snug text-muted-foreground">
+            {blocked}
+          </p>
+        )}
+        {/* …and a refused drop explains itself right here, with the way forward. */}
+        {refusal && (
+          <motion.div
+            initial={reduced ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="mx-2 mt-2 flex flex-col gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-[12.5px] leading-snug text-warning-on-tint"
+          >
+            <span className="flex items-start gap-1.5"><Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />{refusal.message}</span>
+            <span className="flex items-center gap-3">
+              {refusal.href && (
+                <Link href={refusal.href} className="font-medium underline underline-offset-2">{refusal.cta}</Link>
+              )}
+              <button type="button" onClick={onDismissRefusal} className="ml-auto text-[12px] underline-offset-2 hover:underline">
+                Lukk
+              </button>
+            </span>
+          </motion.div>
+        )}
+
         {items.length === 0 ? (
           <p className="px-3.5 py-6 text-center text-[12.5px] text-muted-foreground">
             {isOver && !blocked ? "Slipp her" : "Ingen her nå"}
           </p>
         ) : (
           <ul className="flex flex-col gap-2 p-2">
-            {items.map((c, i) => (
-              <motion.li key={c.id} {...riseIn(index + i, reduced)}>
+            {items.map((c, i) => {
+              const rise = riseIn(index + i, reduced);
+              return (
+              <motion.li key={c.id} {...rise} layout={reduced ? false : "position"}
+                transition={{ ...(rise.transition ?? {}), layout: { duration: 0.2, ease: "easeOut" } }}>
                 <DraggableCard candidate={c} />
               </motion.li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
