@@ -44,6 +44,9 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-on-tint: var(--warning-on-tint);
   --color-warning: var(--warning);
+  --color-planned: var(--planned);
+  --color-planned-tint: var(--planned-tint);
+  --color-planned-on-tint: var(--planned-on-tint);
   --color-danger-foreground: var(--danger-foreground);
   --color-danger: var(--danger);
   --color-info-foreground: var(--info-foreground);
@@ -96,6 +99,15 @@
    * theme; the solid one does not.
    */
   --warning-on-tint: oklch(0.44 0.13 78);
+  /*
+   * BEM-01 «planlagt» (blue), shared by every screen that marks planned work — one blue,
+   * not one per lane. Validated by A5 (dataviz): on-tint text 6.94:1 light / 8.30:1 dark.
+   * The tint is too close to the card for a non-text boundary (1.23:1), so a planned cell
+   * always carries a 1 px border in --planned.
+   */
+  --planned: oklch(0.62 0.12 255);
+  --planned-tint: oklch(0.93 0.04 255);
+  --planned-on-tint: oklch(0.42 0.13 255);
   --danger: oklch(0.58 0.22 27);
   --danger-foreground: oklch(0.99 0 0);
   --info: var(--ab-accent-9);
@@ -176,6 +188,15 @@
    * theme; the solid one does not.
    */
   --warning-on-tint: oklch(0.44 0.13 78);
+  /*
+   * BEM-01 «planlagt» (blue), shared by every screen that marks planned work — one blue,
+   * not one per lane. Validated by A5 (dataviz): on-tint text 6.94:1 light / 8.30:1 dark.
+   * The tint is too close to the card for a non-text boundary (1.23:1), so a planned cell
+   * always carries a 1 px border in --planned.
+   */
+  --planned: oklch(0.62 0.12 255);
+  --planned-tint: oklch(0.93 0.04 255);
+  --planned-on-tint: oklch(0.42 0.13 255);
   --danger: oklch(0.58 0.22 27);
   --danger-foreground: oklch(0.99 0 0);
   --info: var(--ab-accent-9);
@@ -230,6 +251,9 @@
   --warning: oklch(0.8 0.15 78);
   --warning-foreground: oklch(0.2 0.02 78);
   --warning-on-tint: oklch(0.86 0.13 78);
+  --planned: oklch(0.55 0.1 255);
+  --planned-tint: oklch(0.32 0.07 255);
+  --planned-on-tint: oklch(0.86 0.08 255);
   --danger: oklch(0.68 0.2 27);
   --danger-foreground: oklch(0.99 0 0);
   --info: var(--ab-accent-9);

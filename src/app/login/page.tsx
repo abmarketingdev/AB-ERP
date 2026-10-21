@@ -73,7 +73,8 @@ export default function LoginPage() {
     const returnTo = takeReturnTo();
     const allowed =
       returnTo && session.navigation.some((n) => returnTo.startsWith(n.href.split("?")[0]));
-    const dest = (allowed ? returnTo : null) ?? session.navigation[0]?.href ?? "/";
+    // No modules at all (superuser grants nothing in recruitment): a page that says who to ask.
+    const dest = (allowed ? returnTo : null) ?? session.navigation[0]?.href ?? "/ingen-tilgang";
     setTimeout(() => router.push(dest), 300);
   }
 

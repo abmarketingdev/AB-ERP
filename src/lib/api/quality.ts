@@ -2,6 +2,15 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { z } from "zod";
 import { apiGet, apiPost, apiPatch, API } from "./client";
 import { qk } from "./keys";
+import { IS_MOCK } from "@/lib/data-source";
+import { useStepUp } from "@/lib/step-up";
+import {
+  fetchAuditLog,
+  fetchPermissionCatalogue,
+  fetchUserAccess,
+  patchPermission,
+  patchUserActive,
+} from "./recruitment-admin";
 import {
   auditLogSchema,
   importRunListSchema,
@@ -44,7 +53,8 @@ export function usePendingCorrections() {
 export function useAuditLog() {
   return useQuery({
     queryKey: qk.quality.audit(),
-    queryFn: () => apiGet(`${API.qc}/audit`, auditLogSchema),
+    // api mode: recruitment-service's audit log (IFK-05); mock: the demo QC log.
+    queryFn: () => (IS_MOCK ? apiGet(`${API.qc}/audit`, auditLogSchema) : fetchAuditLog()),
   });
 }
 
@@ -65,14 +75,14 @@ export function useRejectedRows() {
 export function useUserAccess() {
   return useQuery({
     queryKey: qk.quality.access(),
-    queryFn: () => apiGet(`${API.auth}/access`, userAccessListSchema),
+    queryFn: () => (IS_MOCK ? apiGet(`${API.auth}/access`, userAccessListSchema) : fetchUserAccess()),
   });
 }
 
 export function usePermissionCatalogue() {
   return useQuery({
     queryKey: qk.quality.permissions(),
-    queryFn: () => apiGet(`${API.auth}/permissions`, permissionListSchema),
+    queryFn: () => (IS_MOCK ? apiGet(`${API.auth}/permissions`, permissionListSchema) : fetchPermissionCatalogue()),
     staleTime: Infinity,
   });
 }
@@ -95,6 +105,7 @@ export function useCustomerAccounts() {
 /** FR-A-02 / FR-S-04 — grant, revoke or reset one permission, with a reason. */
 export function useSetPermission() {
   const qc = useQueryClient();
+  const stepUp = useStepUp();
   return useMutation({
     mutationFn: (vars: {
       id: string;
@@ -102,11 +113,14 @@ export function useSetPermission() {
       action: "grant" | "revoke" | "reset";
       reason: string;
     }) =>
-      apiPatch(`${API.auth}/access/${vars.id}`, userAccessSchema, {
-        permission: vars.permission,
-        action: vars.action,
-        reason: vars.reason,
-      }),
+      IS_MOCK
+        ? apiPatch(`${API.auth}/access/${vars.id}`, userAccessSchema, {
+            permission: vars.permission,
+            action: vars.action,
+            reason: vars.reason,
+          })
+        : // access.admin is a step-up key (IFK-04): the server may ask for 2FA first.
+          stepUp.run(() => patchPermission(vars)),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.quality.access() });
       qc.invalidateQueries({ queryKey: qk.quality.orgOverview() });
@@ -117,12 +131,15 @@ export function useSetPermission() {
 
 export function useSetUserActive() {
   const qc = useQueryClient();
+  const stepUp = useStepUp();
   return useMutation({
     mutationFn: (vars: { id: string; active: boolean; reason: string }) =>
-      apiPatch(`${API.auth}/access/${vars.id}/active`, userAccessSchema, {
-        active: vars.active,
-        reason: vars.reason,
-      }),
+      IS_MOCK
+        ? apiPatch(`${API.auth}/access/${vars.id}/active`, userAccessSchema, {
+            active: vars.active,
+            reason: vars.reason,
+          })
+        : stepUp.run(() => patchUserActive(vars)),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.quality.access() });
       qc.invalidateQueries({ queryKey: qk.quality.orgOverview() });
