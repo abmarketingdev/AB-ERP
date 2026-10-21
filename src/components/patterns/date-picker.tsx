@@ -39,6 +39,8 @@ export interface DatePickerProps {
   "aria-label"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  /** "sm" = 36 px high and narrower, to sit in a filter row next to dropdowns. */
+  size?: "default" | "sm";
 }
 
 const ISO = "yyyy-MM-dd";
@@ -51,8 +53,9 @@ function fromIso(s: string | undefined): Date | null {
 }
 
 export function DatePicker({
-  id, value, onChange, min, max, withTime = false, disabled, ...aria
+  id, value, onChange, min, max, withTime = false, disabled, size = "default", ...aria
 }: DatePickerProps) {
+  const sm = size === "sm";
   const phone = usePhone();
   const [open, setOpen] = React.useState(false);
   const selected = fromIso(value);
@@ -110,12 +113,12 @@ export function DatePicker({
           onChange={(e) => setText(e.target.value)}
           onBlur={commitText}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitText(); } }}
-          className="h-11 w-[11.5rem] pr-11 tabular-nums"
+          className={`tabular-nums ${sm ? "h-9 w-[8.75rem] pr-9 text-sm" : "h-11 w-[11.5rem] pr-11"}`}
           {...aria}
         />
         {phone ? (
           <>
-            <CalendarButton disabled={disabled} onClick={() => setOpen(true)} />
+            <CalendarButton small={sm} disabled={disabled} onClick={() => setOpen(true)} />
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetContent side="bottom" className="rounded-t-2xl px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <SheetHeader className="px-0 text-left"><SheetTitle>Velg dato</SheetTitle></SheetHeader>
@@ -126,7 +129,7 @@ export function DatePicker({
         ) : (
           <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
             <PopoverPrimitive.Trigger asChild>
-              <CalendarButton disabled={disabled} />
+              <CalendarButton small={sm} disabled={disabled} />
             </PopoverPrimitive.Trigger>
             <PopoverPrimitive.Portal>
               <PopoverPrimitive.Content align="start" sideOffset={6}
@@ -152,21 +155,21 @@ export function DatePicker({
             setTimeText(hhmm || time);
             if (hhmm && selected) emit(selected, hhmm);
           }}
-          className="h-11 w-[5.5rem] tabular-nums"
+          className={`tabular-nums ${sm ? "h-9 w-[4.75rem] text-sm" : "h-11 w-[5.5rem]"}`}
         />
       )}
     </div>
   );
 }
 
-const CalendarButton = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button">>(
-  function CalendarButton(props, ref) {
+const CalendarButton = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button"> & { small?: boolean }>(
+  function CalendarButton({ small, ...props }, ref) {
     return (
       <button
         ref={ref}
         type="button"
         aria-label="Åpne kalender"
-        className="absolute right-0 top-0 flex size-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        className={`absolute right-0 top-0 flex items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${small ? "size-9" : "size-11"}`}
         {...props}
       >
         <CalendarDays className="size-4" aria-hidden />
@@ -176,8 +179,10 @@ const CalendarButton = React.forwardRef<HTMLButtonElement, React.ComponentProps<
 );
 
 /** A month as a keyboard grid: arrows move a day/week, PageUp/Down a month, Home/End the week. */
-function MonthGrid({ selected, min, max, onPick }: {
+function MonthGrid({ selected, min, max, onPick, rangeFrom = null, rangeTo = null }: {
   selected: Date | null; min: Date | null; max: Date | null; onPick: (d: Date) => void;
+  /** Range mode: days between the ends are tinted, the ends filled. */
+  rangeFrom?: Date | null; rangeTo?: Date | null;
 }) {
   const [focus, setFocus] = React.useState<Date>(selected ?? min ?? new Date());
   const [month, setMonth] = React.useState<Date>(startOfMonth(focus));
@@ -214,10 +219,10 @@ function MonthGrid({ selected, min, max, onPick }: {
   return (
     <div className="w-[17.5rem]">
       <div className="mb-2 flex items-center justify-between">
-        <Button variant="ghost" size="icon" aria-label="Forrige måned" className="size-11 sm:size-9"
+        <Button variant="ghost" size="icon" aria-label="Vis forrige måned" className="size-11 sm:size-9"
           onClick={() => setMonth(addMonths(month, -1))}><ChevronLeft className="size-4" /></Button>
         <p className="text-sm font-medium capitalize" aria-live="polite">{format(month, "LLLL yyyy", { locale: nb })}</p>
-        <Button variant="ghost" size="icon" aria-label="Neste måned" className="size-11 sm:size-9"
+        <Button variant="ghost" size="icon" aria-label="Vis neste måned" className="size-11 sm:size-9"
           onClick={() => setMonth(addMonths(month, 1))}><ChevronRight className="size-4" /></Button>
       </div>
       <div className="grid grid-cols-7 text-center text-[11px] text-muted-foreground" aria-hidden>
@@ -226,7 +231,9 @@ function MonthGrid({ selected, min, max, onPick }: {
       <div ref={gridRef} role="grid" aria-label={format(month, "LLLL yyyy", { locale: nb })} onKeyDown={onKey}
         className="grid grid-cols-7 gap-0.5">
         {days.map((d) => {
-          const isSel = selected && isSameDay(d, selected);
+          const inRange = rangeFrom && rangeTo && !isBefore(d, rangeFrom) && !isAfter(d, rangeTo);
+          const isEnd = (rangeFrom && isSameDay(d, rangeFrom)) || (rangeTo && isSameDay(d, rangeTo));
+          const isSel = (selected && isSameDay(d, selected)) || isEnd;
           const off = blocked(d);
           return (
             <button
@@ -235,7 +242,7 @@ function MonthGrid({ selected, min, max, onPick }: {
               data-day={format(d, ISO)}
               role="gridcell"
               tabIndex={isSameDay(d, focus) ? 0 : -1}
-              aria-selected={Boolean(isSel)}
+              aria-selected={Boolean(isSel || inRange)}
               aria-label={format(d, "EEEE d. MMMM yyyy", { locale: nb })}
               aria-current={isSameDay(d, today) ? "date" : undefined}
               disabled={Boolean(off)}
@@ -244,6 +251,7 @@ function MonthGrid({ selected, min, max, onPick }: {
                 "flex h-11 items-center justify-center rounded-md text-sm tabular-nums transition-colors sm:h-9",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35",
                 isSel ? "bg-[var(--ab-accent-9)] font-medium text-white"
+                  : inRange ? "bg-[var(--ab-accent-9)]/12 text-foreground"
                   : isSameMonth(d, month) ? "text-foreground hover:bg-muted" : "text-muted-foreground/60 hover:bg-muted",
                 !isSel && isSameDay(d, today) ? "ring-1 ring-inset ring-[var(--ab-accent-9)]/50" : "",
               ].join(" ")}
@@ -254,5 +262,119 @@ function MonthGrid({ selected, min, max, onPick }: {
         })}
       </div>
     </div>
+  );
+}
+
+
+/**
+ * A period in ONE field («12.10.–21.10.2026») for filter rows (inbox, dashboard, interview
+ * list). Click a start day, then an end day (an earlier end swaps them). Presets cover the
+ * periods people actually ask for. value/onChange use "YYYY-MM-DD" | "" for each end.
+ */
+export function DateRangePicker({
+  id, from, to, onChange, min, max, size = "default", disabled, placeholder = "Velg periode", ...aria
+}: {
+  id: string;
+  from: string;
+  to: string;
+  onChange: (range: { from: string; to: string }) => void;
+  min?: string;
+  max?: string;
+  size?: "default" | "sm";
+  disabled?: boolean;
+  placeholder?: string;
+  "aria-label"?: string;
+  "aria-describedby"?: string;
+}) {
+  const phone = usePhone();
+  const [open, setOpen] = React.useState(false);
+  const [pendingFrom, setPendingFrom] = React.useState<Date | null>(null);
+  const f = fromIso(from);
+  const t = fromIso(to);
+  const sm = size === "sm";
+
+  const label = f && t
+    ? f.getFullYear() === t.getFullYear()
+      ? `${format(f, "dd.MM.")}–${format(t, "dd.MM.yyyy")}`
+      : `${format(f, SHOWN)}–${format(t, SHOWN)}`
+    : f ? `fra ${format(f, SHOWN)}` : "";
+
+  function set(a: Date | null, b: Date | null) {
+    onChange({ from: a ? format(a, ISO) : "", to: b ? format(b, ISO) : "" });
+  }
+  function pick(d: Date) {
+    if (!pendingFrom) { setPendingFrom(d); return; }
+    const [a, b] = isBefore(d, pendingFrom) ? [d, pendingFrom] : [pendingFrom, d];
+    set(a, b);
+    setPendingFrom(null);
+    setOpen(false);
+  }
+  const now = new Date();
+  const presets: [string, Date, Date][] = [
+    ["Denne uken", startOfWeek(now, { weekStartsOn: 1 }), endOfWeek(now, { weekStartsOn: 1 })],
+    ["Siste 7 dager", addDays(now, -6), now],
+    ["Denne måneden", startOfMonth(now), endOfMonth(now)],
+    ["Forrige måned", startOfMonth(addMonths(now, -1)), endOfMonth(addMonths(now, -1))],
+  ];
+
+  const body = (
+    <div className="flex flex-col gap-3">
+      <p className="text-[12.5px] text-muted-foreground" aria-live="polite">
+        {pendingFrom ? `Fra ${format(pendingFrom, SHOWN)} — velg sluttdato` : "Velg startdato"}
+      </p>
+      <MonthGrid selected={pendingFrom} min={fromIso(min)} max={fromIso(max)} onPick={pick}
+        rangeFrom={pendingFrom ? null : f} rangeTo={pendingFrom ? null : t} />
+      <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
+        {presets.map(([name, a, b]) => (
+          <Button key={name} variant="outline" size="sm" className="min-h-11 sm:min-h-8"
+            onClick={() => { set(a, b); setPendingFrom(null); setOpen(false); }}>{name}</Button>
+        ))}
+        {(f || t) && (
+          <Button variant="ghost" size="sm" className="min-h-11 sm:min-h-8"
+            onClick={() => { set(null, null); setPendingFrom(null); setOpen(false); }}>Nullstill</Button>
+        )}
+      </div>
+    </div>
+  );
+
+  const trigger = (
+    <button
+      id={id}
+      type="button"
+      disabled={disabled}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      {...aria}
+      onClick={phone ? () => setOpen(true) : undefined}
+      className={`inline-flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left tabular-nums transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${sm ? "h-9 min-w-[10.5rem] text-sm" : "h-11 min-w-[13rem]"}`}
+    >
+      <span className={label ? "text-foreground" : "text-muted-foreground"}>{label || placeholder}</span>
+      <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+    </button>
+  );
+
+  if (phone) {
+    return (
+      <>
+        {trigger}
+        <Sheet open={open} onOpenChange={(o) => { setOpen(o); if (!o) setPendingFrom(null); }}>
+          <SheetContent side="bottom" className="rounded-t-2xl px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <SheetHeader className="px-0 text-left"><SheetTitle>Velg periode</SheetTitle></SheetHeader>
+            {body}
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+  return (
+    <PopoverPrimitive.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) setPendingFrom(null); }}>
+      <PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content align="start" sideOffset={6}
+          className="z-50 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+          {body}
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   );
 }

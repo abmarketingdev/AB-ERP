@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
-import { DatePicker } from "@/components/patterns/date-picker";
+import { DatePicker, DateRangePicker } from "@/components/patterns/date-picker";
 import { FormErrorSummary } from "@/components/patterns/form-error-summary";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { SelectableButton } from "@/components/patterns/selectable-button";
@@ -19,6 +19,8 @@ export default function Monstre() {
   const [slot, setSlot] = React.useState("10:00");
   const [chips, setChips] = React.useState<string[]>(["Finn"]);
   const [open, setOpen] = React.useState(false);
+  const [range, setRange] = React.useState({ from: "2026-10-12", to: "2026-10-21" });
+  const [small, setSmall] = React.useState("");
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-10 bg-background px-4 py-10 text-foreground">
       <h1 className="text-2xl font-medium">Felles mønstre</h1>
@@ -35,6 +37,16 @@ export default function Monstre() {
           <DatePicker id="dp-2" value={dt} onChange={setDt} withTime />
           <p className="text-sm text-muted-foreground">Verdi: <code>{dt || "(tom)"}</code></p>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Filterrad (size=&quot;sm&quot;, 36 px)</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Kanal" className="h-9 rounded-md border border-input bg-background px-2 text-sm"><option>Alle kanaler</option></select>
+          <DatePicker id="dp-sm" size="sm" value={small} onChange={setSmall} aria-label="Dato" />
+          <DateRangePicker id="dr-sm" size="sm" from={range.from} to={range.to} onChange={setRange} aria-label="Periode" />
+        </div>
+        <p className="text-sm text-muted-foreground">Periode: <code>{range.from || "–"} → {range.to || "–"}</code></p>
       </section>
 
       <section className="space-y-3">
