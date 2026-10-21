@@ -178,6 +178,27 @@ export async function apiSend<T>(
   return parseOr(schema, await res.json(), path);
 }
 
+/**
+ * multipart/form-data upload (attachments KAND-06, Recman import, onboarding photo).
+ *
+ * Same auth, refresh-and-replay and error mapping as apiSend, but NO Content-Type
+ * header: the browser must set it itself so the multipart boundary is included —
+ * a hand-set "multipart/form-data" without a boundary is unparseable server-side.
+ * The FormData is reusable, so a replay after a token refresh sends it intact.
+ */
+export async function apiUpload<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  form: FormData,
+  params?: Params,
+): Promise<T> {
+  const headers = new Headers(authHeaders());
+  headers.delete("Content-Type");
+  const res = await authorizedFetch(buildUrl(path, params), { method: "POST", headers, body: form });
+  if (!res.ok) throw new ApiError(res.status, await safeBody(res));
+  return parseOr(schema, await res.json(), path);
+}
+
 export const apiPost = <T>(path: string, schema: z.ZodType<T>, body?: unknown, params?: Params) =>
   apiSend("POST", path, schema, body, params);
 
