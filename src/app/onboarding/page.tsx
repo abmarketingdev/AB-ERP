@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNewHires } from "@/lib/api/srs";
+import { useNewHires } from "@/lib/api/onboarding";
 import { CONTRACT_STATUS_LABEL, CHECKLIST_LABEL, type NewHire } from "@/types/onboarding";
 
 /**

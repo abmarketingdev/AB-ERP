@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useEmployees } from "@/lib/api/srs";
+import { useEmployees } from "@/lib/api/onboarding";
 import { ACCESS_TEMPLATES } from "@/types/onboarding";
 
 /**

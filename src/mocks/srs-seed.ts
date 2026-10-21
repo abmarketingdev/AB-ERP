@@ -1,6 +1,7 @@
 import type { Ad, AdTemplate } from "@/types/ad";
 import type { Interview } from "@/types/interview";
 import type { NewHire, Employee } from "@/types/onboarding";
+import { newHireSchema } from "@/types/onboarding";
 import type { Shift, SwapRequest } from "@/types/schedule";
 import type { LeaderTask } from "@/types/task";
 import { CANDIDATES } from "@/lib/mock-data";
@@ -230,7 +231,13 @@ export function buildInterviews(): Interview[] {
 
 // ── Onboarding (ONB) og ansatte ─────────────────────────────────────────────
 
+/** The seed is written in the original shape; the schema fills the api-era defaults
+ *  (status, contracts, timeline, …), so mock mode and api mode render the same screen. */
 export function buildNewHires(): NewHire[] {
+  return buildNewHiresRaw().map((h) => newHireSchema.parse(h));
+}
+
+function buildNewHiresRaw() {
   const approved = CANDIDATES.filter((c) => c.stageId === "onboarding" || c.stageId === "godkjent");
   return approved.map((c, i) => {
     const start = dayOffset(7 + i * 3);

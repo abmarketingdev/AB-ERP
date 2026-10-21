@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDeputy, useSetDeputy, useLeaders } from "@/lib/api/srs";
+import { useApprovers, useDeputy, useSetDeputy } from "@/lib/api/approval";
 import { errorMessage } from "@/lib/api/client";
 
 /**
@@ -25,7 +25,7 @@ const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" 
 export function DeputyCard() {
   const deputy = useDeputy();
   const setDeputy = useSetDeputy();
-  const leaders = useLeaders();
+  const approvers = useApprovers();
 
   const [open, setOpen] = React.useState(false);
   const [who, setWho] = React.useState("");
@@ -38,8 +38,10 @@ export function DeputyCard() {
   async function save() {
     setError(null);
     if (!who) { setError("Velg hvem som skal være stedfortreder."); return; }
+    // «ikke personavhengig»: a deputy always ends. The server refuses an open-ended one too.
+    if (!from || !to) { setError("Velg både fra- og til-dato."); return; }
     try {
-      await setDeputy.mutateAsync({ deputy: who, from: from || undefined, to: to || undefined });
+      await setDeputy.mutateAsync({ deputyUserId: who, validFrom: from, validUntil: to });
       setOpen(false);
     } catch (err) { setError(errorMessage(err)); }
   }
@@ -55,7 +57,7 @@ export function DeputyCard() {
             <div className="flex items-center gap-2">
               <Badge className="bg-success/10 text-success">{active}</Badge>
               <Button size="sm" variant="ghost" disabled={setDeputy.isPending}
-                onClick={() => setDeputy.mutate({ deputy: null })}>
+                onClick={() => setDeputy.mutate({ deputyUserId: null })}>
                 Fjern
               </Button>
             </div>
@@ -66,7 +68,7 @@ export function DeputyCard() {
 
         <p className="text-xs text-muted-foreground">
           {active
-            ? `${active} kan godkjenne på dine vegne${deputy.data?.from ? ` fra ${dayFmt.format(new Date(deputy.data.from))}` : ""}${deputy.data?.to ? ` til ${dayFmt.format(new Date(deputy.data.to))}` : ", inntil videre"}. Køen stopper ikke når du er borte.`
+            ? `${active} kan godkjenne på dine vegne${deputy.data?.from ? ` fra ${dayFmt.format(new Date(deputy.data.from))}` : ""}${deputy.data?.to ? ` til og med ${dayFmt.format(new Date(deputy.data.to))}` : ""}. Køen stopper ikke når du er borte.`
             : "Uten stedfortreder stopper godkjenningskøen når du er borte. Sett en periode, så utløper den av seg selv."}
         </p>
 
@@ -77,8 +79,9 @@ export function DeputyCard() {
               <Select value={who} onValueChange={setWho}>
                 <SelectTrigger id="dep-who" className="w-[13rem]" aria-label="Hvem"><SelectValue placeholder="Velg person" /></SelectTrigger>
                 <SelectContent>
-                  {(leaders.data ?? []).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                  <SelectItem value="Nasrin Hassan">Nasrin Hassan (HR)</SelectItem>
+                  {(approvers.data?.selectable ?? []).map((p) => (
+                    <SelectItem key={p.userId} value={p.userId}>{p.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
