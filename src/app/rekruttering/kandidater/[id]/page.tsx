@@ -32,6 +32,7 @@ import { CandidateTags } from "@/components/patterns/candidate-tags";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 import { formatPhone } from "@/lib/format";
+import { showDate } from "@/lib/show-date";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -225,7 +226,7 @@ export default function CandidateDetail() {
                     description={
                       <span className="inline-flex flex-wrap items-center gap-1.5">
                         <ChannelMark channel={channelOf(c.source)} />
-                        {c.source} · {c.campaign} · Søkte {c.appliedDate}
+                        {[c.source, c.campaign, c.appliedDate && `Søkte ${showDate(c.appliedDate)}`].filter(Boolean).join(" · ")}
                       </span>
                     }
                     source="Rekrutteringslogg"
@@ -309,8 +310,8 @@ export default function CandidateDetail() {
                         )}
 
                         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {formatPhone(c.phone)}</span>
-                          <span className="flex items-center gap-1.5"><Mail className="size-3.5" /> {c.email}</span>
+                          {c.phone && <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {formatPhone(c.phone)}</span>}
+                          {c.email && <span className="flex min-w-0 items-center gap-1.5"><Mail className="size-3.5 shrink-0" /> <span className="truncate">{c.email}</span></span>}
                           <span>Eier: <span className="text-foreground">{c.owner}</span></span>
                         </div>
 
@@ -427,7 +428,7 @@ function HistoryTimeline({ history }: { history: CandidateHistoryEntry[] }) {
             className="relative"
           >
             <span className="absolute -left-[26px] top-1 size-2.5 rounded-full border-2 border-background bg-[var(--ab-accent-9)]" />
-            <p className="text-xs text-muted-foreground">{entry.at} · {entry.actor}</p>
+            <p className="text-xs text-muted-foreground">{[showDate(entry.at, true), entry.actor].filter(Boolean).join(" · ")}</p>
             <p className="mt-0.5 text-sm text-foreground">{entry.detail}</p>
           </motion.li>
         ))}

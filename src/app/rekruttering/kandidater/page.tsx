@@ -1,5 +1,6 @@
 "use client";
 
+import { showDate } from "@/lib/show-date";
 import * as React from "react";
 import Link from "next/link";
 import { Plus, ArrowRight, Search } from "lucide-react";
@@ -186,10 +187,10 @@ export default function RekrutteringKandidater() {
                           <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
                           <p
                             className="mt-0.5 truncate text-xs text-muted-foreground"
-                            title={`${c.source} · ${c.campaign} · Søkte ${c.appliedDate}`}
+                            title={[c.source, c.campaign, c.appliedDate && `Søkte ${showDate(c.appliedDate)}`].filter(Boolean).join(" · ")}
                           >
                             <ChannelMark channel={channelOf(c.source)} />
-                            {c.source} · {c.campaign} · Søkte {c.appliedDate}
+                            {[c.source, c.campaign, c.appliedDate && `Søkte ${showDate(c.appliedDate)}`].filter(Boolean).join(" · ")}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
