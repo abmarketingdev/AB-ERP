@@ -37,7 +37,8 @@ export type LeadStatus = z.infer<typeof leadStatusSchema>;
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   ny: "Ny",
-  sendt: "Sendt til rekruttering",
+  // Short on purpose: it is a table badge. «Sendt videre» = sent on to recruitment (LEAD-08).
+  sendt: "Sendt videre",
   duplikat: "Duplikat",
   forkastet: "Forkastet",
 };

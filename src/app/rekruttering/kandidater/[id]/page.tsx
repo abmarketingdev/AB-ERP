@@ -31,6 +31,7 @@ import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
 import { CandidateTags } from "@/components/patterns/candidate-tags";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
+import { formatPhone } from "@/lib/phone";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -308,7 +309,7 @@ export default function CandidateDetail() {
                         )}
 
                         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {c.phone}</span>
+                          <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {formatPhone(c.phone)}</span>
                           <span className="flex items-center gap-1.5"><Mail className="size-3.5" /> {c.email}</span>
                           <span>Eier: <span className="text-foreground">{c.owner}</span></span>
                         </div>

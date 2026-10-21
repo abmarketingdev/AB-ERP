@@ -25,6 +25,7 @@ import { PermissionGate } from "@/components/patterns/permission-gate";
 import { errorMessage } from "@/lib/api/client";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { usePhone } from "@/lib/use-media-query";
+import { contactLine, formatPhone } from "@/lib/phone";
 
 /**
  * LEAD-01 — the samleinnboks.
@@ -120,6 +121,9 @@ function SamleinnboksPage() {
   const [audienceOpen, setAudienceOpen] = React.useState(false);
   const meta = useLeadMeta();
   const phone = usePhone();
+  // IFK-08 — on a phone the filters fold away behind one button so the first lead is on
+  // the first screen; search stays out, it is the filter people actually use there.
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [assignTarget, setAssignTarget] = React.useState("");
   const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
   const kindByName = React.useMemo(
@@ -230,6 +234,16 @@ function SamleinnboksPage() {
           />
         </div>
 
+        {phone && (
+          <Button variant="outline" className="h-11 w-full justify-between" aria-expanded={filtersOpen}
+            aria-controls="innboks-filtre" onClick={() => setFiltersOpen((o) => !o)}>
+            <span>Filtre{activeFilters > (debouncedQ ? 1 : 0) ? ` (${activeFilters - (debouncedQ ? 1 : 0)})` : ""}</span>
+            <span className="text-xs text-muted-foreground">{filtersOpen ? "Skjul" : "Vis"}</span>
+          </Button>
+        )}
+
+        <div id="innboks-filtre" className={phone && !filtersOpen ? "hidden" : "flex flex-col gap-3"}>
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <FilterSelect label="Kanal" value={channel} onChange={setChannel}
             options={(meta.data?.channels ?? []).map((c) => ({ value: c.key, label: c.name, node: <ChannelLabel channel={c.name} /> }))} />
@@ -260,6 +274,7 @@ function SamleinnboksPage() {
               <X className="size-4" /> Nullstill {activeFilters} filter
             </Button>
           )}
+        </div>
         </div>
       </div>
 
@@ -323,7 +338,7 @@ function SamleinnboksPage() {
         query={leads}
         skeleton={<TableSkeleton />}
         isEmpty={(d) => d.rows.length === 0}
-        emptyTitle="Ingen leads matcher filteret"
+        emptyTitle={activeFilters ? "Ingen leads matcher filteret" : "Innboksen er tom"}
         emptyDescription={
           activeFilters
             ? "Prøv å fjerne et filter, eller utvid datoperioden."
@@ -353,7 +368,6 @@ function SamleinnboksPage() {
                       </TableHead>
                       <TableHead>Navn</TableHead>
                       <TableHead>Kanal</TableHead>
-                      <TableHead>Kampanje</TableHead>
                       <TableHead>Mottatt</TableHead>
                       <TableHead>Rekruttert av</TableHead>
                       <TableHead>Tildelt</TableHead>
@@ -373,15 +387,17 @@ function SamleinnboksPage() {
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{lead.name}</div>
-                          <div className="text-xs text-muted-foreground tabular-nums">{lead.phone} · {lead.email}</div>
+                          <div className="text-xs text-muted-foreground tabular-nums">{contactLine(lead.phone, lead.email)}</div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`gap-1.5 ${CHANNEL_TONE[kindByName[lead.channel] ?? "organisk"]}`}>
                             <ChannelMark channel={lead.channel} />
                             {lead.channel}
                           </Badge>
+                          {/* Campaign under its channel: they answer the same question (where from),
+                              and one column fewer keeps the table inside 1440 px without scrolling. */}
+                          {lead.campaign && <div className="mt-1 max-w-[12rem] truncate text-xs text-muted-foreground">{lead.campaign}</div>}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{lead.campaign}</TableCell>
                         <TableCell className="text-sm tabular-nums text-muted-foreground">
                           {dateFmt.format(new Date(lead.receivedAt))}
                         </TableCell>
@@ -447,7 +463,7 @@ function LeadCards({ rows, selected, onToggle, onMerge }: {
               <p className="truncate font-medium">{lead.name}</p>
               <Badge className={STATUS_TONE[lead.status]}>{LEAD_STATUS_LABEL[lead.status]}</Badge>
             </div>
-            <p className="mt-0.5 truncate text-sm tabular-nums text-muted-foreground">{lead.phone}</p>
+            <p className="mt-0.5 truncate text-sm tabular-nums text-muted-foreground">{formatPhone(lead.phone)}</p>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1"><ChannelMark channel={lead.channel} />{lead.channel}</span>
               <span>·</span>

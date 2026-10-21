@@ -17,6 +17,7 @@ import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
 import { useSession } from "@/lib/permissions";
 import type { Candidate } from "@/types/recruitment";
+import { formatPhone } from "@/lib/phone";
 
 /**
  * KAND-06 og KAND-09 — notater, private notater og vedlegg.
@@ -110,7 +111,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
           <span className="mr-2 text-sm text-muted-foreground">Ta kontakt</span>
           <Button asChild size="sm" variant="outline" className="gap-1.5">
             <a href={`tel:${candidate.phone.replace(/\s/g, "")}`}>
-              <Phone className="size-3.5" aria-hidden /> Ring {candidate.phone}
+              <Phone className="size-3.5" aria-hidden /> Ring {formatPhone(candidate.phone)}
             </a>
           </Button>
           <Button asChild size="sm" variant="outline" className="gap-1.5">

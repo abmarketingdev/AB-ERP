@@ -12,6 +12,7 @@ import { useDismissDuplicate, useLeads, useMergeLeads } from "@/lib/api/leads";
 import { errorMessage } from "@/lib/api/client";
 import { LEAD_STATUS_LABEL, type Lead } from "@/types/lead";
 import { ChannelMark } from "@/components/patterns/channel-mark";
+import { contactLine } from "@/lib/phone";
 
 /**
  * LEAD-07 — "oppdage duplikater på telefon og epost og la rekrutterer slå dem
@@ -128,7 +129,7 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
                     {keep && <span className="ml-auto text-xs text-[var(--ab-accent-9)]">Beholdes</span>}
                   </div>
                   <div className="text-xs tabular-nums text-muted-foreground">
-                    {l.phone} · {l.email}
+                    {contactLine(l.phone, l.email)}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Mottatt {new Intl.DateTimeFormat("nb-NO", { dateStyle: "long" }).format(new Date(l.receivedAt))}
