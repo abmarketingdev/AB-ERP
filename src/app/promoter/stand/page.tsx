@@ -167,17 +167,17 @@ export default function StandSkjema() {
         <Card>
           <CardContent className="flex flex-col gap-4 py-5">
             <Field label="Navn" id="st-name" error={errors.name} required>
-              <Input id="st-name" className="h-11 text-base" autoComplete="name"
+              <Input id="st-name" aria-invalid={Boolean(errors.name)} className="h-11 text-base" autoComplete="name"
                 value={form.name} onChange={(e) => set("name", e.target.value)} />
             </Field>
 
             <Field label="Telefon" id="st-phone" error={errors.phone} required>
-              <Input id="st-phone" className="h-11 text-base" type="tel" inputMode="tel" autoComplete="tel"
+              <Input id="st-phone" aria-invalid={Boolean(errors.phone)} className="h-11 text-base" type="tel" inputMode="tel" autoComplete="tel"
                 value={form.phone} onChange={(e) => set("phone", e.target.value)} />
             </Field>
 
             <Field label="E-post" id="st-email" error={errors.email} hint="Kan stå tomt">
-              <Input id="st-email" className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
+              <Input id="st-email" aria-invalid={Boolean(errors.email)} className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
                 value={form.email} onChange={(e) => set("email", e.target.value)} />
             </Field>
 

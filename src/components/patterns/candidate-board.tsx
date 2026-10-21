@@ -41,6 +41,8 @@ import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
  * approval form on the candidate page (A4). Anything else is refused with the reason.
  */
 
+const CONTRACT_STAGES = ["godkjent", "onboarding", "ansatt"];
+
 type DropDecision =
   | { kind: "allowed" }
   | { kind: "requires"; requires: string; message: string }
@@ -305,15 +307,18 @@ function CardFace({ candidate: c, overlay }: { candidate: Candidate; overlay?: b
     <div className={overlay ? "w-[244px] rounded-lg border border-[var(--ab-accent-9)] bg-card px-3 py-2.5 shadow-lg" : undefined}>
       <p className="truncate text-[13px] text-foreground">{c.name}</p>
       <p className="mt-0.5 truncate font-mono text-[10.5px] text-muted-foreground">
-        {c.campaign} · {c.owner.split(" ")[0]}
+        {[c.campaign, c.owner.split(" ")[0]].filter(Boolean).join(" · ")}
       </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {/* FR-R-07 — contract state travels with the card. */}
-        <span className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-muted-foreground">
-          <FileText className="size-2.5" aria-hidden />
-          {CONTRACT_LABEL[c.contract]}
-        </span>
+        {/* FR-R-07 — contract state travels with the card, once there IS a contract (from
+            «Godkjent» on). Before that «Ikke sendt» on every card is noise, not information. */}
+        {CONTRACT_STAGES.includes(c.stageId) && (
+          <span className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-muted-foreground">
+            <FileText className="size-2.5" aria-hidden />
+            {CONTRACT_LABEL[c.contract]}
+          </span>
+        )}
         {/* FR-R-06 — an overdue next activity is the whole reason to look at a
             board rather than a list. */}
         {c.nextActivity?.overdue && (
