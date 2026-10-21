@@ -25,7 +25,12 @@ const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: DEV_API,
   async rewrites() {
     if (!DEV_API) return [];
-    return [{ source: "/api/:path*", destination: `${DEV_API_PROXY}/api/:path*` }];
+    // `:path*` drops a trailing slash, and Django's slash redirect then loses the
+    // /api/<svc>/ prefix — so slash-terminated paths get their own rule, first.
+    return [
+      { source: "/api/:path*/", destination: `${DEV_API_PROXY}/api/:path*/` },
+      { source: "/api/:path*", destination: `${DEV_API_PROXY}/api/:path*` },
+    ];
   },
 };
 

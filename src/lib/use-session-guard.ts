@@ -118,14 +118,16 @@ export function useSessionGuard(requiredPermission?: string): GuardResult {
     retry: false,
   });
 
-  // `undefined` only while a real fetch is in flight.
+  // `undefined` while hydrating (storage not read yet) or while a real fetch is in flight.
   const session: Session | null | undefined = previewSession
     ? previewSession
-    : !token
-      ? null
-      : query.isPending
-        ? undefined
-        : (query.data ?? null);
+    : token === undefined
+      ? undefined
+      : !token
+        ? null
+        : query.isPending
+          ? undefined
+          : (query.data ?? null);
 
   const denied =
     !!session && !!requiredPermission && !session.permissions.includes(requiredPermission);
@@ -143,9 +145,14 @@ export function useSessionGuard(requiredPermission?: string): GuardResult {
 /**
  * The stored token, read as an external store so a sign-out in another tab
  * invalidates this one rather than leaving a dead session on screen.
+ *
+ * The server snapshot is `undefined` ("not read yet"), not `null` ("no token"): during
+ * hydration React renders with the server snapshot, and treating that as signed-out made
+ * a reload of any protected page in api mode redirect to /login before the real token was
+ * read (found by A2). Mock mode hid it — the MSW gate delays rendering past hydration.
  */
-function useToken(): string | null {
-  return React.useSyncExternalStore(subscribeToken, readToken, () => null);
+function useToken(): string | null | undefined {
+  return React.useSyncExternalStore<string | null | undefined>(subscribeToken, readToken, () => undefined);
 }
 
 function subscribeToken(onChange: () => void) {
