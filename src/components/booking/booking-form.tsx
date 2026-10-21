@@ -133,6 +133,9 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
         </div>
       </div>
 
+      {picked && !candidateId && (
+        <p className="text-sm text-muted-foreground" role="status">Velg kandidat for å bekrefte tidspunktet.</p>
+      )}
       {leaderId ? (
         <WeekSlotPicker leaderId={leaderId} leaderName={leader?.name} value={picked} onChange={setPicked} />
       ) : (
@@ -142,7 +145,7 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
       )}
 
       <AnimatePresence initial={false}>
-        {picked && (
+        {picked && candidateId && leaderId && (
           <motion.div
             key="confirm"
             initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
@@ -167,7 +170,7 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
                 <span>Påminnelse dagen før (SMS og e-post, med avbestillingslenke)</span>
               </label>
               <div className="flex flex-wrap items-center gap-3">
-                <Button className="gap-1.5" disabled={book.isPending} onClick={submit}>
+                <Button className="gap-1.5" disabled={book.isPending || !candidateId || !leaderId || !picked} onClick={submit}>
                   <CalendarCheck className="size-4" />
                   {book.isPending ? "Booker …" : "Bekreft booking"}
                 </Button>

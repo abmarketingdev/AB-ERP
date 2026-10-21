@@ -1,7 +1,7 @@
 import { http, HttpResponse, delay, type JsonBodyType } from "msw";
 import { db, persistDb } from "./db";
 import { writeAudit } from "./handlers";
-import { DEMO_TODAY, iso } from "./srs-seed";
+import { iso } from "./srs-seed";
 import {
   BOARDS, JOB_TYPES, LOCATIONS, MOCK_LEADERS, bookingMessages, busyBlocks, fmtWhen, leaderById, trackingUrl,
 } from "./a3-seed";
@@ -70,7 +70,7 @@ function withCounts(ad: Ad): Ad {
   return {
     ...ad,
     applicantsTotal: ad.publications.reduce((n, p) => n + p.applicants, 0),
-    acceptingApplications: ad.status === "publisert" && !(ad.deadline && ad.deadline < iso(DEMO_TODAY).slice(0, 10)),
+    acceptingApplications: ad.status === "publisert" && !(ad.deadline && ad.deadline < iso(new Date()).slice(0, 10)),
   };
 }
 
@@ -113,6 +113,14 @@ function publish(ad: Ad, boards: string[]) {
 
 const DEMO_LEADER = MOCK_LEADERS[0];   // the mock session's leader («Ola Nordmann»)
 
+/** Mock «now» is the real now: the booking week and the lists must agree (design review). */
+const NOW = () => Date.now();
+
+function osloOffsetHours(day: Date) {
+  const probe = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 12));
+  return Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", hour: "2-digit", hour12: false }).format(probe)) - 12;
+}
+
 function slotsFor(leaderId: string, from: string, days: number) {
   const out: { startsAt: string; endsAt: string; available: boolean; reason: string | null }[] = [];
   const start = new Date(`${from}T00:00:00.000Z`);
@@ -121,14 +129,13 @@ function slotsFor(leaderId: string, from: string, days: number) {
     if (day.getUTCDay() === 0 || day.getUTCDay() === 6) continue;
     const busy = busyBlocks(leaderId, day);
     for (let mins = 9 * 60; mins + 30 <= 16 * 60; mins += 30) {
-      // Oslo is UTC+2 in the demo's August.
-      const s = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, mins - 120);
+      const s = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, mins - 60 * osloOffsetHours(day));
       const e = s + 30 * 60_000;
-      if (s <= DEMO_TODAY.getTime()) continue;
+      if (s <= NOW()) continue;
       const taken = db.interviews.find((iv) => iv.leader.id === leaderId && iv.status === "booket"
         && new Date(iv.startsAt).getTime() < e && new Date(iv.endsAt).getTime() > s);
       const cal = busy.some(([bs, be]) => bs < e && be > s);
-      const short = s < DEMO_TODAY.getTime() + 2 * 3600_000;
+      const short = s < NOW() + 2 * 3600_000;
       out.push({
         startsAt: new Date(s).toISOString(), endsAt: new Date(e).toISOString(),
         available: !taken && !cal && !short,
@@ -154,12 +161,12 @@ function setCandidateStage(candidateId: string, stageId: string, actor: string, 
 }
 
 function publicView(iv: Interview) {
-  const canChange = iv.status === "booket" && new Date(iv.startsAt) > DEMO_TODAY;
+  const canChange = iv.status === "booket" && new Date(iv.startsAt).getTime() > NOW();
   // Like the server: a few free times over several days, at most two a day (BOOK-07).
   const alternatives: string[] = [];
   if (canChange) {
     const perDay = new Map<string, number>();
-    for (const s of slotsFor(iv.leader.id, iso(new Date(DEMO_TODAY.getTime() + 86_400_000)).slice(0, 10), 14)) {
+    for (const s of slotsFor(iv.leader.id, iso(new Date(NOW() + 86_400_000)).slice(0, 10), 14)) {
       const day = s.startsAt.slice(0, 10);
       if (!s.available || (perDay.get(day) ?? 0) >= 2) continue;
       perDay.set(day, (perDay.get(day) ?? 0) + 1);
@@ -170,6 +177,7 @@ function publicView(iv: Interview) {
   return {
     id: iv.id, candidateName: iv.candidateName.split(" ")[0], leader: iv.leader.name, startsAt: iv.startsAt,
     location: iv.location, status: iv.status === "booket" && !canChange ? "passert" : iv.status, canChange, alternatives,
+    contact: { name: iv.bookedBy || "AB Marketing", phone: "+47 900 11 222" },
   };
 }
 
@@ -382,7 +390,7 @@ export const a3Handlers = [
     const p = new URL(request.url).searchParams;
     const leader = p.get("leader") ?? "";
     if (!leaderById(leader)) return err(400, "Ukjent leder.", undefined, { leader: ["Ukjent leder."] });
-    const from = p.get("from") || iso(DEMO_TODAY).slice(0, 10);
+    const from = p.get("from") || iso(new Date()).slice(0, 10);
     const days = Math.min(Number(p.get("days") ?? 7), 31);
     const forced = await scenarioResponse(request, { source: "erklært", stale: false, computedAt: new Date().toISOString(),
       calendarSyncedAt: null, slots: [] });
@@ -469,7 +477,7 @@ export const a3Handlers = [
       return err(400, "assessment: Skriv en kort vurdering.", undefined, { assessment: ["Skriv en kort vurdering."] });
     }
     if (iv.status !== "booket") return err(409, "Oppmøte er allerede registrert for dette intervjuet.", "already_recorded");
-    if (new Date(iv.startsAt) > DEMO_TODAY) return err(409, "Oppmøte kan registreres når intervjuet har startet.", "not_started");
+    if (new Date(iv.startsAt).getTime() > NOW()) return err(409, "Oppmøte kan registreres når intervjuet har startet.", "not_started");
     Object.assign(iv, { attended: b.attended, assessment: b.assessment.trim(), rating: b.rating ?? null,
       recommend: b.recommend ?? null, status: b.attended ? "gjennomfort" : "no-show", outcomeAt: new Date().toISOString(),
       candidateStatus: b.attended ? "intervjuet" : "no-show" });

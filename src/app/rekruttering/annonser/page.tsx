@@ -21,6 +21,15 @@ import {
 } from "@/types/ad";
 import { NewAdDialog } from "@/components/patterns/new-ad-dialog";
 import { PermissionGate } from "@/components/patterns/permission-gate";
+import { Segmented } from "@/components/patterns/segmented";
+
+type View = "aktive" | "utkast" | "avsluttet";
+const VIEW_STATUS: Record<View, AdStatus> = { aktive: "publisert", utkast: "utkast", avsluttet: "avpublisert" };
+const VIEW_EMPTY: Record<View, string> = {
+  aktive: "Ingen aktive annonser. Publiser et utkast, eller lag en ny annonse.",
+  utkast: "Ingen utkast. Lagrer du en annonse uten å publisere, ligger den her.",
+  avsluttet: "Ingen avsluttede annonser ennå. Annonser som avpubliseres eller passerer fristen, havner her.",
+};
 
 /**
  * ANN-06 — oversikt over aktive annonser, kanal og antall søkere per annonse.
@@ -62,6 +71,7 @@ function daysUntil(date: string) {
 function AnnonserPage() {
   const ads = useAds();
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [view, setView] = React.useState<View>("aktive");
 
   const all = ads.data ?? [];
   const live = all.filter((a) => a.status === "publisert");
@@ -90,12 +100,29 @@ function AnnonserPage() {
         emptyDescription="Lag én annonse og publiser den til Nav, Indeed og Finn på én gang."
         className="flex flex-col gap-4"
       >
-        {(list) => (
-          <>
-            {waiting && <WaitingNotice onRefresh={() => ads.refetch()} />}
-            {list.map((ad) => <AdCard key={ad.id} ad={ad} />)}
-          </>
-        )}
+        {(list) => {
+          const count = (v: View) => list.filter((a) => a.status === VIEW_STATUS[v]).length;
+          const shown = list.filter((a) => a.status === VIEW_STATUS[view]);
+          return (
+            <>
+              <Segmented<View>
+                value={view}
+                onChange={setView}
+                ariaLabel="Vis annonser"
+                layoutId="ads-view"
+                options={[
+                  { value: "aktive", label: `Aktive · ${count("aktive")}` },
+                  { value: "utkast", label: `Utkast · ${count("utkast")}` },
+                  { value: "avsluttet", label: `Avsluttet · ${count("avsluttet")}` },
+                ]}
+              />
+              {waiting && view === "aktive" && <WaitingNotice onRefresh={() => ads.refetch()} />}
+              {shown.length === 0
+                ? <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">{VIEW_EMPTY[view]}</p>
+                : shown.map((ad) => <AdCard key={ad.id} ad={ad} />)}
+            </>
+          );
+        }}
       </QueryBoundary>
 
       <NewAdDialog open={createOpen} onClose={() => setCreateOpen(false)} />
@@ -218,7 +245,15 @@ function PublicationTable({ ad }: { ad: Ad }) {
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      {/* Fixed columns: «Status» starts in the same place on every card, so the eye can run down the page. */}
+      <table className="w-full table-fixed text-sm">
+        <colgroup>
+          <col className="w-[34%] sm:w-[22%]" />
+          <col className="w-[38%] sm:w-[28%]" />
+          <col className="hidden sm:table-column sm:w-[14%]" />
+          <col className="w-[13%] sm:w-[9%]" />
+          <col />
+        </colgroup>
         <thead>
           <tr className="border-b border-border text-left text-xs text-muted-foreground">
             <th className="pb-2 font-medium">Plattform</th>
@@ -239,7 +274,7 @@ function PublicationTable({ ad }: { ad: Ad }) {
                 <button
                   type="button"
                   onClick={() => copy(p.trackingUrl, p.id)}
-                  className="group flex max-w-[16rem] items-center gap-1.5 truncate rounded px-1 text-left font-mono text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-[22rem]"
+                  className="group flex w-full min-w-0 items-center gap-1.5 rounded px-1 text-left font-mono text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   title="Kopier sporingslenken"
                   aria-label={`Kopier sporingslenken for ${p.platformName}`}
                 >

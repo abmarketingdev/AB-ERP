@@ -1,7 +1,7 @@
 import type { Ad, AdTemplate, Board, Publication } from "@/types/ad";
 import type { Interview, InterviewMessage, Leader } from "@/types/interview";
 import { CANDIDATES } from "@/lib/mock-data";
-import { LEADERS, dayOffset, iso, isoDay } from "./srs-seed";
+import { LEADERS, iso, isoDay } from "./srs-seed";
 
 /**
  * A3 fixtures (ANN, BOOK) in the recruitment-service contract.
@@ -68,6 +68,14 @@ export const AD_TEMPLATES: AdTemplate[] = [
       "til å lykkes.",
   },
 ];
+
+/** Today ± n days at an Oslo-ish hour (ads and publications, relative to the real date). */
+function dayOffset(days: number, hour = 9, minute = 0): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  d.setUTCHours(hour - 2, minute, 0, 0);
+  return d;
+}
 
 export function trackingUrl(publicId: string, token: string) {
   return `https://erp.abmarketing.no/soknad/${publicId}?k=${token}`;
@@ -171,17 +179,26 @@ export function bookingMessages(iv: Pick<Interview, "id" | "candidateName" | "ca
   return out;
 }
 
-/** The n-th weekday after (or before, n < 0) the demo day — interviews are never on a weekend. */
+/**
+ * The n-th weekday after (or before, n < 0) TODAY, at an Oslo hour. Interviews are relative
+ * to the real date so «Kommende» is always in the future and the booking week lines up with
+ * the lists (master, design review round 1). Never on a weekend.
+ */
 function weekday(n: number, hour: number, minute = 0) {
-  let d = 0;
+  const base = new Date();
+  base.setUTCHours(12, 0, 0, 0);
   let left = Math.abs(n);
   const step = n < 0 ? -1 : 1;
+  const d = new Date(base);
   while (left > 0) {
-    d += step;
-    const wd = dayOffset(d).getUTCDay();
-    if (wd !== 0 && wd !== 6) left -= 1;
+    d.setUTCDate(d.getUTCDate() + step);
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) left -= 1;
   }
-  return dayOffset(d, hour, minute);
+  // Oslo is UTC+1/+2; resolve the offset for that day so 10:00 means 10:00 in Oslo.
+  const probe = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12));
+  const osloHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", hour: "2-digit", hour12: false }).format(probe));
+  const offset = osloHour - 12;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour - offset, minute));
 }
 
 export function buildInterviews(): Interview[] {
@@ -190,7 +207,8 @@ export function buildInterviews(): Interview[] {
   const out: Interview[] = [];
 
   booked.forEach((c, i) => {
-    const startsAt = iso(weekday(1 + i, 8 + (i % 4), i % 2 ? 30 : 0));
+    // The first one took place yesterday and still waits for the leader's outcome (BOOK-08).
+    const startsAt = iso(i === 0 ? weekday(-1, 13) : weekday(i, 10 + (i % 4), i % 2 ? 30 : 0));
     const leader = leaderByName(LEADERS[i % LEADERS.length]);
     const id = `iv-${c.id}`;
     const iv: Interview = {
@@ -200,15 +218,15 @@ export function buildInterviews(): Interview[] {
       // One invite the calendar refused, so «Invitasjon ikke sendt» is demonstrable.
       calendarState: i === 3 ? "feilet" : "synket",
       reminderEnabled: i !== 2, reminderSentAt: null, attended: null, assessment: "", rating: null, recommend: null,
-      outcomeAt: null, bookedBy: c.owner, bookedAt: iso(dayOffset(-1, 12)), cancelledAt: null, cancelledBy: "",
+      outcomeAt: null, bookedBy: c.owner, bookedAt: iso(weekday(-3, 14)), cancelledAt: null, cancelledBy: "",
       rebookedTo: null, messages: [],
     };
-    iv.messages = bookingMessages(iv, c.email, `+47 900 11 2${i}2`, iso(dayOffset(-1, 12, 2)), `tok-${c.id}`);
+    iv.messages = bookingMessages(iv, c.email, `+47 900 11 2${i}2`, iso(weekday(-3, 14, 2)), `tok-${c.id}`);
     out.push(iv);
   });
 
   done.forEach((c, i) => {
-    const startsAt = iso(weekday(-1 - i, 9, 0));
+    const startsAt = iso(weekday(-1 - i, 11, 0));
     const leader = leaderByName(LEADERS[(i + 1) % LEADERS.length]);
     // One did not turn up — DASH-02 needs something to count.
     const attended = i !== 1;
@@ -217,14 +235,14 @@ export function buildInterviews(): Interview[] {
       id, candidateId: c.id, candidateName: c.name, candidatePhone: c.phone, candidateStatus: attended ? "intervjuet" : "no-show",
       leader: { id: leader.id, name: leader.name }, startsAt, endsAt: iso(new Date(new Date(startsAt).getTime() + 30 * 60000)),
       location: LOCATION_DEFAULT, status: attended ? "gjennomfort" : "no-show", calendarEventId: `mock-${2000 + i}`,
-      calendarState: "synket", reminderEnabled: true, reminderSentAt: iso(dayOffset(-3 - i, 15)), attended,
+      calendarState: "synket", reminderEnabled: true, reminderSentAt: iso(weekday(-2 - i, 17)), attended,
       assessment: attended
         ? ["God muntlig framstilling, virker motivert. Anbefaler videre.", "Litt usikker, men lærevillig. Kan prøves på et mindre team."][i % 2]
         : "Møtte ikke, svarte ikke på telefon.",
-      rating: attended ? [4, 3][i % 2] : null, recommend: attended ? i % 2 === 0 : null, outcomeAt: iso(dayOffset(-2 - i, 10)),
-      bookedBy: c.owner, bookedAt: iso(dayOffset(-5 - i, 9)), cancelledAt: null, cancelledBy: "", rebookedTo: null, messages: [],
+      rating: attended ? [4, 3][i % 2] : null, recommend: attended ? i % 2 === 0 : null, outcomeAt: iso(weekday(-1 - i, 12)),
+      bookedBy: c.owner, bookedAt: iso(weekday(-4 - i, 9)), cancelledAt: null, cancelledBy: "", rebookedTo: null, messages: [],
     };
-    iv.messages = bookingMessages(iv, c.email, `+47 900 11 3${i}3`, iso(dayOffset(-5 - i, 9, 5)), `tok-${c.id}`);
+    iv.messages = bookingMessages(iv, c.email, `+47 900 11 3${i}3`, iso(weekday(-4 - i, 9, 5)), `tok-${c.id}`);
     out.push(iv);
   });
 
@@ -234,7 +252,9 @@ export function buildInterviews(): Interview[] {
 /** The mock leader calendar: lunch daily, a team meeting some mornings, a field afternoon. */
 export function busyBlocks(leaderId: string, day: Date): [number, number][] {
   const seed = [...`${leaderId}${day.getUTCDate()}`].reduce((n, ch) => n + ch.charCodeAt(0), 0);
-  const at = (h: number, m: number) => Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h - 2, m);
+  const probe = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 12));
+  const off = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", hour: "2-digit", hour12: false }).format(probe)) - 12;
+  const at = (h: number, m: number) => Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h - off, m);
   const out: [number, number][] = [[at(11, 30), at(12, 0)]];
   if (seed % 3 === 0) out.push([at(9, 0), at(10, 0)]);
   if (seed % 4 === 1) out.push([at(14, 0), at(15, 0)]);

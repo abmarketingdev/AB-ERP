@@ -152,7 +152,9 @@ export const publicInterviewSchema = z.object({
   location: z.string(),
   status: z.enum(["booket", "gjennomfort", "avlyst", "no-show", "ombooket", "passert"]),
   canChange: z.boolean(),
-  /** Free slots offered on the rebook path (BOOK-07). */
+  /** Free slots offered on the rebook path (BOOK-07), spread over days. */
   alternatives: z.array(z.string()),
+  /** BOOK-03 «kontaktinformasjon»: who to ask. */
+  contact: z.object({ name: z.string(), phone: z.string() }),
 });
 export type PublicInterview = z.infer<typeof publicInterviewSchema>;

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 import { BookingForm } from "@/components/booking/booking-form";
-import { InterviewCard } from "@/components/booking/interview-card";
+import { InterviewCard, InterviewRow } from "@/components/booking/interview-card";
 import { useInterviews } from "@/lib/api/interviews";
 import type { Interview } from "@/types/interview";
 
@@ -62,7 +62,14 @@ function IntervjuerPage() {
       >
         {() => (
           <>
-            <Section title="Kommende" items={upcoming} empty="Ingen kommende intervjuer." />
+            <section className="flex flex-col gap-2">
+              <h2 className="text-sm font-medium text-muted-foreground">Kommende</h2>
+              {upcoming.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Ingen kommende intervjuer.</p>
+              ) : (
+                <Card><ul className="divide-y divide-border">{upcoming.map((iv) => <InterviewRow key={iv.id} interview={iv} />)}</ul></Card>
+              )}
+            </section>
             <Section title="Tidligere" items={past} />
           </>
         )}

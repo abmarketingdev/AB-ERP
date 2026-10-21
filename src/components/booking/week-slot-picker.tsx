@@ -63,14 +63,20 @@ export function WeekSlotPicker({
   const mobileDay = picked?.scope === scope ? picked.day : null;
   const setMobileDay = (day: string) => setPicked({ scope, day });
 
+  // The server already leaves out passed times; this guard makes sure a stale response or
+  // a page left open over lunch can never offer one. Minimum notice is the server's rule.
+  const [now] = React.useState(() => Date.now());
   const days = React.useMemo(() => {
     const map = new Map<string, Slot[]>();
-    for (const s of slots.data?.slots ?? []) {
+    for (const raw of slots.data?.slots ?? []) {
+      const s: Slot = new Date(raw.startsAt).getTime() <= now
+        ? { ...raw, available: false, reason: "Tidspunktet er passert" }
+        : raw;
       const k = dayKey(s.startsAt);
       map.set(k, [...(map.get(k) ?? []), s]);
     }
     return [...map.entries()];
-  }, [slots.data]);
+  }, [slots.data, now]);
 
   const freeCount = (slots.data?.slots ?? []).filter((s) => s.available).length;
   const shownDay = mobileDay ?? days.find(([, s]) => s.some((x) => x.available))?.[0] ?? days[0]?.[0];

@@ -15,6 +15,7 @@ import { useAdTemplates, useAdMeta, useCreateAd, useWordingCheck } from "@/lib/a
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { newAdSchema, type WordingCheck } from "@/types/ad";
 import { LEAD_CAMPAIGNS } from "@/mocks/leads";
+import { NbDateField } from "@/components/booking/nb-date-field";
 
 /**
  * ANN-01 / ANN-03 — lag annonsen én gang, fra en mal, og publiser til flere
@@ -32,7 +33,7 @@ import { LEAD_CAMPAIGNS } from "@/mocks/leads";
 export function NewAdDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         {/* Mounted per opening, so every new ad starts from an empty form. */}
         {open && <NewAdForm onClose={onClose} />}
       </DialogContent>
@@ -130,7 +131,7 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ad-tpl">Start fra en mal</Label>
             <Select onValueChange={applyTemplate}>
-              <SelectTrigger id="ad-tpl"><SelectValue placeholder="Velg mal (valgfritt)" /></SelectTrigger>
+              <SelectTrigger id="ad-tpl" className="w-full"><SelectValue placeholder="Velg mal (valgfritt)" /></SelectTrigger>
               <SelectContent>
                 {(templates.data ?? []).map((t) => (
                   <SelectItem key={t.id} value={t.id}>{t.name} · {t.jobType} · {t.location}</SelectItem>
@@ -143,10 +144,10 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
             <Input id="ad-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3 [&>*]:min-w-0">
             <Field id="ad-jobtype" label="Stillingstype" error={errors.jobType}>
               <Select value={form.jobType} onValueChange={(v) => pick("jobType", v)}>
-                <SelectTrigger id="ad-jobtype"><SelectValue placeholder="Velg" /></SelectTrigger>
+                <SelectTrigger id="ad-jobtype" className="w-full"><SelectValue placeholder="Velg" /></SelectTrigger>
                 <SelectContent>
                   {(meta.data?.jobTypes ?? []).map((j) => <SelectItem key={j} value={j}>{j}</SelectItem>)}
                 </SelectContent>
@@ -154,7 +155,7 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
             </Field>
             <Field id="ad-loc" label="Sted" error={errors.location}>
               <Select value={form.location} onValueChange={(v) => pick("location", v)}>
-                <SelectTrigger id="ad-loc"><SelectValue placeholder="Velg" /></SelectTrigger>
+                <SelectTrigger id="ad-loc" className="w-full"><SelectValue placeholder="Velg" /></SelectTrigger>
                 <SelectContent>
                   {(meta.data?.locations ?? []).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                 </SelectContent>
@@ -162,7 +163,7 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
             </Field>
             <Field id="ad-camp" label="Kampanje" error={errors.campaign}>
               <Select value={form.campaign} onValueChange={(v) => setForm((f) => ({ ...f, campaign: v }))}>
-                <SelectTrigger id="ad-camp"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="ad-camp" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {LEAD_CAMPAIGNS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
@@ -186,7 +187,7 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
                 </span>
               </p>
             )}
-            {blocked.length === 0 && warned.length > 0 && (
+            {warned.length > 0 && (
               <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning-on-tint">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>
@@ -197,9 +198,9 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <Field id="ad-deadline" label="Søknadsfrist" hint="Annonsen avpubliseres automatisk når fristdagen er over">
-            <Input id="ad-deadline" type="date" className="w-[11rem]" value={form.deadline}
-              onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))} />
+          <Field id="ad-deadline" label="Søknadsfrist" hint="Valgfritt. Annonsen avpubliseres automatisk når fristdagen er over">
+            <NbDateField id="ad-deadline" value={form.deadline} min={new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Oslo" }).format(new Date())}
+              onChange={(iso) => setForm((f) => ({ ...f, deadline: iso }))} />
           </Field>
 
           <fieldset className="flex flex-col gap-2">
@@ -214,8 +215,11 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
                   <label key={b.key} className="flex min-h-11 items-center gap-2 rounded-md px-1 text-sm">
                     <Checkbox checked={platforms.includes(b.key)} onCheckedChange={() => togglePlatform(b.key)} />
                     <span>{b.name}</span>
-                    {!b.free && <span className="text-xs text-muted-foreground">(betalt)</span>}
-                    {b.mode === "manual" && <span className="text-xs text-muted-foreground">(manuelt)</span>}
+                    {(!b.free || b.mode === "manual") && (
+                      <span className="text-xs text-muted-foreground">
+                        ({[!b.free && "krever partneravtale", b.mode === "manual" && "manuell"].filter(Boolean).join(" · ")})
+                      </span>
+                    )}
                   </label>
                 ))}
               </div>

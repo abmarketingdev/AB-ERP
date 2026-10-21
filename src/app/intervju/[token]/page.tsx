@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { CalendarX, CalendarClock } from "lucide-react";
+import { CalendarX, CalendarClock, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,7 +53,10 @@ export default function PublicInterview() {
       <div className="mx-auto flex max-w-xl flex-col gap-6 px-4 py-10 sm:py-16">
         <header className="flex flex-col gap-1">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">AB Marketing</p>
-          <h1 className="text-2xl font-medium tracking-tight">Intervjuet ditt</h1>
+          <h1 className="text-2xl font-medium tracking-tight">
+            {interview.data ? `Hei ${interview.data.candidateName}` : "Intervjuet ditt"}
+          </h1>
+          {interview.data?.canChange && <p className="text-sm text-muted-foreground">Her er intervjuet ditt hos AB Marketing.</p>}
         </header>
 
         {interview.isPending ? (
@@ -79,7 +82,7 @@ export default function PublicInterview() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {done === "flyttet"
                     ? `Nytt tidspunkt: ${interview.data ? fullFmt.format(new Date(interview.data.startsAt)) : ""}. Du får en SMS med det nye tidspunktet. Vi sees!`
-                    : "Takk for at du sa ifra. Lederen har fått beskjed. Vil du ha en ny tid, kan du svare på SMS-en eller kontakte oss."}
+                    : "Takk for at du sa ifra. Lederen har fått beskjed. Vil du ha en ny tid, ta kontakt med oss."}
                 </p>
               </div>
             </CardContent>
@@ -152,6 +155,17 @@ export default function PublicInterview() {
             {error && <p role="alert" className="text-sm text-danger">{error}</p>}
           </>
         ) : null}
+
+        {interview.data && (
+          <p className="flex flex-wrap items-center gap-x-1.5 border-t border-border pt-4 text-sm text-muted-foreground">
+            <Phone className="size-4" aria-hidden />
+            Spørsmål? Kontakt {interview.data.contact.name}
+            {interview.data.contact.phone && (
+              <>, <a className="font-medium text-foreground underline underline-offset-2" href={`tel:${interview.data.contact.phone.replace(/\s/g, "")}`}>
+                {interview.data.contact.phone}</a></>
+            )}
+          </p>
+        )}
       </div>
     </div>
   );

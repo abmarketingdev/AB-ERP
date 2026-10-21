@@ -14,7 +14,7 @@ export function BookInterviewDialog({ candidateId, open, onOpenChange, onBooked 
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Book intervju</DialogTitle>
           <DialogDescription>Velg leder og en ledig tid. Kandidaten og lederen får SMS og kalenderinvitasjon.</DialogDescription>
