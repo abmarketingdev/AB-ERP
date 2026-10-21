@@ -31,6 +31,7 @@ import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
 import { accessHandlers } from "./access-handlers";
 import { a3Handlers } from "./a3-handlers";
 import { a4Handlers } from "./a4-handlers";
+import { a5Handlers } from "./a5-handlers";
 import type { Lead } from "@/types/lead";
 import { queryLeads, leadCounts, leadMeta, leadById, leadsByIds, patchLead } from "./lead-query";
 import { APPROVAL_GATED, REQUIRES, manualTargets, refuseMove } from "./recruitment-graph";
@@ -209,6 +210,8 @@ export const handlers = [
   ...a3Handlers,
   // ── recruitment-service: approvals + onboarding (A4) ──────────────────────
   ...a4Handlers,
+  // ── recruitment-service: staffing, tasks, dashboard (A5) ───────────────────
+  ...a5Handlers,
   // ── Promoter ───────────────────────────────────────────────────────────────
   get(
     "/api/dashboard/employee/me/stats",
@@ -290,183 +293,6 @@ export const handlers = [
   // ── Recruitment ────────────────────────────────────────────────────────────
   // ── Onboarding (ONB) ───────────────────────────────────────────────────────
 
-  // ── Vaktplan og oppmøte (BEM) ──────────────────────────────────────────────
-  get("/api/hr/shifts", (request) => {
-    const url = new URL(request.url);
-    const employee = url.searchParams.get("employee");
-    const team = url.searchParams.get("team");
-    let rows: Shift[] = db.shifts;
-    if (employee) rows = rows.filter((s) => s.employeeName === employee);
-    if (team) rows = rows.filter((s) => s.team === team);
-    return rows;
-  }, []),
-
-  get("/api/hr/shifts/swaps", () => db.swapRequests, []),
-
-  /** BEM-07 — a swap is a request; it takes effect only once the leader agrees. */
-  http.post("/api/hr/shifts/swaps", async ({ request }) => {
-    await latency();
-    const body = (await request.json()) as { fromShiftId: string; toShiftId: string; reason: string };
-    const from = db.shifts.find((s) => s.id === body.fromShiftId);
-    const to = db.shifts.find((s) => s.id === body.toShiftId);
-    if (!from || !to) return HttpResponse.json({ message: "Ukjent vakt" }, { status: 404 });
-    const req: SwapRequest = {
-      id: `sw-${Date.now()}`,
-      fromEmployee: from.employeeName,
-      toEmployee: to.employeeName,
-      fromShiftId: from.id,
-      toShiftId: to.id,
-      fromDate: from.date,
-      toDate: to.date,
-      reason: body.reason,
-      status: "venter",
-      requestedAt: new Date().toISOString(),
-      decidedAt: null,
-      decidedBy: null,
-    };
-    db.swapRequests.unshift(req);
-    from.swapPending = true;
-    to.swapPending = true;
-    persistDb();
-    return HttpResponse.json(req, { status: 201 });
-  }),
-
-  http.post("/api/hr/shifts/swaps/:id/decide", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { approve: boolean; by?: string };
-    const req = db.swapRequests.find((r) => r.id === params.id);
-    if (!req) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    const from = db.shifts.find((s) => s.id === req.fromShiftId);
-    const to = db.shifts.find((s) => s.id === req.toShiftId);
-
-    req.status = body.approve ? "godkjent" : "avvist";
-    req.decidedAt = new Date().toISOString();
-    req.decidedBy = body.by ?? "Ola Nordmann";
-
-    if (body.approve && from && to) {
-      // The swap exchanges who owns each shift, which is the only thing a swap
-      // actually is — the dates and the team stay where they are.
-      const a = { id: from.employeeId, name: from.employeeName };
-      from.employeeId = to.employeeId;
-      from.employeeName = to.employeeName;
-      to.employeeId = a.id;
-      to.employeeName = a.name;
-    }
-    if (from) from.swapPending = false;
-    if (to) to.swapPending = false;
-
-    writeAudit({ actor: req.decidedBy, action: body.approve ? "Godkjente vaktbytte" : "Avviste vaktbytte", area: "Vaktplan", affected: `${req.fromEmployee} ↔ ${req.toEmployee}`, after: req.status });
-    persistDb();
-    return HttpResponse.json(req);
-  }),
-
-  /** BEM-02 — follow up an absence from the calendar cell itself. */
-  http.post("/api/hr/shifts/:id/follow-up", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { note: string; by?: string };
-    const shift = db.shifts.find((s) => s.id === params.id);
-    if (!shift) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    shift.followUp = { at: new Date().toISOString(), by: body.by ?? "Ola Nordmann", note: body.note };
-    persistDb();
-    return HttpResponse.json(shift);
-  }),
-
-  /**
-   * BEM-03 / BEM-04 — reelt behov for dagsverk, regnet fra historisk oppmøte
-   * "uavhengig av tilgjengeligheten de ansatte selv oppgir".
-   *
-   * `reliable` exists because BEM-04 says this is the basis for decisions about
-   * coaching, contracts and recruitment. A forecast built on a fortnight of
-   * data should say so rather than look like one built on a year.
-   */
-  get("/api/hr/shifts/forecast", () => {
-    const MIN_BASIS_DAYS = 10;
-    const byTeam = new Map<string, { planned: number; attended: number; missed: number; past: number }>();
-    for (const s of db.shifts) {
-      if (s.kind !== "arbeid") continue;
-      const cur = byTeam.get(s.team) ?? { planned: 0, attended: 0, missed: 0, past: 0 };
-      if (s.attendance === "planlagt") cur.planned += 1;
-      if (s.attendance === "mott") { cur.attended += 1; cur.past += 1; }
-      if (s.attendance === "ikke-mott") { cur.missed += 1; cur.past += 1; }
-      byTeam.set(s.team, cur);
-    }
-    return [...byTeam.entries()].map(([team, v]) => {
-      const showRate = v.past ? v.attended / v.past : 0;
-      return {
-        team,
-        plannedDays: v.planned,
-        expectedDays: Math.round(v.planned * showRate),
-        showRate,
-        basisDays: v.past,
-        reliable: v.past >= MIN_BASIS_DAYS,
-      };
-    }).sort((a, b) => a.team.localeCompare(b.team, "nb"));
-  }, []),
-
-  // ── Lederoppgaver (OPPG) ───────────────────────────────────────────────────
-  get("/api/hr/tasks", (request) => {
-    const leader = new URL(request.url).searchParams.get("leader");
-    return leader ? db.leaderTasks.filter((t) => t.leader === leader) : db.leaderTasks;
-  }, []),
-
-  /** OPPG-02 — etterlevelse per leder, for admin. */
-  get("/api/hr/tasks/compliance", () => {
-    const byLeader = new Map<string, { open: number; completed: number; overdue: number }>();
-    for (const t of db.leaderTasks) {
-      const cur = byLeader.get(t.leader) ?? { open: 0, completed: 0, overdue: 0 };
-      if (t.status === "apen") cur.open += 1;
-      if (t.status === "fullfort") cur.completed += 1;
-      if (t.status === "forfalt") cur.overdue += 1;
-      byLeader.set(t.leader, cur);
-    }
-    return [...byLeader.entries()].map(([leader, v]) => ({
-      leader,
-      ...v,
-      // Open tasks are not yet a failure, so they are left out of the rate.
-      // Counting them would punish a leader for having work in front of them.
-      rate: v.completed + v.overdue === 0 ? null : v.completed / (v.completed + v.overdue),
-    })).sort((a, b) => (a.rate ?? 2) - (b.rate ?? 2));
-  }, []),
-
-  /** OPPG-01 — "Hver oppgave har svarfelt, som i Asana". */
-  http.post("/api/hr/tasks/:id/complete", async ({ request, params }) => {
-    await latency();
-    const body = (await request.json()) as { response: string };
-    const t = db.leaderTasks.find((x) => x.id === params.id);
-    if (!t) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
-    if (!body.response?.trim()) {
-      return HttpResponse.json({ message: "Skriv et svar før du fullfører." }, { status: 422 });
-    }
-    t.status = "fullfort";
-    t.response = body.response.trim();
-    t.completedAt = new Date().toISOString();
-    writeAudit({ actor: t.leader, action: "Fullførte lederoppgave", area: "Lederoppgaver", affected: t.title, after: "Fullført" });
-    persistDb();
-    return HttpResponse.json(t);
-  }),
-
-  http.post("/api/hr/tasks", async ({ request }) => {
-    await latency();
-    const body = (await request.json()) as { title: string; detail?: string; dueDate: string; leader?: string };
-    const t: LeaderTask = {
-      id: `tk-${Date.now()}`,
-      leader: body.leader ?? "Ola Nordmann",
-      title: body.title,
-      detail: body.detail ?? "",
-      source: "egen",
-      relatedCandidateId: null,
-      dueDate: body.dueDate,
-      status: "apen",
-      response: null,
-      completedAt: null,
-    };
-    db.leaderTasks.unshift(t);
-    persistDb();
-    return HttpResponse.json(t, { status: 201 });
-  }),
-
-  // ── Rekrutteringsdashboard (DASH) ──────────────────────────────────────────
-  get("/api/hr/dashboard/recruitment", (request) => buildDashboard(new URL(request.url))),
 
   // Annonser (ANN) og intervjubooking (BOOK) live in ./a3-handlers (A3).
 
@@ -578,49 +404,6 @@ export const handlers = [
       // normalised e-mail. Shown here so the shape of what leaves is visible.
       sample: eligible.slice(0, 3).map((l) => ({ hashedEmail: `sha256:${l.email.length}${l.id}` })),
     });
-  }),
-
-  // ── BEM-05 / OPPG-03: Slack-varsling ──────────────────────────────────────
-  /**
-   * Both requirements are "Bør", and both are the same mechanism: a message
-   * composed by the system and sent to Slack. Rendering the text rather than a
-   * "sent" flag is the same decision as for the interview SMS — what it says is
-   * the part anybody can have an opinion about before it goes live.
-   */
-  get("/api/hr/notifications/preview", () => {
-    const behind = db.shifts.filter((s) => s.attendance === "ikke-mott");
-    const byPerson = new Map<string, number>();
-    for (const s of behind) byPerson.set(s.employeeName, (byPerson.get(s.employeeName) ?? 0) + 1);
-    const worst = [...byPerson.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-
-    const overdue = db.leaderTasks.filter((t) => t.status === "forfalt");
-    const byLeader = new Map<string, number>();
-    for (const t of overdue) byLeader.set(t.leader, (byLeader.get(t.leader) ?? 0) + 1);
-
-    return {
-      absence: worst.map(([name, n]) => ({
-        channel: "slack" as const,
-        to: `@${name.toLowerCase().replace(/ /g, ".")}`,
-        kind: "oppmøte" as const,
-        body: `Hei ${name.split(" ")[0]}! Du ligger ${n} dager bak planlagt oppmøte de siste fire ukene. Si fra til lederen din hvis noe står i veien — vi finner en løsning.`,
-      })),
-      leaderSummary: [...byLeader.entries()].map(([leader, n]) => ({
-        channel: "slack" as const,
-        to: `@${leader.toLowerCase().replace(/ /g, ".")}`,
-        kind: "oppgaver" as const,
-        body: `Du har ${n} forfalte oppgave${n === 1 ? "" : "r"} i portalen. ${overdue.filter((t) => t.leader === leader).slice(0, 2).map((t) => `• ${t.title}`).join("\n")}`,
-      })),
-    };
-  }),
-
-  // ── DASH-01: rapport på e-post for de som vil ha den ──────────────────────
-  get("/api/hr/dashboard/subscription", () => db.reportSubscription),
-  http.post("/api/hr/dashboard/subscription", async ({ request }) => {
-    await latency();
-    const body = (await request.json()) as { enabled: boolean; frequency: "ukentlig" | "manedlig"; recipients: string[] };
-    db.reportSubscription = { ...body };
-    persistDb();
-    return HttpResponse.json(db.reportSubscription);
   }),
 
   // ── Godkjenning (GODK) ─────────────────────────────────────────────────────

@@ -1180,7 +1180,8 @@ const seed = {
    * "De som ønsker det, kan fortsatt velge å få rapporten på epost."
    */
   reportSubscription: { enabled: false, frequency: "ukentlig" as "ukentlig" | "manedlig",
-                        recipients: ["lars@abmarketing.no"] },
+                        filters: {} as Record<string, unknown>, scope: "alle" as "alle" | "egne",
+                        lastSentAt: null as string | null },
 };
 
 // Swaps reference shift ids, so they are attached after the seed object exists.
