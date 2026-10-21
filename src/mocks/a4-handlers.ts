@@ -1,7 +1,7 @@
-import { http, HttpResponse, delay } from "msw";
+import { http, HttpResponse, delay, type JsonBodyType } from "msw";
 import { db, persistDb } from "./db";
 import { writeAudit } from "./handlers";
-import { DEMO_TODAY, LEADERS, TEAMS_SRS, dayOffset, isoDay } from "./srs-seed";
+import { DEMO_TODAY, LEADERS, TEAMS_SRS } from "./srs-seed";
 import { newHireSchema, type NewHire } from "@/types/onboarding";
 import type { ApprovalRequest, TemplateMapping } from "@/types/approval";
 
@@ -25,22 +25,60 @@ const LEADER_LEVEL_CAMPAIGNS = new Set(["camp-nf", "camp-nrc"]);
 async function latency() {
   await delay(150 + Math.round(Math.random() * 250));
 }
-const today = () => new Date(DEMO_TODAY);
+// Mock dates are relative to the real today (designreview: a seed anchored to a fixed day
+// shows «oppstart for 60 dager siden» a month later). The shared seed is anchored to
+// DEMO_TODAY, so the hires it builds are shifted by the same distance.
+const DAY = 86_400_000;
+const today = () => { const d = new Date(); d.setHours(9, 0, 0, 0); return d; };
+const rel = (days: number) => new Date(today().getTime() + days * DAY);
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const SHIFT = today().getTime() - DEMO_TODAY.getTime();
+const shift = (v: string | null) => (v ? new Date(new Date(v).getTime() + SHIFT).toISOString() : v);
+const shiftDay = (v: string) => isoDay(new Date(new Date(v).getTime() + SHIFT));
+
+function shiftHire(h: NewHire): NewHire {
+  return {
+    ...h, startDate: shiftDay(h.startDate), completedAt: shift(h.completedAt),
+    checklist: h.checklist.map((c) => ({ ...c, at: shift(c.at) })),
+    contract: { ...h.contract, sentAt: shift(h.contract.sentAt), seenAt: shift(h.contract.seenAt), signedAt: shift(h.contract.signedAt) },
+    contracts: h.contracts.map((c) => ({ ...c, sentAt: shift(c.sentAt), seenAt: shift(c.seenAt), signedAt: shift(c.signedAt) })),
+    photo: h.photo ? { ...h.photo, uploadedAt: shift(h.photo.uploadedAt)! } : null,
+    equipment: h.equipment.map((e) => ({ ...e, handedOutAt: shift(e.handedOutAt)! })),
+    equipmentContract: { ...h.equipmentContract, sentAt: shift(h.equipmentContract.sentAt), signedAt: shift(h.equipmentContract.signedAt) },
+    firstDayNoShow: h.firstDayNoShow ? { ...h.firstDayNoShow, at: shift(h.firstDayNoShow.at) } : null,
+  };
+}
+
+/** The demo scenarios the shell carries through (?scenario=…), so every one of the five
+ *  mandatory states (02-design-system) can be shown on these screens. */
+type Scenario = "loading" | "error" | "empty" | "partial" | null;
+function scenarioOf(request: Request): Scenario {
+  const s = new URL(request.url).searchParams.get("scenario");
+  return s === "loading" || s === "error" || s === "empty" || s === "partial" ? s : null;
+}
+/** Applies loading / error / empty; returns a Response to short-circuit, or null. */
+async function scenarioGate(request: Request, empty: JsonBodyType): Promise<Response | null> {
+  const s = scenarioOf(request);
+  if (s === "loading") { await delay(120_000); return null; }
+  if (s === "error") return HttpResponse.json({ message: "Simulert feil" }, { status: 500 });
+  if (s === "empty") return HttpResponse.json(empty);
+  return null;
+}
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000);
 const refuse = (status: number, code: string, message: string, errors?: Record<string, string[]>) =>
   HttpResponse.json({ code, message, ...(errors ? { errors } : {}) }, { status });
 
 // ── seed ────────────────────────────────────────────────────────────────────
 
-type Store = { approvals: ApprovalRequest[]; templates: TemplateMapping[]; deputy: {
+type Store = { approvals: ApprovalRequest[]; templates: TemplateMapping[]; hires: NewHire[]; deputy: {
   deputy: string | null; deputyUserId: string | null; from: string | null; to: string | null; setAt: string | null;
 } };
 
 function seedApprovals(): ApprovalRequest[] {
   const queue = db.candidates.filter((c) => c.stageId === "til-godkjenning");
   return queue.map((c, i) => {
-    const submitted = dayOffset(-(i * 2 + 1));
-    const start = dayOffset(i === 0 ? 2 : 9 + i * 4);
+    const submitted = rel(-(i * 2 + 1));
+    const start = rel(i === 0 ? 2 : 9 + i * 4);
     const level = i % 3 === 1 ? "senior" : "junior";
     return {
       id: `appr-${c.id}`, round: 1, status: "pending",
@@ -69,8 +107,8 @@ function seedTemplates(): TemplateMapping[] {
   ];
   return rows.map(([kind, campaignSlug, level, templateId], i) => ({
     id: `tpl-${i + 1}`, kind, campaignSlug, level, templateId, version: 1, status: "active", note: "Seedet fra kodekonstantene",
-    createdByName: "", createdAt: dayOffset(-60).toISOString(), notifiedAt: null, notifiedTo: [], acknowledgedAt: null,
-    acknowledgedByName: "", activatedAt: dayOffset(-60).toISOString(), retiredAt: null,
+    createdByName: "", createdAt: rel(-60).toISOString(), notifiedAt: null, notifiedTo: [], acknowledgedAt: null,
+    acknowledgedByName: "", activatedAt: rel(-60).toISOString(), retiredAt: null,
   }));
 }
 
@@ -78,7 +116,7 @@ const KEY = "a4";
 function store(): Store {
   const anyDb = db as unknown as Record<string, Store | undefined>;
   if (!anyDb[KEY]) {
-    anyDb[KEY] = { approvals: seedApprovals(), templates: seedTemplates(),
+    anyDb[KEY] = { approvals: seedApprovals(), templates: seedTemplates(), hires: db.newHires.map(shiftHire),
                    deputy: { deputy: null, deputyUserId: null, from: null, to: null, setAt: null } };
   }
   return anyDb[KEY]!;
@@ -122,7 +160,7 @@ function recompute(h: NewHire) {
   if (h.status === "ready" && !h.checklist.every((c) => c.done)) h.status = "in_progress";
 }
 
-const findHire = (id: string) => db.newHires.find((h) => h.id === id);
+const findHire = (id: string) => store().hires.find((h) => h.id === id);
 
 // ── handlers ────────────────────────────────────────────────────────────────
 
@@ -130,6 +168,8 @@ export const a4Handlers = [
   // GODK-01..05
   http.get(`${R}/approval/requests/`, async ({ request }) => {
     await latency();
+    const gate = await scenarioGate(request, []);
+    if (gate) return gate;
     const status = new URL(request.url).searchParams.get("status");
     const rows = store().approvals.filter((a) => !status || a.status === status);
     return HttpResponse.json(rows);
@@ -199,7 +239,7 @@ export const a4Handlers = [
     if (cand) cand.stageId = next;
     req.candidate.status = next;
     if (decision === "approved" && !findHire(`nh-${req.candidate.id}`)) {
-      db.newHires.unshift(hireFromApproval(req));
+      store().hires.unshift(hireFromApproval(req));
       if (cand) cand.stageId = "onboarding";
       req.candidate.status = "onboarding";
     }
@@ -209,7 +249,12 @@ export const a4Handlers = [
     return HttpResponse.json(req);
   }),
 
-  http.get(`${R}/approval/deputy/`, async () => { await latency(); return HttpResponse.json(store().deputy); }),
+  http.get(`${R}/approval/deputy/`, async ({ request }) => {
+    await latency();
+    // «partial»: the queue loads but the deputy service does not — the page must show both.
+    if (scenarioOf(request) === "partial") return HttpResponse.json({ message: "Simulert feil" }, { status: 503 });
+    return HttpResponse.json(store().deputy);
+  }),
   http.post(`${R}/approval/deputy/`, async ({ request }) => {
     await latency();
     const b = (await request.json()) as { deputyUserId: string; validFrom: string; validUntil: string };
@@ -238,8 +283,20 @@ export const a4Handlers = [
   }),
 
   // ONB-01..09
-  http.get(`${R}/onboarding/`, async () => { await latency(); return HttpResponse.json(db.newHires); }),
-  http.get(`${R}/onboarding/templates/`, async () => { await latency(); return HttpResponse.json(store().templates); }),
+  http.get(`${R}/onboarding/`, async ({ request }) => {
+    await latency();
+    const gate = await scenarioGate(request, []);
+    if (gate) return gate;
+    if (scenarioOf(request) === "partial") {
+      return HttpResponse.json(store().hires.map((h, i) => i === 0 ? { ...h, hrSync: { state: "failed", at: h.hrSync?.at ?? null, error: "HR svarer ikke" } } : h));
+    }
+    return HttpResponse.json(store().hires);
+  }),
+  http.get(`${R}/onboarding/templates/`, async ({ request }) => {
+    await latency();
+    const gate = await scenarioGate(request, []);
+    return gate ?? HttpResponse.json(store().templates);
+  }),
   http.post(`${R}/onboarding/templates/`, async ({ request }) => {
     await latency();
     const b = (await request.json()) as Pick<TemplateMapping, "kind" | "campaignSlug" | "level" | "templateId" | "note">;
@@ -270,10 +327,15 @@ export const a4Handlers = [
     save();
     return HttpResponse.json(row);
   }),
-  http.get(`${R}/onboarding/:id/`, async ({ params }) => {
+  http.get(`${R}/onboarding/:id/`, async ({ request, params }) => {
     await latency();
+    const s = scenarioOf(request);
+    if (s === "loading") await delay(120_000);
+    if (s === "error") return HttpResponse.json({ message: "Simulert feil" }, { status: 500 });
     const h = findHire(String(params.id));
-    return h ? HttpResponse.json(h) : refuse(404, "not_found", "Fant ikke onboardingen.");
+    if (!h) return refuse(404, "not_found", "Fant ikke onboardingen.");
+    if (s === "partial") return HttpResponse.json({ ...h, hrSync: { state: "failed", at: h.hrSync?.at ?? null, error: "HR svarer ikke" } });
+    return HttpResponse.json(h);
   }),
   http.post(`${R}/onboarding/:id/check/`, async ({ request, params }) => {
     await latency();
@@ -343,6 +405,10 @@ export const a4Handlers = [
     return HttpResponse.json(h, { status: 202 });
   }),
 
-  http.get(`${R}/employees/`, async () => { await latency(); return HttpResponse.json(db.employees); }),
+  http.get(`${R}/employees/`, async ({ request }) => {
+    await latency();
+    const gate = await scenarioGate(request, []);
+    return gate ?? HttpResponse.json(db.employees);
+  }),
 ];
 

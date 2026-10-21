@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { DateField } from "@/components/patterns/date-field";
 import { FormErrorSummary, errorsFromApi, type FieldError } from "@/components/patterns/form-error-summary";
 import { useApprovalFormOptions, useSubmitApproval } from "@/lib/api/approval";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -38,6 +39,11 @@ export interface ApprovalSubmitDialogProps {
 }
 
 const FORM_ID = "godk-form";
+
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export function ApprovalSubmitDialog({ candidateId, open, onOpenChange, onSubmitted }: ApprovalSubmitDialogProps) {
   const base = useApprovalFormOptions(open ? candidateId : undefined);
@@ -188,7 +194,8 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="startDate">Oppstartsdato <span aria-hidden className="text-danger">*</span></Label>
-          <Input id="startDate" type="date" value={startDate} {...aria("startDate")} onChange={(e) => setStartDate(e.target.value)} />
+          <DateField id="startDate" value={startDate} onChange={setStartDate} min={todayIso()}
+            invalid={!!errorFor("startDate")} describedBy={errorFor("startDate") ? "startDate-error" : undefined} />
           {fieldError("startDate")}
         </div>
 

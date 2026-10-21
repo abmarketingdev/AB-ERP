@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Check, X, Clock, ShieldCheck, ArrowRight, Undo2, CalendarClock, KeyRound } from "lucide-react";
+import { Check, X, Clock, ShieldCheck, ArrowRight, Undo2, CalendarClock } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { PermissionGate } from "@/components/patterns/permission-gate";
@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApprovalQueue, useDecideApproval, type DecisionKind } from "@/lib/api/approval";
 import { errorMessage } from "@/lib/api/client";
 import { useAccess } from "@/lib/use-access";
+import { useStepUp } from "@/lib/step-up";
 import { IS_MOCK } from "@/lib/data-source";
 import {
   CONTRACT_KIND_LABEL, POSITION_LEVEL_LABEL, WEEKDAY_LABEL, type ApprovalRequest,
@@ -44,7 +45,8 @@ export default function Godkjenning() {
   const pending = useApprovalQueue("pending");
   const approved = useApprovalQueue("approved");
   const decide = useDecideApproval();
-  const { can, needsStepUp } = useAccess();
+  const { can } = useAccess();
+  const stepUpFlow = useStepUp();
   const reduce = useReducedMotion();
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [comment, setComment] = React.useState("");
@@ -54,7 +56,6 @@ export default function Godkjenning() {
   const queue = pending.data ?? [];
   // In mock mode there is no /access/me/ token, so the demo user may always decide.
   const mayDecide = IS_MOCK || can("approval.approve");
-  const stepUp = !IS_MOCK && needsStepUp("approval.approve");
 
   async function run(req: ApprovalRequest, decision: DecisionKind) {
     setError(null);
@@ -63,7 +64,9 @@ export default function Godkjenning() {
       return;
     }
     try {
-      await decide.mutateAsync({ id: req.id, decision, comment: comment.trim() });
+      // IFK-04: without 2FA proof the server answers step_up_required; the shared dialog asks
+      // for the one-time code and the decision is retried — Ole never has to start over.
+      await stepUpFlow.run(() => decide.mutateAsync({ id: req.id, decision, comment: comment.trim() }));
       if (decision === "godkjent") setJustApproved(req.candidate.name);
       setOpenId(null);
       setComment("");
@@ -92,14 +95,6 @@ export default function Godkjenning() {
           Ingen kandidat kan gå videre til onboarding eller ansettelse uten at den er godkjent her.
           Avslag og «send tilbake» krever en begrunnelse, og alt havner i kandidatens historikk.
         </p>
-
-        {stepUp && (
-          <p role="status" className="flex flex-wrap items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3.5 py-2.5 text-[13px] text-warning-on-tint">
-            <KeyRound className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Godkjenning krever tofaktor. Logg inn på nytt med engangskode for å godkjenne eller avvise.
-            <Link href="/login?stepup=1&next=/godkjenning" className="underline">Logg inn med tofaktor</Link>
-          </p>
-        )}
 
         <AnimatePresence>
           {justApproved && (
@@ -167,7 +162,7 @@ export default function Godkjenning() {
                               </p>
                             </div>
                             {!open && mayDecide && (
-                              <Button size="sm" disabled={stepUp} onClick={() => { setOpenId(req.id); setComment(""); setError(null); }}>
+                              <Button size="sm" onClick={() => { setOpenId(req.id); setComment(""); setError(null); }}>
                                 Behandle
                               </Button>
                             )}

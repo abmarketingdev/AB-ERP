@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewHires } from "@/lib/api/onboarding";
-import { IS_MOCK } from "@/lib/data-source";
 import { CONTRACT_STATUS_LABEL, CHECKLIST_LABEL, type NewHire } from "@/types/onboarding";
 
 /**
@@ -22,8 +21,7 @@ import { CONTRACT_STATUS_LABEL, CHECKLIST_LABEL, type NewHire } from "@/types/on
  */
 
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" });
-// The mock fixtures are anchored to the demo's «today»; the real API uses the clock.
-const TODAY = IS_MOCK ? new Date("2026-08-20T09:12:00.000Z") : new Date();
+const TODAY = new Date();
 
 function daysUntil(d: string) {
   return Math.round((new Date(d).getTime() - TODAY.getTime()) / 86_400_000);
