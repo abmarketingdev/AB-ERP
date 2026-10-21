@@ -14,6 +14,7 @@ import { riseIn } from "@/lib/motion";
 import type { Candidate, RecruitmentStage } from "@/types/recruitment";
 import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
 import { ChannelMark } from "@/components/patterns/channel-mark";
+import { useAccess } from "@/lib/use-access";
 
 /**
  * KAND-02 — "Kandidater følges på en kanbantavle med dra og slipp mellom
@@ -47,6 +48,8 @@ const CONTRACT_STAGES = ["godkjent", "onboarding", "ansatt"];
 /** «Now» read once per board mount, so every card counts days from the same instant
     and render stays pure. */
 const BoardNow = React.createContext(0);
+/** Owner on the card only in the admin master view (KAND-04): on your own board it is you. */
+const ShowOwner = React.createContext(false);
 
 type DropDecision =
   | { kind: "allowed" }
@@ -84,6 +87,7 @@ export function CandidateBoard({
 }) {
   const reduced = useReducedMotion();
   const [now] = React.useState(() => Date.now());
+  const masterView = useAccess().can("candidates_master.read");
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
   // A refused drop explains itself IN the column it was dropped on (master: «avvist drop
@@ -143,6 +147,7 @@ export function CandidateBoard({
   return (
     <>
       <BoardNow.Provider value={now}>
+      <ShowOwner.Provider value={masterView}>
       <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
@@ -181,6 +186,7 @@ export function CandidateBoard({
         stage={pending?.stage ?? null}
         onClose={() => setPending(null)}
       />
+      </ShowOwner.Provider>
       </BoardNow.Provider>
     </>
   );
@@ -312,23 +318,26 @@ function DraggableCard({ candidate }: { candidate: Candidate }) {
 
 function CardFace({ candidate: c, overlay }: { candidate: Candidate; overlay?: boolean }) {
   const now = React.useContext(BoardNow);
+  const showOwner = React.useContext(ShowOwner);
   const days = c.stageSince && now ? Math.floor((now - new Date(c.stageSince).getTime()) / 86_400_000) : null;
   return (
     <div className={overlay ? "w-[244px] rounded-lg border border-[var(--ab-accent-9)] bg-card px-3 py-2.5 shadow-lg" : undefined}>
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-[13px] text-foreground">{c.name}</p>
         {/* «Dager i steget»: what has been left lying is what a board is for. */}
-        {days !== null && days > 0 && (
+        {/* Always shown, «i dag» included, so the board's rhythm is visible at a glance. */}
+        {days !== null && (
           <span className={`shrink-0 text-[11px] tabular-nums ${days >= 7 ? "text-warning-on-tint" : "text-muted-foreground"}`}
-            title={`${days} ${days === 1 ? "dag" : "dager"} i dette steget`} aria-label={`${days} ${days === 1 ? "dag" : "dager"} i steget`}>
-            {days} d
+            title={days === 0 ? "Kom i dette steget i dag" : `${days} ${days === 1 ? "dag" : "dager"} i dette steget`}
+            aria-label={days === 0 ? "I steget siden i dag" : `${days} ${days === 1 ? "dag" : "dager"} i steget`}>
+            {days === 0 ? "i dag" : `${days} d`}
           </span>
         )}
       </div>
       {/* Meta in the regular sans (mono is for ids and numbers — design review 21.10). */}
       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground">
         <ChannelMark channel={c.source} />
-        <span className="truncate">{[c.source, c.campaign, c.owner.split(" ")[0]].filter(Boolean).join(" · ")}</span>
+        <span className="truncate">{[c.source, c.campaign, showOwner ? c.owner.split(" ")[0] : ""].filter(Boolean).join(" · ")}</span>
       </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
