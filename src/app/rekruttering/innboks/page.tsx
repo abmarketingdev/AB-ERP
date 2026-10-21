@@ -26,7 +26,8 @@ import { errorMessage } from "@/lib/api/client";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { DatePicker } from "@/components/patterns/date-picker";
 import { usePhone } from "@/lib/use-media-query";
-import { contactLine, formatPhone } from "@/lib/phone";
+import { contactLine } from "@/lib/phone";
+import { formatPhone } from "@/lib/format";
 
 /**
  * LEAD-01 — the samleinnboks.

@@ -17,7 +17,7 @@ import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
 import { useSession } from "@/lib/permissions";
 import type { Candidate } from "@/types/recruitment";
-import { formatPhone } from "@/lib/phone";
+import { formatPhone, phoneHref } from "@/lib/format";
 
 /**
  * KAND-06 og KAND-09 — notater, private notater og vedlegg.
@@ -103,27 +103,33 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
     } catch (err) { setError(errorMessage(err)); }
   }
 
+  const tel = phoneHref(candidate.phone);
   return (
     <div className="flex flex-col gap-4">
       {/* KAND-08 — ring eller send melding direkte fra kandidatkortet. */}
       <Card>
         <CardContent className="flex flex-wrap items-center gap-2 py-4">
           <span className="mr-2 text-sm text-muted-foreground">Ta kontakt</span>
-          <Button asChild size="sm" variant="outline" className="gap-1.5">
-            <a href={`tel:${candidate.phone.replace(/\s/g, "")}`}>
-              <Phone className="size-3.5" aria-hidden /> Ring {formatPhone(candidate.phone)}
-            </a>
-          </Button>
-          <Button asChild size="sm" variant="outline" className="gap-1.5">
-            <a href={`sms:${candidate.phone.replace(/\s/g, "")}`}>
-              <MessageSquare className="size-3.5" aria-hidden /> Send SMS
-            </a>
-          </Button>
-          <Button asChild size="sm" variant="ghost" className="gap-1.5">
+          {/* No usable number → no call/SMS buttons (a button that goes nowhere is orphaned UI). */}
+          {tel && (
+            <>
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <a href={tel}>
+                  <Phone className="size-3.5" aria-hidden /> Ring {formatPhone(candidate.phone)}
+                </a>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <a href={tel.replace(/^tel:/, "sms:")}>
+                  <MessageSquare className="size-3.5" aria-hidden /> Send SMS
+                </a>
+              </Button>
+            </>
+          )}
+          {candidate.email && <Button asChild size="sm" variant="ghost" className="gap-1.5">
             <a href={`mailto:${candidate.email}`}>
               <FileText className="size-3.5" aria-hidden /> {candidate.email}
             </a>
-          </Button>
+          </Button>}
         </CardContent>
       </Card>
 

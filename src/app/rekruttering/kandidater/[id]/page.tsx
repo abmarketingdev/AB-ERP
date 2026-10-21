@@ -31,7 +31,7 @@ import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
 import { CandidateTags } from "@/components/patterns/candidate-tags";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
-import { formatPhone } from "@/lib/phone";
+import { formatPhone } from "@/lib/format";
 
 /**
  * FR-R-10 — ending a candidate process.
