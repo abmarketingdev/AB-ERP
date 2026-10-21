@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAdvanceStage } from "@/lib/api/recruitment";
-import { errorMessage } from "@/lib/api/client";
-import { REJECTION_REASONS } from "@/lib/mock-data";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAdvanceStage, useCandidateReasons, useRejectionPreview } from "@/lib/api/recruitment";
+import { ApiError, errorMessage } from "@/lib/api/client";
 import { TERMINAL_STAGE_IDS } from "@/lib/recruitment";
-import type { Candidate, RecruitmentStage } from "@/types/recruitment";
+import { moveRefusalSchema, type Candidate, type RecruitmentStage } from "@/types/recruitment";
 
 /**
  * FR-R-02 / KAND-05 / KAND-07 — the form a stage change goes through.
@@ -25,7 +25,11 @@ import type { Candidate, RecruitmentStage } from "@/types/recruitment";
  *
  * KAND-07: when the target stage ends the process, the reason comes from a list
  * rather than free text, because DASH-04 reports on rejection reasons and free
- * text cannot be counted.
+ * text cannot be counted. The list is the server's (codes + labels). A rejection
+ * can also send the automatic «avslag» — previewed word for word before it goes.
+ *
+ * Free text typed here is stored as a note on the candidate, never in the status
+ * log, which outlives the 3-year anonymisation (IFK-01).
  */
 export function AdvanceStageDialog({
   candidate, stage, onClose,
@@ -35,27 +39,39 @@ export function AdvanceStageDialog({
   onClose: () => void;
 }) {
   const advance = useAdvanceStage();
+  const reasons = useCandidateReasons();
   const [fields, setFields] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
+  const [sendRejection, setSendRejection] = React.useState(false);
 
   // A fresh form per opening — stale answers from the previous card would be
   // filed against this one.
   React.useEffect(() => {
     setFields({});
     setError(null);
+    setSendRejection(false);
   }, [candidate?.id, stage?.id]);
 
-  const isRejection = stage ? TERMINAL_STAGE_IDS.includes(stage.id) : false;
+  const isRejection = stage?.id === "avvist" || stage?.id === "trukket";
+  const reopening = Boolean(candidate && TERMINAL_STAGE_IDS.includes(candidate.stageId) && stage?.id === "kvalifisert");
+  const options = stage?.id === "avvist" ? reasons.data?.rejection : reasons.data?.withdraw;
+  const preview = useRejectionPreview(candidate?.id ?? "", stage?.id === "avvist" && sendRejection ? fields.arsak ?? null : null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!candidate || !stage) return;
     setError(null);
     try {
-      await advance.mutateAsync({ candidateId: candidate.id, toStageId: stage.id, fields });
+      await advance.mutateAsync({
+        candidateId: candidate.id, toStageId: stage.id, fields,
+        reasonCode: isRejection ? fields.arsak : reopening ? "gjenapnet" : undefined,
+        sendRejection: stage.id === "avvist" && sendRejection,
+      });
       onClose();
     } catch (err) {
-      setError(errorMessage(err));
+      // A 409 carries the server's reason (and which form to use instead).
+      const refusal = err instanceof ApiError && err.status === 409 ? moveRefusalSchema.safeParse(err.body) : null;
+      setError(refusal?.success ? refusal.data.message : errorMessage(err));
     }
   }
 
@@ -85,13 +101,41 @@ export function AdvanceStageDialog({
                 >
                   <SelectTrigger id="adv-reason"><SelectValue placeholder="Velg årsak" /></SelectTrigger>
                   <SelectContent>
-                    {REJECTION_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    {(options ?? []).map((r) => <SelectItem key={r.code} value={r.code}>{r.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   Årsaken velges fra listen fordi den telles opp i kanalkvalitet-rapporten.
                 </p>
               </div>
+            )}
+
+            {stage?.id === "avvist" && (
+              <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                <label className="flex items-start gap-2 text-sm">
+                  <Checkbox className="mt-0.5" checked={sendRejection} onCheckedChange={(v) => setSendRejection(Boolean(v))} />
+                  <span>Send automatisk avslag til kandidaten</span>
+                </label>
+                {sendRejection && fields.arsak && (
+                  <div className="rounded bg-muted/50 p-2.5 text-xs text-muted-foreground" aria-live="polite">
+                    {preview.isLoading ? "Henter forhåndsvisning…" : preview.data?.channel ? (
+                      <>
+                        <p className="mb-1 font-medium text-foreground">
+                          Sendes som {preview.data.channel === "email" ? "e-post" : "SMS"}
+                          {preview.data.subject ? `: ${preview.data.subject}` : ""}
+                        </p>
+                        <p className="whitespace-pre-line">{preview.data.body}</p>
+                      </>
+                    ) : "Kandidaten har verken e-post eller telefon — ingenting sendes."}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {reopening && (
+              <p className="text-xs text-muted-foreground">
+                Kandidaten gjenåpnes og legges i «Kvalifisert». Det logges at du gjenåpnet.
+              </p>
             )}
 
             {stage?.fields

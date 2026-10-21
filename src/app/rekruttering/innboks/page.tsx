@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, ArrowRight, Users, Copy, Trash2, X, Share2 } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
@@ -14,14 +15,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  useLeads, useLeadCounts, useSendLeads, useAssignLeads, useDiscardLeads, type LeadQuery,
+  useLeads, useLeadCounts, useLeadMeta, useSendLeads, useAssignLeads, useDiscardLeads, type LeadQuery,
 } from "@/lib/api/leads";
-import { LEAD_STATUS_LABEL, LEAD_CHANNELS, CHANNEL_KIND, type Lead, type LeadStatus } from "@/types/lead";
-import { LEAD_PROMOTERS, LEAD_RECRUITERS } from "@/mocks/leads";
+import { LEAD_STATUS_LABEL, type Lead, type LeadStatus } from "@/types/lead";
 import { MergeDuplicatesDialog } from "@/components/patterns/merge-duplicates-dialog";
 import { AudienceExportDialog } from "@/components/patterns/audience-export";
 import { ChannelMark, ChannelLabel } from "@/components/patterns/channel-mark";
 import { PermissionGate } from "@/components/patterns/permission-gate";
+import { errorMessage } from "@/lib/api/client";
 
 /**
  * LEAD-01 — the samleinnboks.
@@ -31,9 +32,14 @@ import { PermissionGate } from "@/components/patterns/permission-gate";
  * on. The table is therefore not a candidate list with a filter — it is a
  * worklist, and the primary action is a bulk one.
  *
- * Filtering and paging are server-side (see mocks/lead-query.ts). IFK-07 asks
- * for under two seconds with 10 000 leads, and the footer prints what the
- * request actually cost so that claim can be checked rather than asserted.
+ * Filtering and paging are server-side (recruitment-service, indexed per LEAD-08
+ * filter). IFK-07 asks for under two seconds with 10 000 leads, and the footer
+ * prints what the request actually cost so that claim can be checked rather than
+ * asserted. Fifty rows a page is why the table is not virtualised: the DOM never
+ * holds more than fifty, and a virtualiser over fifty rows adds work, not speed.
+ *
+ * Filters live in the URL (data contract l.210), so a filtered inbox can be
+ * linked, bookmarked and survives a reload. Options come from `/leads/meta`.
  */
 
 const PAGE_SIZE = 50;
@@ -55,21 +61,52 @@ const CHANNEL_TONE: Record<string, string> = {
 const dateFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const numFmt = new Intl.NumberFormat("nb-NO");
 
+/** One filter value, read from and written to the URL. */
+function useUrlFilters() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const get = (k: string, fallback = "") => params.get(k) ?? fallback;
+  const set = React.useCallback((patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || v === "" || v === ALL) next.delete(k);
+      else next.set(k, v);
+    }
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [params, router, pathname]);
+  return { get, set };
+}
+
 function SamleinnboksPage() {
-  const [q, setQ] = React.useState("");
-  const [debouncedQ, setDebouncedQ] = React.useState("");
-  const [channel, setChannel] = React.useState(ALL);
-  const [status, setStatus] = React.useState(ALL);
-  const [promoter, setPromoter] = React.useState(ALL);
-  const [assignedTo, setAssignedTo] = React.useState(ALL);
-  const [from, setFrom] = React.useState("");
-  const [to, setTo] = React.useState("");
-  const [duplicatesOnly, setDuplicatesOnly] = React.useState(false);
-  const [page, setPage] = React.useState(1);
+  const url = useUrlFilters();
+  const [q, setQ] = React.useState(url.get("q"));
+  const debouncedQ = url.get("q");
+  const channel = url.get("channel", ALL);
+  const status = url.get("status", ALL);
+  const promoter = url.get("promoter", ALL);
+  const assignedTo = url.get("assignedTo", ALL);
+  const from = url.get("from");
+  const to = url.get("to");
+  const duplicatesOnly = url.get("duplicates") === "1";
+  const page = Math.max(1, Number(url.get("page", "1")) || 1);
+  const setChannel = (v: string) => url.set({ channel: v, page: null });
+  const setStatus = (v: string) => url.set({ status: v, page: null });
+  const setPromoter = (v: string) => url.set({ promoter: v, page: null });
+  const setAssignedTo = (v: string) => url.set({ assignedTo: v, page: null });
+  const setFrom = (v: string) => url.set({ from: v, page: null });
+  const setTo = (v: string) => url.set({ to: v, page: null });
+  const setDuplicatesOnly = (v: boolean) => url.set({ duplicates: v ? "1" : null, page: null });
+  const setPage = (fn: (p: number) => number) => url.set({ page: String(fn(page)) });
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [mergeFor, setMergeFor] = React.useState<Lead | null>(null);
   const [audienceOpen, setAudienceOpen] = React.useState(false);
-  const [assignTarget, setAssignTarget] = React.useState(LEAD_RECRUITERS[0]);
+  const meta = useLeadMeta();
+  const [assignTarget, setAssignTarget] = React.useState("");
+  const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
+  const kindByName = React.useMemo(
+    () => Object.fromEntries((meta.data?.channels ?? []).map((c) => [c.name, c.kind])), [meta.data]);
 
   /*
    * Typing should not fire a request per keystroke against a 10 000-row corpus.
@@ -77,9 +114,9 @@ function SamleinnboksPage() {
    * still feels like it is reacting to you.
    */
   React.useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q), 250);
+    const t = setTimeout(() => { if (q !== debouncedQ) url.set({ q, page: null }); }, 250);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, debouncedQ, url]);
 
   const filter: LeadQuery = React.useMemo(
     () => ({
@@ -96,10 +133,9 @@ function SamleinnboksPage() {
     [debouncedQ, channel, status, promoter, assignedTo, from, to, duplicatesOnly, page],
   );
 
-  // Any filter change invalidates the page you were on — page 7 of the old
-  // result set is not page 7 of the new one.
+  // Any filter change resets the page (each setter clears `page` in the URL) and
+  // the selection — page 7 of the old result set is not page 7 of the new one.
   React.useEffect(() => {
-    setPage(1);
     setSelected(new Set());
   }, [debouncedQ, channel, status, promoter, assignedTo, from, to, duplicatesOnly]);
 
@@ -140,12 +176,14 @@ function SamleinnboksPage() {
   }
 
   function clearFilters() {
-    setQ(""); setChannel(ALL); setStatus(ALL); setPromoter(ALL);
-    setAssignedTo(ALL); setFrom(""); setTo(""); setDuplicatesOnly(false);
+    setQ("");
+    url.set({ q: null, channel: null, status: null, promoter: null, assignedTo: null, from: null, to: null,
+              duplicates: null, page: null });
   }
 
   async function runSend() {
-    await send.mutateAsync({ ids: sendable.map((l) => l.id) });
+    const result = await send.mutateAsync({ ids: sendable.map((l) => l.id) });
+    setLastSend(result);
     setSelected(new Set());
   }
 
@@ -182,13 +220,14 @@ function SamleinnboksPage() {
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <FilterSelect label="Kanal" value={channel} onChange={setChannel}
-            options={LEAD_CHANNELS.map((c) => ({ value: c, label: c, node: <ChannelLabel channel={c} /> }))} />
+            options={(meta.data?.channels ?? []).map((c) => ({ value: c.key, label: c.name, node: <ChannelLabel channel={c.name} /> }))} />
           <FilterSelect label="Status" value={status} onChange={setStatus}
             options={(Object.keys(LEAD_STATUS_LABEL) as LeadStatus[]).map((s) => ({ value: s, label: LEAD_STATUS_LABEL[s] }))} />
-          <FilterSelect label="Promotør" value={promoter} onChange={setPromoter}
-            options={LEAD_PROMOTERS.map((p) => ({ value: p, label: p }))} />
+          <FilterSelect label="Rekruttert av" value={promoter} onChange={setPromoter}
+            options={(meta.data?.promoters ?? []).map((p) => ({ value: p.id, label: p.name }))} />
           <FilterSelect label="Tildelt" value={assignedTo} onChange={setAssignedTo}
-            options={[{ value: "__none__", label: "Ikke tildelt" }, ...LEAD_RECRUITERS.map((r) => ({ value: r, label: r }))]} />
+            options={[{ value: "__none__", label: "Admin-kø (ikke tildelt)" },
+                      ...(meta.data?.recruiters ?? []).map((r) => ({ value: r.id, label: r.name }))]} />
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
@@ -223,12 +262,12 @@ function SamleinnboksPage() {
             </Button>
             <div className="flex items-center gap-2">
               <Select value={assignTarget} onValueChange={setAssignTarget}>
-                <SelectTrigger size="sm" className="w-[11rem]"><SelectValue /></SelectTrigger>
+                <SelectTrigger size="sm" className="w-[11rem]" aria-label="Tildel til"><SelectValue placeholder="Velg kollega" /></SelectTrigger>
                 <SelectContent>
-                  {LEAD_RECRUITERS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {(meta.data?.recruiters ?? []).map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" variant="outline" className="gap-1.5" disabled={busy}
+              <Button size="sm" variant="outline" className="gap-1.5" disabled={busy || !assignTarget}
                 onClick={async () => { await assign.mutateAsync({ ids: [...selected], assignTo: assignTarget }); setSelected(new Set()); }}>
                 <Users className="size-4" /> Tildel
               </Button>
@@ -249,6 +288,19 @@ function SamleinnboksPage() {
         </Card>
       )}
 
+      {lastSend && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {lastSend.sent === 1 ? "1 lead sendt" : `${lastSend.sent} leads sendt`} til rekruttering
+          {lastSend.skipped > 0 && ` · ${lastSend.skipped} hoppet over (allerede behandlet eller duplikat av en kandidat — slå sammen først)`}
+        </p>
+      )}
+
+      {(send.isError || assign.isError || discard.isError) && (
+        <p role="alert" className="text-sm text-danger">
+          {errorMessage(send.error ?? assign.error ?? discard.error)}
+        </p>
+      )}
+
       {/* ── Table ───────────────────────────────────────────────────────── */}
       <QueryBoundary
         query={leads}
@@ -258,8 +310,9 @@ function SamleinnboksPage() {
         emptyDescription={
           activeFilters
             ? "Prøv å fjerne et filter, eller utvid datoperioden."
-            : "Nye leads fra Meta, TikTok, Finn, Nav, Indeed, nettsiden og stand dukker opp her automatisk."
+            : "Alt er sendt videre. Nye leads fra Meta, TikTok, Finn, Nav, Indeed, nettsiden og stand dukker opp her automatisk."
         }
+        emptyPose={activeFilters ? undefined : "hammock"}
       >
         {() => (
           <Card>
@@ -279,7 +332,7 @@ function SamleinnboksPage() {
                       <TableHead>Kanal</TableHead>
                       <TableHead>Kampanje</TableHead>
                       <TableHead>Mottatt</TableHead>
-                      <TableHead>Promotør</TableHead>
+                      <TableHead>Rekruttert av</TableHead>
                       <TableHead>Tildelt</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Duplikat</TableHead>
@@ -300,7 +353,7 @@ function SamleinnboksPage() {
                           <div className="text-xs text-muted-foreground tabular-nums">{lead.phone} · {lead.email}</div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`gap-1.5 ${CHANNEL_TONE[CHANNEL_KIND[lead.channel]]}`}>
+                          <Badge variant="outline" className={`gap-1.5 ${CHANNEL_TONE[kindByName[lead.channel] ?? "organisk"]}`}>
                             <ChannelMark channel={lead.channel} />
                             {lead.channel}
                           </Badge>
@@ -310,7 +363,7 @@ function SamleinnboksPage() {
                           {dateFmt.format(new Date(lead.receivedAt))}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{lead.promoter ?? "—"}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{lead.assignedTo ?? "—"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{lead.assignedTo ?? "Admin-kø"}</TableCell>
                         <TableCell>
                           <Badge className={STATUS_TONE[lead.status]}>{LEAD_STATUS_LABEL[lead.status]}</Badge>
                         </TableCell>
@@ -402,7 +455,10 @@ function TableSkeleton() {
 export default function Samleinnboks() {
   return (
     <PermissionGate permission="leads.view">
-      <SamleinnboksPage />
+      {/* useSearchParams needs a Suspense boundary to render statically (Next 16). */}
+      <React.Suspense fallback={<TableSkeleton />}>
+        <SamleinnboksPage />
+      </React.Suspense>
     </PermissionGate>
   );
 }

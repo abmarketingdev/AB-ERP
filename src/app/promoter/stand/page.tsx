@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, RotateCcw } from "lucide-react";
+import { Check, CloudOff, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCreateStandLead } from "@/lib/api/leads";
+import { useCreateStandLead, useStandMeta } from "@/lib/api/leads";
 import { errorMessage } from "@/lib/api/client";
 import { standLeadSchema } from "@/types/lead";
-import { LEAD_CAMPAIGNS } from "@/mocks/leads";
 import { useSession } from "@/lib/permissions";
+import { Mascot } from "@/components/patterns/mascot";
+import { isRetryable, newClientId, useStandQueue, type QueuedLead } from "@/lib/stand-queue";
+
+const LAST_CAMPAIGN = "ab-erp:stand-campaign";
 
 /**
  * LEAD-05 — "Promotør skal kunne registrere leads fra stand i et mobilskjema,
@@ -25,28 +28,46 @@ import { useSession } from "@/lib/permissions";
  * it is filled in standing up, outdoors, with one hand, next to the person whose
  * details are being typed.
  *
- * The promoter is taken from the session and shown read-only rather than
- * selected. Typing it would make "registrert av" a guess, and DASH-03 measures
- * promotørkvalitet off exactly that field.
+ * The promoter is not sent at all: the server takes it from the login token
+ * (§8.1 l.729 *knyttet til riktig promotør*). Typing it would make "registrert av"
+ * a guess, and DASH-03 measures promotørkvalitet off exactly that field.
+ *
+ * Bad signal is normal at a stand, so a send that fails on the network is queued
+ * on the phone and retried (lib/stand-queue.ts); the server is idempotent on
+ * `clientId`, so a retry never makes a second lead.
  */
 export default function StandSkjema() {
   const session = useSession();
   const create = useCreateStandLead();
-  const [done, setDone] = React.useState<string | null>(null);
+  const meta = useStandMeta();
+  const campaigns = meta.data?.campaigns ?? [];
+  const send = React.useCallback((item: QueuedLead) => create.mutateAsync({ ...item.payload, clientId: item.clientId }),
+                                 [create]);
+  const queue = useStandQueue(send);
+  const [done, setDone] = React.useState<{ name: string; queued: boolean } | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     name: "", phone: "", email: "",
-    campaign: LEAD_CAMPAIGNS[0],
+    campaign: "",
     consentContact: false, consentAdAudience: false, note: "",
   });
+
+  // The last campaign is pre-selected: a promotor stands at one stand all day.
+  React.useEffect(() => {
+    if (form.campaign || campaigns.length === 0) return;
+    let remembered: string | null = null;
+    try { remembered = localStorage.getItem(LAST_CAMPAIGN); } catch { /* storage blocked */ }
+    const pick = campaigns.find((c) => c.id === remembered) ?? campaigns[0];
+    setForm((f) => ({ ...f, campaign: pick.id }));
+  }, [campaigns, form.campaign]);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function reset() {
-    setForm({ name: "", phone: "", email: "", campaign: LEAD_CAMPAIGNS[0], consentContact: false, consentAdAudience: false, note: "" });
+    setForm((f) => ({ name: "", phone: "", email: "", campaign: f.campaign, consentContact: false, consentAdAudience: false, note: "" }));
     setErrors({});
     setSubmitError(null);
     setDone(null);
@@ -63,11 +84,18 @@ export default function StandSkjema() {
       return;
     }
     setErrors({});
+    try { localStorage.setItem(LAST_CAMPAIGN, form.campaign); } catch { /* storage blocked */ }
+    const item: QueuedLead = { clientId: newClientId(), payload: { ...form }, queuedAt: new Date().toISOString() };
     try {
-      const lead = await create.mutateAsync({ ...form, promoter: session?.name });
-      setDone(lead.name);
+      const lead = await send(item);
+      setDone({ name: (lead as { name: string }).name, queued: false });
     } catch (err) {
-      setSubmitError(errorMessage(err));
+      if (isRetryable(err)) {
+        queue.enqueue(item);
+        setDone({ name: form.name, queued: true });
+      } else {
+        setSubmitError(errorMessage(err));
+      }
     }
   }
 
@@ -79,13 +107,21 @@ export default function StandSkjema() {
         <PageHeader title="Registrert" description="Leadet ligger nå i samleinnboksen" />
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-            <span className="flex size-12 items-center justify-center rounded-full bg-success/10 text-success">
-              <Check className="size-6" aria-hidden />
-            </span>
+            {done.queued ? (
+              <span className="flex size-12 items-center justify-center rounded-full bg-warning/10 text-warning-on-tint">
+                <CloudOff className="size-6" aria-hidden />
+              </span>
+            ) : (
+              <Mascot state="win-small" motion="once" size={72} label="Registrert" />
+            )}
             <div>
-              <p className="text-base font-medium">{done} er registrert</p>
+              <p className="text-base font-medium">
+                {done.queued ? `${done.name} er lagret på telefonen` : `${done.name} er registrert`}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Rekrutterer ser det i samleinnboksen med deg som promotør.
+                {done.queued
+                  ? "Ingen dekning akkurat nå. Leadet sendes automatisk så snart du er på nett igjen."
+                  : "Rekrutterer ser det i samleinnboksen med deg som rekruttert av."}
               </p>
             </div>
             <Button size="lg" className="h-11 w-full max-w-xs gap-2" onClick={reset}>
@@ -103,6 +139,18 @@ export default function StandSkjema() {
         title="Registrer lead"
         description={session ? `Registreres på ${session.name}` : "Registrer en interessert person fra stand"}
       />
+
+      {queue.pending > 0 && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm">
+          <span className="flex items-center gap-2">
+            <CloudOff className="size-4" aria-hidden />
+            {queue.pending === 1 ? "1 lead venter på nett" : `${queue.pending} leads venter på nett`}
+          </span>
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => void queue.flush()}>
+            Send nå
+          </Button>
+        </div>
+      )}
 
       <form onSubmit={submit} className="flex flex-col gap-5">
         <Card>
@@ -123,10 +171,13 @@ export default function StandSkjema() {
             </Field>
 
             <Field label="Kampanje" id="st-campaign" error={errors.campaign}>
-              <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}>
-                <SelectTrigger id="st-campaign" className="h-11 text-base"><SelectValue /></SelectTrigger>
+              <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}
+                disabled={meta.isLoading || campaigns.length === 0}>
+                <SelectTrigger id="st-campaign" className="h-11 text-base">
+                  <SelectValue placeholder={meta.isLoading ? "Henter kampanjer…" : meta.isError ? "Kunne ikke hente kampanjer" : "Velg kampanje"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {LEAD_CAMPAIGNS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>

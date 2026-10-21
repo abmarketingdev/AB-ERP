@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { apiGet, apiPost, API } from "./client";
+import { apiGet, apiPost, apiUpload, API } from "./client";
 import { qk } from "./keys";
 import { adListSchema, adSchema, adTemplateListSchema } from "@/types/ad";
 import { interviewListSchema, interviewSchema, slotListSchema, publicInterviewSchema } from "@/types/interview";
@@ -301,21 +301,37 @@ function invalidateCandidate(qc: QueryClient, id: string) {
 export function useAddNote() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; body: string; visibleTo: string[]; author?: string }) =>
-      apiPost(`${API.hr}/recruitment/candidates/${v.id}/notes`, candidateSchema,
-              { body: v.body, visibleTo: v.visibleTo, author: v.author }),
+    /**
+     * KAND-09 — `visibleTo` (module keys) and `visibleToUsers` (people) set the audience;
+     * `private` with neither picked means the private-notes module (HR, ledelse). The
+     * server filters notes per viewer, so a hidden note never reaches this client.
+     */
+    mutationFn: (v: { id: string; body: string; visibleTo: string[]; visibleToUsers?: string[];
+                      private?: boolean; author?: string }) =>
+      apiPost(`${API.recruitment}/candidates/${v.id}/notes`, candidateSchema,
+              { body: v.body, visibleTo: v.visibleTo, visibleToUsers: v.visibleToUsers ?? [], private: v.private }),
     onSuccess: (_d, v) => invalidateCandidate(qc, v.id),
   });
 }
 
+/** KAND-06 — upload a file (PDF, Word, image; ≤ 10 MB, checked on the server too). */
 export function useAddAttachment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; name: string; kind: string }) =>
-      apiPost(`${API.hr}/recruitment/candidates/${v.id}/attachments`, candidateSchema,
-              { name: v.name, kind: v.kind }),
+    mutationFn: (v: { id: string; name: string; kind: string; file?: File }) => {
+      const form = new FormData();
+      if (v.file) form.append("file", v.file, v.file.name);
+      form.append("name", v.name);
+      form.append("kind", v.kind);
+      return apiUpload(`${API.recruitment}/candidates/${v.id}/attachments`, candidateSchema, form);
+    },
     onSuccess: (_d, v) => invalidateCandidate(qc, v.id),
   });
+}
+
+/** Where a candidate's attachment downloads from (an authenticated GET). */
+export function attachmentUrl(candidateId: string, attachmentId: string) {
+  return `${API.recruitment}/candidates/${candidateId}/attachments/${attachmentId}`;
 }
 
 // ── GODK-04 stedfortreder ───────────────────────────────────────────────────
@@ -346,14 +362,15 @@ const audienceSchema = z.object({
   exported: z.number(),
   considered: z.number(),
   excludedNoConsent: z.number(),
-  sample: z.array(z.object({ hashedEmail: z.string() })),
+  /** Only hashes ever leave the service; the API returns no sample of them. */
+  sample: z.array(z.object({ hashedEmail: z.string() })).optional().default([]),
 });
 
 export function useAudienceExport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { platform: "Meta" | "TikTok"; basis: "hired" | "qualified" }) =>
-      apiPost(`${API.hr}/leads/audience-export`, audienceSchema, v),
+    mutationFn: (v: { platform: "Meta" | "TikTok"; basis: "hired" | "qualified" | "performers" }) =>
+      apiPost(`${API.recruitment}/leads/audience-export`, audienceSchema, v),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.quality.audit() }),
   });
 }

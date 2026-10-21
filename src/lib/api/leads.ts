@@ -136,6 +136,16 @@ export function useCreateStandLead() {
   });
 }
 
+/** The stand form's campaigns (a promotor holds stand.write, not leads.read). */
+export function useStandMeta() {
+  return useQuery({
+    queryKey: [...qk.leads.all(), "stand-meta"] as const,
+    queryFn: () => apiGet(`${API.recruitment}/leads/stand/meta`,
+                          z.object({ campaigns: z.array(z.object({ id: z.string(), name: z.string() })) })),
+    staleTime: 10 * 60_000,
+  });
+}
+
 /** LEAD-07 — undo a merge (admin only; the server answers 403 otherwise). */
 export function useUnmergeLead() {
   const qc = useQueryClient();

@@ -33,7 +33,40 @@ import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
  * The original accessibility objection still stands and is answered twice: the
  * card is a link, so the whole board is operable with the keyboard alone, and
  * dnd-kit's KeyboardSensor makes the drag itself keyboard-driven.
+ *
+ * Which drops are allowed is the SERVER's rule (candidates/graph.py), sent with the
+ * stages as `manualTargets` / `requires` / `locked`, so the board refuses exactly what
+ * the API would. A drop onto a stage another flow owns opens that flow instead of
+ * failing: «Intervju booket» → the booking screen (A3), «Til godkjenning» → the
+ * approval form on the candidate page (A4). Anything else is refused with the reason.
  */
+
+type DropDecision =
+  | { kind: "allowed" }
+  | { kind: "requires"; requires: string; message: string }
+  | { kind: "refused"; message: string };
+
+export function decideDrop(stages: RecruitmentStage[], fromId: string, toId: string): DropDecision {
+  const from = stages.find((s) => s.id === fromId);
+  const to = stages.find((s) => s.id === toId);
+  if (!from || !to) return { kind: "refused", message: "Ukjent steg." };
+  if (from.manualTargets === undefined) {
+    // Stages without server locks (older data): fall back to the client rule.
+    const refused = stageMoveRefusal(fromId, toId);
+    return refused ? { kind: "refused", message: refused } : { kind: "allowed" };
+  }
+  if (from.manualTargets.includes(toId)) return { kind: "allowed" };
+  if (to.requires === "booking") {
+    return { kind: "requires", requires: "booking", message: "«Intervju booket» settes ved å booke intervjuet." };
+  }
+  if (to.requires === "approval" && fromId === "intervjuet") {
+    return { kind: "requires", requires: "approval", message: "Send til godkjenning med godkjenningsskjemaet." };
+  }
+  if (to.locked || to.requires === "approval") {
+    return { kind: "refused", message: "Kandidaten må godkjennes av Ole før onboarding kan starte." };
+  }
+  return { kind: "refused", message: `Kan ikke flytte fra «${from.label}» til «${to.label}».` };
+}
 
 export function CandidateBoard({
   stages,
@@ -45,7 +78,7 @@ export function CandidateBoard({
   const reduced = useReducedMotion();
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
-  const [refusal, setRefusal] = React.useState<string | null>(null);
+  const [refusal, setRefusal] = React.useState<{ message: string; href?: string; cta?: string } | null>(null);
 
   const sensors = useSensors(
     // A small distance threshold keeps a click on the card a click, not a drag.
@@ -76,10 +109,17 @@ export function CandidateBoard({
     /*
      * GODK-03 — "Ingen kandidat kan gå videre til ansettelse uten godkjenning."
      * The refusal is explained rather than silently ignored: a card that springs
-     * back with no message reads as a broken drag.
+     * back with no message reads as a broken drag. A stage another flow owns
+     * points at that flow.
      */
-    const refused = stageMoveRefusal(candidate.stageId, toId);
-    if (refused) { setRefusal(refused); return; }
+    const decision = decideDrop(stages, candidate.stageId, toId);
+    if (decision.kind === "requires") {
+      setRefusal(decision.requires === "booking"
+        ? { message: decision.message, href: `/rekruttering/intervjuer?kandidat=${candidate.id}`, cta: "Book intervju" }
+        : { message: decision.message, href: `/rekruttering/kandidater/${candidate.id}`, cta: "Åpne kandidaten" });
+      return;
+    }
+    if (decision.kind === "refused") { setRefusal({ message: decision.message }); return; }
 
     const stage = stages.find((s) => s.id === toId);
     if (stage) setPending({ candidate, stage });
@@ -93,7 +133,10 @@ export function CandidateBoard({
           className="mb-3 flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[13px] text-warning-on-tint"
         >
           <Lock className="size-3.5 shrink-0" aria-hidden />
-          {refusal}
+          <span className="flex-1">{refusal.message}</span>
+          {refusal.href && (
+            <Link href={refusal.href} className="shrink-0 font-medium underline underline-offset-2">{refusal.cta}</Link>
+          )}
         </p>
       )}
 
@@ -113,6 +156,7 @@ export function CandidateBoard({
                 items={byStage.get(stage.id) ?? []}
                 reduced={Boolean(reduced)}
                 draggingFrom={dragging?.stageId ?? null}
+                stages={stages}
               />
             ))}
           </ul>
@@ -135,22 +179,24 @@ export function CandidateBoard({
 }
 
 function StageColumn({
-  stage, index, items, reduced, draggingFrom,
+  stage, index, items, reduced, draggingFrom, stages,
 }: {
   stage: RecruitmentStage;
   index: number;
   items: Candidate[];
   reduced: boolean;
   draggingFrom: string | null;
+  stages: RecruitmentStage[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const terminal = Boolean(stage.terminal);
 
   // While a drag is in flight, mark the columns this card may not reach, so the
   // approval gate is visible before the drop rather than explained after it.
-  const blocked = draggingFrom !== null && draggingFrom !== stage.id
-    ? stageMoveRefusal(draggingFrom, stage.id)
+  const decision = draggingFrom !== null && draggingFrom !== stage.id
+    ? decideDrop(stages, draggingFrom, stage.id)
     : null;
+  const blocked = decision !== null && decision.kind !== "allowed" ? decision.message : null;
 
   return (
     <li className="w-[260px] shrink-0" data-board-column={stage.id}>
@@ -171,7 +217,7 @@ function StageColumn({
             {stage.label}
           </p>
           <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-            {blocked ? <Lock className="size-3" aria-label="Krever godkjenning" /> : items.length}
+            {blocked ? <Lock className="size-3" aria-label={blocked} /> : items.length}
           </span>
         </div>
 
@@ -244,6 +290,12 @@ function CardFace({ candidate: c, overlay }: { candidate: Candidate; overlay?: b
           <span className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-danger">
             <AlertTriangle className="size-2.5" aria-hidden />
             Forsinket
+          </span>
+        )}
+        {/* KAND-01 — «Interesse for senere» is a tag on the card, never a column. */}
+        {c.tags?.includes("interesse-for-senere") && (
+          <span className="rounded border border-[var(--ab-accent-9)]/40 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-[var(--ab-accent-11)]">
+            Senere
           </span>
         )}
         {/* FR-R-08 — onboarding progress, once it exists. */}

@@ -1,6 +1,6 @@
 import { db, persistDb } from "./db";
-import { leadCorpus } from "./leads";
-import type { Lead, LeadList } from "@/types/lead";
+import { leadCorpus, LEAD_CAMPAIGNS, LEAD_PROMOTERS, LEAD_RECRUITERS } from "./leads";
+import { CHANNEL_KIND, LEAD_CHANNELS, type Lead, type LeadList } from "@/types/lead";
 
 export const PAGE_SIZE = 50;
 
@@ -97,4 +97,19 @@ export function leadCounts() {
     if (l.duplicateOf.length) duplicates += 1;
   }
   return { total: rows.length, byStatus, byChannel, duplicates };
+}
+
+/**
+ * `/leads/meta` in mock mode. The mock corpus identifies promoters and recruiters by
+ * name, so the option id IS the name here — the filters send it back unchanged,
+ * exactly as they send a UUID in api mode.
+ */
+export function leadMeta() {
+  const option = (name: string) => ({ id: name, name });
+  return {
+    channels: LEAD_CHANNELS.map((name) => ({ key: name.toLowerCase(), name, kind: CHANNEL_KIND[name] })),
+    campaigns: LEAD_CAMPAIGNS.map(option),
+    recruiters: LEAD_RECRUITERS.map(option),
+    promoters: LEAD_PROMOTERS.map(option),
+  };
 }
