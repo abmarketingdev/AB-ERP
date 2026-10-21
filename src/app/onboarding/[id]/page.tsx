@@ -394,7 +394,12 @@ function ContractTimeline({ c, onRemind, disabled }: { c: Contract; onRemind: ()
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm">{c.kind ? KIND_LABEL[c.kind] ?? c.kind : "Arbeidskontrakt"}</p>
+        <div>
+          <p className="text-sm">{c.label ?? (c.kind ? KIND_LABEL[c.kind] ?? c.kind : "Ansettelseskontrakt")}</p>
+          {c.templateName && c.templateName !== c.label && (
+            <p className="text-xs text-muted-foreground">Mal: {c.templateName}</p>
+          )}
+        </div>
         <StatusBadge status={c.status} />
       </div>
       <ol className="grid grid-cols-3 gap-2" aria-label="Signaturstatus">
@@ -414,7 +419,6 @@ function ContractTimeline({ c, onRemind, disabled }: { c: Contract; onRemind: ()
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
           Purringer sendt: <span className="tabular-nums">{c.remindersSent}</span>
-          {c.templateId && <> · Scrive-mal <span className="font-mono">{c.templateId}</span></>}
         </span>
         {pending && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={disabled} onClick={onRemind}>

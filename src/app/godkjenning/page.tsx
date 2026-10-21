@@ -133,7 +133,7 @@ export default function Godkjenning() {
                     <motion.li key={req.id} layout={!reduce}
                       exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
                       transition={{ duration: 0.2 }}>
-                      <Card className={req.overdue ? "border-warning/40" : undefined}>
+                      <Card className={req.pastReminderLimit ? "border-danger/40" : req.overdue ? "border-warning/40" : undefined}>
                         <CardContent className="flex flex-col gap-4 py-4">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
@@ -144,9 +144,14 @@ export default function Godkjenning() {
                                 </Link>
                                 <Badge variant="outline">{req.campaign.name}</Badge>
                                 {req.round > 1 && <Badge variant="outline">Runde {req.round}</Badge>}
-                                {req.waitingDays > 0 && (
-                                  <Badge variant={req.overdue ? undefined : "outline"}
-                                    className={req.overdue ? "gap-1 bg-warning/10 text-warning-on-tint" : "gap-1"}>
+                                {/* GODK-05: past the reminder limit is a different state, not a darker «waiting». */}
+                                {req.pastReminderLimit ? (
+                                  <Badge className="gap-1 bg-danger/10 text-danger">
+                                    <Clock className="size-3" aria-hidden /> Forfalt · venter {req.waitingDays} dager
+                                    {req.remindersSent > 0 && ` · purret ${req.remindersSent}×`}
+                                  </Badge>
+                                ) : req.waitingDays > 0 && (
+                                  <Badge variant="outline" className="gap-1">
                                     <Clock className="size-3" aria-hidden /> Venter {req.waitingDays} {req.waitingDays === 1 ? "dag" : "dager"}
                                   </Badge>
                                 )}

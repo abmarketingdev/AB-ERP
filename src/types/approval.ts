@@ -80,6 +80,8 @@ export const approvalRequestSchema = z.object({
   waitingDays: z.number(),
   daysToStart: z.number(),
   overdue: z.boolean(),
+  /** GODK-05: waited past the configured reminder limit — shown as «Forfalt». */
+  pastReminderLimit: z.boolean().default(false),
   remindersSent: z.number(),
   /** BOOK-08 outcome, read-only for Ole. */
   interview: z.object({

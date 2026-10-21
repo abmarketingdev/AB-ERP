@@ -36,7 +36,19 @@ const SHIFT = today().getTime() - DEMO_TODAY.getTime();
 const shift = (v: string | null) => (v ? new Date(new Date(v).getTime() + SHIFT).toISOString() : v);
 const shiftDay = (v: string) => isoDay(new Date(new Date(v).getTime() + SHIFT));
 
+const NAMES: Record<string, string> = { ansettelse: "Ansettelseskontrakt", prosjekt: "Prosjektavtale" };
+
+/** The seed has one contract per hire; the API sends both, each named like HR/Scrive does. */
+function bothContracts(h: NewHire): NewHire["contracts"] {
+  if (h.contracts.length) return h.contracts;
+  return ["ansettelse", "prosjekt"].map((kind, i) => ({
+    ...h.contract, id: `c-${h.id}-${i + 1}`, kind, label: NAMES[kind],
+    templateName: kind === "prosjekt" ? `Prosjektavtale – ${h.campaign}, junior` : NAMES[kind],
+  }));
+}
+
 function shiftHire(h: NewHire): NewHire {
+  h = { ...h, contracts: bothContracts(h) };
   return {
     ...h, startDate: shiftDay(h.startDate), completedAt: shift(h.completedAt),
     checklist: h.checklist.map((c) => ({ ...c, at: shift(c.at) })),
@@ -91,6 +103,7 @@ function seedApprovals(): ApprovalRequest[] {
       submittedAt: submitted.toISOString(), decision: null,
       waitingDays: daysBetween(submitted, today()), daysToStart: daysBetween(today(), start),
       overdue: daysBetween(submitted, today()) >= 3 || daysBetween(today(), start) <= 2,
+      pastReminderLimit: daysBetween(submitted, today()) >= 3,
       remindersSent: daysBetween(submitted, today()) >= 3 ? 1 : 0,
       interview: { id: `int-${c.id}`, rating: 4 - (i % 2), recommend: true,
                    assessment: i === 0 ? "Trygg, blid og tydelig. God på å lytte." : null, leader: LEADERS[i % LEADERS.length] },
@@ -135,6 +148,8 @@ function hireFromApproval(a: ApprovalRequest): NewHire {
     contract: { id: `c-${a.id}-1`, kind: "ansettelse", status: "sendt", templateId: "9222115557590686491", sentAt: now,
                 seenAt: null, signedAt: null, remindersSent: 0 },
     contracts: a.contractKinds.map((kind, i) => ({ id: `c-${a.id}-${i + 1}`, kind, status: "sendt",
+      label: NAMES[kind] ?? kind,
+      templateName: kind === "prosjekt" ? `Prosjektavtale – ${a.campaign.name}, ${a.positionLevel}` : NAMES[kind] ?? kind,
       templateId: kind === "ansettelse" ? "9222115557590686491" : "9222115557572213277", sentAt: now, seenAt: null,
       signedAt: null, remindersSent: 0 })),
     photo: null, equipment: [], equipmentContract: { status: "ikke-sendt", sentAt: null, signedAt: null },
@@ -210,7 +225,7 @@ export const a4Handlers = [
       positionLevel: String(b.positionLevel), workDays: b.workDays as number[], positionPercentage: pct,
       isStudent: Boolean(b.isStudent), note: String(b.note ?? ""), submittedBy: { id: "me", name: cand.owner },
       submittedAt: new Date().toISOString(), decision: null, waitingDays: 0, daysToStart: daysBetween(today(), start),
-      overdue: daysBetween(today(), start) <= 2, remindersSent: 0, interview: null,
+      overdue: daysBetween(today(), start) <= 2, pastReminderLimit: false, remindersSent: 0, interview: null,
     };
     store().approvals.unshift(req);
     cand.stageId = "til-godkjenning";

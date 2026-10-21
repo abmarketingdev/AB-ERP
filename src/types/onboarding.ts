@@ -60,6 +60,10 @@ export type Equipment = z.infer<typeof equipmentSchema>;
 export const contractSchema = z.object({
   id: z.string().optional(),
   kind: z.string().optional(),
+  /** The name HR and Scrive use: «Ansettelseskontrakt», «Prosjektavtale». */
+  label: z.string().optional(),
+  /** What Ole reads instead of a Scrive id: «Prosjektavtale – Norsk Folkehjelp, junior». */
+  templateName: z.string().nullable().optional(),
   status: contractStatusSchema,
   /** ONB-04 — the Scrive template id the contract was sent from. */
   templateId: z.string().nullable(),
