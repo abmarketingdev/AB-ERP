@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Segmented } from "@/components/patterns/segmented";
+import { DatePicker } from "@/components/patterns/date-picker";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import type { ResponseField } from "@/types/task";
 
 /**
@@ -34,7 +35,7 @@ export function ResponseFieldForm({
         const v = values[f.key];
         return (
           <div key={f.key} className="flex flex-col gap-1.5">
-            <Label htmlFor={id}>
+            <Label htmlFor={id} id={`${id}-label`}>
               {f.label}{f.required ? "" : <span className="text-muted-foreground"> (valgfritt)</span>}
             </Label>
             {f.type === "text" && (
@@ -47,23 +48,26 @@ export function ResponseFieldForm({
                 onChange={(e) => onChange(f.key, e.target.value === "" ? null : Number(e.target.value))} />
             )}
             {f.type === "date" && (
-              <Input id={id} type="date" className="w-44" value={(v as string) ?? ""} aria-invalid={Boolean(err)}
-                onChange={(e) => onChange(f.key, e.target.value)} />
+              <DatePicker id={id} value={(v as string) ?? ""} onChange={(x) => onChange(f.key, x)} />
             )}
-            {f.type === "choice" && (
+            {f.type === "choice" && (f.options ?? []).length <= 4 && (
+              <div role="radiogroup" aria-labelledby={`${id}-label`} className="flex flex-wrap gap-2">
+                {(f.options ?? []).map((o) => (
+                  <SelectableButton key={o} type="button" role="radio" selected={v === o} onClick={() => onChange(f.key, o)}>{o}</SelectableButton>
+                ))}
+              </div>
+            )}
+            {f.type === "choice" && (f.options ?? []).length > 4 && (
               <Select value={(v as string) ?? ""} onValueChange={(x) => onChange(f.key, x)}>
                 <SelectTrigger id={id} className="w-56" aria-invalid={Boolean(err)}><SelectValue placeholder="Velg" /></SelectTrigger>
                 <SelectContent>{(f.options ?? []).map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
               </Select>
             )}
             {f.type === "bool" && (
-              <Segmented
-                ariaLabel={f.label}
-                layoutId={id}
-                value={v === true ? "ja" : v === false ? "nei" : ""}
-                onChange={(x) => onChange(f.key, x === "ja")}
-                options={[{ value: "ja", label: "Ja" }, { value: "nei", label: "Nei" }]}
-              />
+              <div role="radiogroup" aria-labelledby={`${id}-label`} className="flex gap-2">
+                <SelectableButton type="button" role="radio" selected={v === true} onClick={() => onChange(f.key, true)}>Ja</SelectableButton>
+                <SelectableButton type="button" role="radio" selected={v === false} onClick={() => onChange(f.key, false)}>Nei</SelectableButton>
+              </div>
             )}
             {err && <p className="text-xs text-danger">{err}</p>}
           </div>

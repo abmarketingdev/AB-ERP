@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Check, Clock, Mail, FileSpreadsheet, Printer } from "lucide-react";
+import { AlertTriangle, Clock, Mail, FileSpreadsheet, Printer } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mascot } from "@/components/patterns/mascot";
 import { mascotFor } from "@/lib/use-mascot";
+import { DatePicker } from "@/components/patterns/date-picker";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 import { ChannelMark } from "@/components/patterns/channel-mark";
 import {
@@ -66,6 +68,7 @@ function minus(days: number) {
 
 const PERIODS = [
   { v: "30", l: "Siste 30 dager" }, { v: "90", l: "Siste 90 dager" }, { v: "365", l: "Siste år" },
+  { v: "egen", l: "Egendefinert" },
 ];
 
 type UrlFilter = DashboardFilter & { days: string; groupBy: "uke" | "maned" };
@@ -75,9 +78,11 @@ function useUrlFilter(): [UrlFilter, (patch: Record<string, string>) => void] {
   const router = useRouter();
   const path = usePathname();
   const days = sp.get("periode") ?? "90";
+  const custom = days === "egen";
   const filter: UrlFilter = {
     days,
-    from: minus(Number(days) - 1), to: TODAY,
+    from: custom ? sp.get("fra") || minus(89) : minus(Number(days) - 1),
+    to: custom ? sp.get("til") || TODAY : TODAY,
     region: sp.get("region") ?? undefined, teamId: sp.get("team") ?? undefined, channel: sp.get("kanal") ?? undefined,
     includeImported: sp.get("importerte") === "1", includeSimulated: sp.get("simulerte") === "1", groupBy: (sp.get("per") === "maned" ? "maned" : "uke") as "uke" | "maned",
   };
@@ -147,6 +152,18 @@ function DashboardPage() {
         <Filter id="d-chan" label="Kanal" value={f.channel ?? "alle"} onChange={(v) => set({ kanal: v })}
           options={[{ v: "alle", l: "Alle kanaler" }, ...(opt?.channels ?? []).map((c) => ({ v: c.key, l: c.name }))]} />
       </div>
+      {f.days === "egen" && (
+        <div className="flex flex-wrap items-end gap-3" data-print-hide>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="d-fra" className="text-xs text-muted-foreground">Fra</Label>
+            <DatePicker id="d-fra" value={f.from ?? ""} max={f.to} onChange={(v) => set({ fra: v })} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="d-til" className="text-xs text-muted-foreground">Til</Label>
+            <DatePicker id="d-til" value={f.to ?? ""} min={f.from} max={TODAY} onChange={(v) => set({ til: v })} />
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-x-6 gap-y-2" data-print-hide>
         <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={f.includeImported} onCheckedChange={(v) => set({ importerte: v ? "1" : "" })} aria-label="Ta med importerte fra Recman" />
@@ -527,14 +544,12 @@ function ReportSubscription() {
         </label>
         {data.enabled && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            <Label className="text-xs text-muted-foreground">Hyppighet</Label>
+            <Label id="sub-freq" className="text-xs text-muted-foreground">Hyppighet</Label>
             {(["ukentlig", "manedlig"] as const).map((fr) => (
-              <Button key={fr} size="sm" variant="outline" aria-pressed={data.frequency === fr} disabled={save.isPending}
-                className={data.frequency === fr ? "gap-1.5 border-[var(--ab-accent-9)] font-medium" : "gap-1.5"}
+              <SelectableButton key={fr} type="button" selected={data.frequency === fr} disabled={save.isPending}
                 onClick={() => save.mutate({ enabled: true, frequency: fr, filters: data.filters })}>
-                {data.frequency === fr && <Check className="size-3.5" aria-hidden />}
                 {fr === "ukentlig" ? "Ukentlig (mandag)" : "Månedlig (den 1.)"}
-              </Button>
+              </SelectableButton>
             ))}
             {data.lastSentAt && <span className="text-xs text-muted-foreground">Sist sendt {new Date(data.lastSentAt).toLocaleDateString("nb-NO")}</span>}
           </div>

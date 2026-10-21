@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { SelectableButton } from "@/components/patterns/selectable-button";
 import { useMascotOnDone } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
 import { useShifts, useSwapRequests, useDecideSwap, useFollowUpAbsence, useForecast, useRecordAttendance } from "@/lib/api/staffing";
@@ -451,12 +452,16 @@ function DayDialog({ shift: s, onClose }: { shift: Shift | null; onClose: () => 
               Venter på signert kontrakt: kan registreres som ikke møtt, men ikke som møtt før kontrakten er signert.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <Button className="min-h-12 gap-2" variant={current === "mott" ? "default" : "outline"} disabled={record.isPending || current === "mott"}
-              onClick={() => mark("mott")}><Check className="size-4" /> Møtt</Button>
-            <Button className="min-h-12 gap-2 text-danger" variant={current === "ikke-mott" ? "default" : "outline"}
-              disabled={record.isPending || current === "ikke-mott"} onClick={() => mark("ikke-mott")}><X className="size-4" /> Ikke møtt</Button>
+          <div role="radiogroup" aria-label="Oppmøte" className="grid grid-cols-2 gap-2">
+            <SelectableButton role="radio" className="min-h-12" selected={current === "mott"}
+              disabled={record.isPending || current === "mott" || (current !== null && !reason) || Boolean(locked)}
+              onClick={() => mark("mott")}>Møtt</SelectableButton>
+            <SelectableButton role="radio" className="min-h-12" selected={current === "ikke-mott"}
+              disabled={record.isPending || current === "ikke-mott" || (current !== null && !reason)}
+              onClick={() => mark("ikke-mott")}>Ikke møtt</SelectableButton>
           </div>
+          {current && !reason && <p className="text-xs text-muted-foreground">Velg en årsak under for å rette registreringen.</p>}
+          {locked && !current && <p className="text-xs text-muted-foreground">«Møtt» er låst til kontrakten er signert.</p>}
           {current && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="att-reason">Årsak hvis du retter registreringen</Label>

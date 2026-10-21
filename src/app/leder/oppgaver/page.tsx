@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { DatePicker } from "@/components/patterns/date-picker";
 import { useMascotOnDone } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
 import { ResponseFieldForm, ResponseSummary } from "@/components/patterns/response-field-form";
@@ -114,8 +115,8 @@ function LederoppgaverPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tk-due">Frist</Label>
-            <Input id="tk-due" type="datetime-local" className="w-[14rem]" value={form.dueAt}
-              onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+            <DatePicker id="tk-due" withTime value={form.dueAt} min={new Date().toLocaleDateString("sv-SE")}
+              onChange={(v) => setForm((f) => ({ ...f, dueAt: v }))} />
           </div>
           {error && <p className="text-sm text-danger" role="alert">{error}</p>}
         </div>
