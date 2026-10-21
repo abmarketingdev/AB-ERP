@@ -222,30 +222,25 @@ function SamleinnboksPage() {
         }
       />
 
-      {/* ── Filters ─────────────────────────────────────────────────────── */}
+      {/* ── Filters ─────────────────────────────────────────────────────────
+          One compact, left-aligned row (master's design review): search · Kanal · Status ·
+          Rekruttert av · Tildelt · Periode · Bare duplikater. On a phone the same controls
+          stack behind one «Filtre» button, search stays out. */}
       <div className="flex flex-col gap-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Søk på navn, e-post eller telefon"
-            className="pl-9"
-            aria-label="Søk i samleinnboksen"
-          />
-        </div>
-
         {phone && (
-          <Button variant="outline" className="h-11 w-full justify-between" aria-expanded={filtersOpen}
-            aria-controls="innboks-filtre" onClick={() => setFiltersOpen((o) => !o)}>
-            <span>Filtre{activeFilters > (debouncedQ ? 1 : 0) ? ` (${activeFilters - (debouncedQ ? 1 : 0)})` : ""}</span>
-            <span className="text-xs text-muted-foreground">{filtersOpen ? "Skjul" : "Vis"}</span>
-          </Button>
+          <>
+            <SearchBox value={q} onChange={setQ} />
+            <Button variant="outline" className="h-11 w-full justify-between" aria-expanded={filtersOpen}
+              aria-controls="innboks-filtre" onClick={() => setFiltersOpen((o) => !o)}>
+              <span>Filtre{activeFilters > (debouncedQ ? 1 : 0) ? ` (${activeFilters - (debouncedQ ? 1 : 0)})` : ""}</span>
+              <span className="text-xs text-muted-foreground">{filtersOpen ? "Skjul" : "Vis"}</span>
+            </Button>
+          </>
         )}
 
-        <div id="innboks-filtre" className={phone && !filtersOpen ? "hidden" : "flex flex-col gap-3"}>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div id="innboks-filtre"
+          className={phone ? (filtersOpen ? "flex flex-col gap-3" : "hidden") : "flex flex-wrap items-end gap-x-2 gap-y-3"}>
+          {!phone && <div className="w-72"><SearchBox value={q} onChange={setQ} /></div>}
           <FilterSelect label="Kanal" value={channel} onChange={setChannel}
             options={(meta.data?.channels ?? []).map((c) => ({ value: c.key, label: c.name, node: <ChannelLabel channel={c.name} /> }))} />
           <FilterSelect label="Status" value={status} onChange={setStatus}
@@ -255,27 +250,24 @@ function SamleinnboksPage() {
           <FilterSelect label="Tildelt" value={assignedTo} onChange={setAssignedTo}
             options={[{ value: "__none__", label: "Admin-kø (ikke tildelt)" },
                       ...(meta.data?.recruiters ?? []).map((r) => ({ value: r.id, label: r.name }))]} />
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="lead-from" className="text-xs text-muted-foreground">Fra dato</Label>
-            <DatePicker id="lead-from" value={from} onChange={setFrom} max={to || undefined} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="lead-to" className="text-xs text-muted-foreground">Til dato</Label>
-            <DatePicker id="lead-to" value={to} onChange={setTo} min={from || undefined} />
-          </div>
+          {/* One period, two ends: a group with one label, not two loose date fields. */}
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="mb-1.5 text-xs text-muted-foreground">Periode</legend>
+            <div className="flex items-center gap-1.5">
+              <DatePicker id="lead-from" aria-label="Fra dato" value={from} onChange={setFrom} max={to || undefined} />
+              <span className="text-muted-foreground" aria-hidden>–</span>
+              <DatePicker id="lead-to" aria-label="Til dato" value={to} onChange={setTo} min={from || undefined} />
+            </div>
+          </fieldset>
           <label className="flex h-9 items-center gap-2 text-sm">
             <Checkbox checked={duplicatesOnly} onCheckedChange={(v) => setDuplicatesOnly(Boolean(v))} />
-            Bare mulige duplikater
+            Bare duplikater
           </label>
           {activeFilters > 0 && (
-            <Button variant="ghost" size="sm" className="gap-1.5" onClick={clearFilters}>
-              <X className="size-4" /> Nullstill {activeFilters} filter
+            <Button variant="ghost" size="sm" className="h-9 gap-1.5" onClick={clearFilters}>
+              <X className="size-4" /> Nullstill ({activeFilters})
             </Button>
           )}
-        </div>
         </div>
       </div>
 
@@ -485,6 +477,16 @@ function LeadCards({ rows, selected, onToggle, onMerge }: {
   );
 }
 
+function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Søk på navn, e-post eller telefon"
+        className="pl-9" aria-label="Søk i samleinnboksen" />
+    </div>
+  );
+}
+
 function FilterSelect({
   label, value, onChange, options,
 }: {
@@ -505,7 +507,7 @@ function FilterSelect({
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id} aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectTrigger id={id} aria-label={label} className="min-w-[8.5rem] max-sm:w-full"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Alle</SelectItem>
           {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.node ?? o.label}</SelectItem>)}

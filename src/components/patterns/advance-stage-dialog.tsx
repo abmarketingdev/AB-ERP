@@ -82,7 +82,7 @@ function AdvanceStageSheet({
       open={Boolean(candidate && stage)}
       onOpenChange={(open) => !open && onClose()}
       title={candidate && stage ? `${candidate.name} → ${stage.label}` : ""}
-      description="Registrer det dette steget krever. Oppføringen legges til i historikken — den erstatter ingenting."
+      description={stage?.id === "avvist" ? "Avslaget lagres i kandidatens historikk." : "Flyttingen lagres i kandidatens historikk."}
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose}>Avbryt</Button>

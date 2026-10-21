@@ -136,6 +136,8 @@ export const candidateSchema = z.object({
   recruitedById: z.string().nullable().optional(),
   rejectionReason: z.string().nullable().optional(),
   importedFrom: z.string().nullable().optional(),
+  /** When the candidate entered its current status (the board's «dager i steget»). */
+  stageSince: z.string().optional(),
   age: z.number().nullable().optional(),
   region: z.string().optional(),
 });

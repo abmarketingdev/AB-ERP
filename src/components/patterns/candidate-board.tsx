@@ -13,6 +13,7 @@ import { CONTRACT_LABEL, stageMoveRefusal } from "@/lib/recruitment";
 import { riseIn } from "@/lib/motion";
 import type { Candidate, RecruitmentStage } from "@/types/recruitment";
 import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
+import { ChannelMark } from "@/components/patterns/channel-mark";
 
 /**
  * KAND-02 — "Kandidater følges på en kanbantavle med dra og slipp mellom
@@ -42,6 +43,10 @@ import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
  */
 
 const CONTRACT_STAGES = ["godkjent", "onboarding", "ansatt"];
+
+/** «Now» read once per board mount, so every card counts days from the same instant
+    and render stays pure. */
+const BoardNow = React.createContext(0);
 
 type DropDecision =
   | { kind: "allowed" }
@@ -78,6 +83,7 @@ export function CandidateBoard({
   candidates: Candidate[];
 }) {
   const reduced = useReducedMotion();
+  const [now] = React.useState(() => Date.now());
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
   // A refused drop explains itself IN the column it was dropped on (master: «avvist drop
@@ -136,6 +142,7 @@ export function CandidateBoard({
 
   return (
     <>
+      <BoardNow.Provider value={now}>
       <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
@@ -174,6 +181,7 @@ export function CandidateBoard({
         stage={pending?.stage ?? null}
         onClose={() => setPending(null)}
       />
+      </BoardNow.Provider>
     </>
   );
 }
@@ -303,11 +311,24 @@ function DraggableCard({ candidate }: { candidate: Candidate }) {
 }
 
 function CardFace({ candidate: c, overlay }: { candidate: Candidate; overlay?: boolean }) {
+  const now = React.useContext(BoardNow);
+  const days = c.stageSince && now ? Math.floor((now - new Date(c.stageSince).getTime()) / 86_400_000) : null;
   return (
     <div className={overlay ? "w-[244px] rounded-lg border border-[var(--ab-accent-9)] bg-card px-3 py-2.5 shadow-lg" : undefined}>
-      <p className="truncate text-[13px] text-foreground">{c.name}</p>
-      <p className="mt-0.5 truncate font-mono text-[10.5px] text-muted-foreground">
-        {[c.campaign, c.owner.split(" ")[0]].filter(Boolean).join(" · ")}
+      <div className="flex items-start justify-between gap-2">
+        <p className="truncate text-[13px] text-foreground">{c.name}</p>
+        {/* «Dager i steget»: what has been left lying is what a board is for. */}
+        {days !== null && days > 0 && (
+          <span className={`shrink-0 text-[11px] tabular-nums ${days >= 7 ? "text-warning-on-tint" : "text-muted-foreground"}`}
+            title={`${days} ${days === 1 ? "dag" : "dager"} i dette steget`} aria-label={`${days} ${days === 1 ? "dag" : "dager"} i steget`}>
+            {days} d
+          </span>
+        )}
+      </div>
+      {/* Meta in the regular sans (mono is for ids and numbers — design review 21.10). */}
+      <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground">
+        <ChannelMark channel={c.source} />
+        <span className="truncate">{[c.source, c.campaign, c.owner.split(" ")[0]].filter(Boolean).join(" · ")}</span>
       </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -329,8 +350,8 @@ function CardFace({ candidate: c, overlay }: { candidate: Candidate; overlay?: b
         )}
         {/* KAND-01 — «Interesse for senere» is a tag on the card, never a column. */}
         {c.tags?.includes("interesse-for-senere") && (
-          <span className="rounded border border-[var(--ab-accent-9)]/40 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-[var(--ab-accent-11)]">
-            Senere
+          <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            Interesse for senere
           </span>
         )}
         {/* FR-R-08 — onboarding progress, once it exists. */}
