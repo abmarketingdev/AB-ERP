@@ -14,15 +14,13 @@
 import type { KpiValue } from "@/types/kpi";
 
 import {
-  ADS as SRS_ADS,
-  AD_TEMPLATES as SRS_AD_TEMPLATES,
-  buildInterviews as buildSrsInterviews,
   buildNewHires as buildSrsNewHires,
   buildEmployees,
   buildShifts as buildSrsShifts,
   buildSwaps as buildSrsSwaps,
   buildTasks as buildSrsTasks,
 } from "./srs-seed";
+import { ADS as SRS_ADS, AD_TEMPLATES as SRS_AD_TEMPLATES, buildInterviews as buildSrsInterviews } from "./a3-seed";
 const SRS_EMPLOYEES = buildEmployees();
 import type {
   WeekDay,
@@ -1107,7 +1105,7 @@ const STORAGE_KEY = "ab-erp-mock-db";
  * v8 — KPI version history; import preview/commit; decided corrections.
  * v9 — integration health (FR-A-10); automated ingestion inbox (FR-I-08).
  */
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 interface Snapshot {
   v: number;
