@@ -30,7 +30,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
 ];
 
 const TWO_FACTOR_CODE = "123456";
-const TOKEN_KEY = "ab-erp-token";
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,28 +77,15 @@ export async function fetchSession(token: string): Promise<Session | null> {
   }
 }
 
-/**
- * Storage events only fire in *other* tabs, so a sign-in or sign-out in this
- * one needs its own signal. Without it the guard keeps reading a token that is
- * already gone until something else happens to re-render.
- */
-export const TOKEN_EVENT = "ab-erp-token-change";
-
-function announceToken() {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(TOKEN_EVENT));
-}
+// Storage lives in lib/auth-tokens.ts so mock and api mode share one token key and
+// one change event; these names are kept for existing callers.
+export { TOKEN_EVENT, readToken } from "./auth-tokens";
+import { storeTokens, clearTokens } from "./auth-tokens";
 
 export function storeToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
-  announceToken();
-}
-
-export function readToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  storeTokens(token);
 }
 
 export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
-  announceToken();
+  clearTokens();
 }

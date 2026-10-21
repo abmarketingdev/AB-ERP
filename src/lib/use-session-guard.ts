@@ -4,19 +4,18 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { Session } from "./permissions";
-import { fetchSession, readToken, clearToken, TOKEN_EVENT } from "./mock-auth";
+import { fetchSession, readToken, logout, TOKEN_EVENT } from "./auth";
 import { MOCK_USERS } from "./mock-users";
 import { usePreview } from "./preview";
 
 export function clearSessionKey() {
-  clearToken();
+  logout();
 }
 
 /**
- * Loads the session by calling the (mocked) `/me`-equivalent — the frontend
- * never reaches into a user object directly, matching FR-S-03. Swap
- * `fetchSession` for a real `GET /me` call once the API exists; nothing else
- * in the shell needs to change.
+ * Loads the session from `/me` — mocked, or recruitment-service's
+ * `/api/recruitment/access/me/` in api mode (lib/auth.ts). The frontend never
+ * reaches into a user object directly, matching FR-S-03.
  *
  * The gate is a **permission**, not a user key. Two roles legitimately share the
  * leader portal — a team lead and a sales chief both hold `leader.view` and see

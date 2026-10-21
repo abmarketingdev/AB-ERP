@@ -16,6 +16,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Telemetry off: this builds on a client's server, and nothing should leave it.
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* are inlined at build time, so the data source is chosen per image.
+# Defaults keep today's behaviour (the mock demo): a rebuild without --build-arg must
+# never start sending real requests. `api` + an empty base = same-origin /api/… via
+# the gateway (erp.conf).
+ARG NEXT_PUBLIC_DATA_SOURCE=mock
+ARG NEXT_PUBLIC_API_BASE=""
+ENV NEXT_PUBLIC_DATA_SOURCE=$NEXT_PUBLIC_DATA_SOURCE
+ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 RUN npm run build
 
 FROM node:20-alpine AS runner

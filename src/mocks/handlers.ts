@@ -28,6 +28,7 @@ import {
   PERIOD_MONTH,
 } from "./db";
 import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
+import { accessHandlers } from "./access-handlers";
 import type { Lead } from "@/types/lead";
 import { queryLeads, leadCounts, leadById, leadsByIds, patchLead } from "./lead-query";
 import { leadCorpus } from "./leads";
@@ -198,6 +199,8 @@ function get<T extends JsonBodyType>(path: string, resolve: (req: Request) => T,
 }
 
 export const handlers = [
+  // ── recruitment-service: access (A1) ──────────────────────────────────────
+  ...accessHandlers,
   // ── Promoter ───────────────────────────────────────────────────────────────
   get(
     "/api/dashboard/employee/me/stats",

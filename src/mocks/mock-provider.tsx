@@ -3,6 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { MascotLoadingScreen } from "@/components/patterns/mascot-loading";
+import { IS_MOCK } from "@/lib/data-source";
 
 /**
  * Starts the mock service worker before any child can fire a request.
@@ -20,7 +21,7 @@ import { MascotLoadingScreen } from "@/components/patterns/mascot-loading";
  *     registration was evicted. Requests then bypass the worker silently. We
  *     detect that and reload once.
  *
- * Set NEXT_PUBLIC_API_MOCKING=disabled to run against a real gateway instead.
+ * Set NEXT_PUBLIC_DATA_SOURCE=api to run against a real gateway instead.
  */
 
 let startPromise: Promise<void> | null = null;
@@ -99,7 +100,7 @@ function startWorkerOnce(): Promise<void> {
 
 export function MockProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const enabled = process.env.NEXT_PUBLIC_API_MOCKING !== "disabled";
+  const enabled = IS_MOCK;
   const [ready, setReady] = React.useState(!enabled);
 
   React.useEffect(() => {

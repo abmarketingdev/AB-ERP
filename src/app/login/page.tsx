@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { takeReturnTo } from "@/lib/use-session-guard";
-import { login, verifyTwoFactor, fetchSession, storeToken, DEMO_ACCOUNTS, type DemoAccount } from "@/lib/mock-auth";
+import { login, verifyTwoFactor, fetchSession, storeToken, DEMO_ACCOUNTS, type DemoAccount } from "@/lib/auth";
+import { IS_MOCK } from "@/lib/data-source";
 import { MOCK_USERS } from "@/lib/mock-users";
 
 const DEMO_PRESETS: { userKey: keyof typeof MOCK_USERS; name: string; role: string; icon: React.ElementType }[] = [
@@ -197,14 +198,19 @@ export default function LoginPage() {
               className="relative z-10 mx-auto w-full sm:w-sm"
             >
               <h2 className="text-2xl font-medium tracking-wide text-foreground">Logg inn</h2>
-              <p className="mt-1.5 text-base text-muted-foreground">E-post og passord, separat fra Maps, HR og QC.</p>
+              {/* IFK-04 — api mode uses the platform's one login (auth-service, platform `erp`). */}
+              <p className="mt-1.5 text-base text-muted-foreground">
+                {IS_MOCK ? "E-post og passord, separat fra Maps, HR og QC." : "Samme brukernavn og passord som i resten av AB-systemet."}
+              </p>
 
               <form onSubmit={onSubmitCredentials} className="mt-8 space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-foreground">E-post</Label>
+                  <Label htmlFor="email" className="text-foreground">{IS_MOCK ? "E-post" : "E-post eller brukernavn"}</Label>
                   <Input
                     id="email"
-                    type="email"
+                    type={IS_MOCK ? "email" : "text"}
+                    autoComplete="username"
+                    autoCapitalize="none"
                     placeholder="navn@abmarketing.no"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -218,6 +224,7 @@ export default function LoginPage() {
                   <Input
                     id="password"
                     type="password"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onFocus={() => setMascotState("ready")}
@@ -237,11 +244,13 @@ export default function LoginPage() {
                   disabled={submitting}
                   className="h-11 w-full bg-[var(--ab-accent-9)] text-sm font-medium text-white shadow-lg shadow-[var(--ab-accent-9)]/25 hover:bg-[var(--ab-accent-10)] disabled:opacity-70"
                 >
-                  {submitting ? "Logger inn…" : "Logg inn med e-post"}
+                  {submitting ? "Logger inn…" : "Logg inn"}
                   {!submitting && <ArrowRight className="size-4" />}
                 </Button>
               </form>
 
+              {/* Demo accounts exist only in mock mode; in api mode they would be dead buttons. */}
+              {IS_MOCK && (<>
               <div className="my-6 flex items-center gap-3">
                 <div className="h-px flex-1 bg-border" />
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Demo-kontoer</span>
@@ -279,6 +288,7 @@ export default function LoginPage() {
               </div>
 
               <p className="mt-6 text-center text-xs text-muted-foreground">Velg en demo-konto for å fylle ut skjemaet, eller skriv inn selv.</p>
+              </>)}
 
               <p className="mt-4 text-center text-xs text-muted-foreground">
                 Er du kunde?{" "}

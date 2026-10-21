@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { IS_MOCK } from "@/lib/data-source";
+import { authorizedFetch } from "@/lib/auth-tokens";
 
 /**
  * The one boundary. Everything crossing the network goes through here.
@@ -8,7 +10,7 @@ import { z } from "zod";
  * about — if fixing that requires editing a component, the boundary leaked.
  */
 
-const MOCKING = process.env.NEXT_PUBLIC_API_MOCKING !== "disabled";
+const MOCKING = IS_MOCK;
 
 /**
  * While mocking is on, the base URL is forced empty so every request is
@@ -16,7 +18,7 @@ const MOCKING = process.env.NEXT_PUBLIC_API_MOCKING !== "disabled";
  *
  * This is a guard, not a convenience: there is no backend yet, and a stray
  * NEXT_PUBLIC_API_BASE would send real requests to a real host carrying a demo
- * token. Set NEXT_PUBLIC_API_MOCKING=disabled to opt out deliberately.
+ * token. Set NEXT_PUBLIC_DATA_SOURCE=api to opt out deliberately.
  */
 const CONFIGURED_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 const BASE = MOCKING ? "" : CONFIGURED_BASE;
@@ -24,7 +26,7 @@ const BASE = MOCKING ? "" : CONFIGURED_BASE;
 if (MOCKING && CONFIGURED_BASE) {
   console.warn(
     `[api] NEXT_PUBLIC_API_BASE is set to "${CONFIGURED_BASE}" but mocking is enabled, ` +
-      "so it is being ignored. Set NEXT_PUBLIC_API_MOCKING=disabled to call a real gateway.",
+      "so it is being ignored. Set NEXT_PUBLIC_DATA_SOURCE=api to call a real gateway.",
   );
 }
 
@@ -41,6 +43,8 @@ export const API = {
   dashboard: "/api/dashboard",
   learning: "/api/learning",
   customer: "/api/customer",
+  /** recruitment-service (SRS «Rekruttering og onboarding»); the gateway strips the prefix. */
+  recruitment: "/api/recruitment",
 } as const;
 
 export class ApiError extends Error {
@@ -150,7 +154,7 @@ export async function apiGet<T>(
   schema: z.ZodType<T>,
   params?: Params,
 ): Promise<T> {
-  const res = await fetch(buildUrl(path, params), {
+  const res = await authorizedFetch(buildUrl(path, params), {
     method: "GET",
     headers: authHeaders(),
   });
@@ -165,7 +169,7 @@ export async function apiSend<T>(
   body?: unknown,
   params?: Params,
 ): Promise<T> {
-  const res = await fetch(buildUrl(path, params), {
+  const res = await authorizedFetch(buildUrl(path, params), {
     method,
     headers: authHeaders(),
     body: body === undefined ? undefined : JSON.stringify(body),
