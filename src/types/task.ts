@@ -50,6 +50,8 @@ export const leaderTaskSchema = z.object({
   detail: z.string(),
   /** What the task is about, so it can link back. */
   relatedCandidateId: z.string().nullable(),
+  /** Who the task is about, read live from the candidate (never stored on the task). */
+  subject: z.string().nullable().optional(),
   dueAt: z.string(),
   status: taskStatusSchema,
   overdue: z.boolean(),
