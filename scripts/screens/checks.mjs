@@ -17,6 +17,15 @@ const accounts = (process.env.ACCOUNTS ?? "").split(",").filter(Boolean).map((a)
   const i = a.indexOf(":");
   return { user: a.slice(0, i), pw: a.slice(i + 1) };
 });
+// Where each test account must land (master 2026-10-22: the person's main job).
+const EXPECT_HOME = {
+  admin_lars: "/admin/tilganger", Joseph: "/admin/tilganger",
+  ole_erp: "/godkjenning", "ole_sormbråten_stg": "/godkjenning",
+  rek_hr: "/onboarding", rek_ledelse: "/dashboard",
+  rek_leder: "/leder/intervjuer", rek_leder_b: "/leder/intervjuer",
+  rek_rekrutterer: "/rekruttering/innboks",
+  rek_promotor: "/promoter/vaktplan", rek_promotor_pluss: "/promoter/vaktplan",
+};
 const problems = [];
 const report = (who, what) => { problems.push(`${who}: ${what}`); console.log(`FAIL ${who}: ${what}`); };
 
@@ -64,6 +73,7 @@ async function walkRole(browser, { user, pw }) {
   const home = new URL(p.url()).pathname;
   where = home;
   if (home.startsWith("/login") || home === "/ingen-tilgang") report(user, `landet på ${home} etter innlogging`);
+  else if (EXPECT_HOME[user] && home !== EXPECT_HOME[user]) report(user, `landet på ${home}, skal lande på ${EXPECT_HOME[user]}`);
   const hrefs = await p.$$eval('nav[aria-label="Hovedmeny"] a[href]', (as) => [...new Set(as.map((a) => a.getAttribute("href")))]);
   for (const href of [home, ...hrefs.filter((h) => h !== home)]) {
     where = href;

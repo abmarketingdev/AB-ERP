@@ -89,16 +89,19 @@ export function sessionFromAccess(access: AccessMe, name?: string): Session {
     // api mode: screens whose module has no backend yet are not offered (src/lib/modules.ts).
     .filter((n) => isAvailable(n.href))
     .map(({ id, label, href, icon, section }) => ({ id, label, href, icon, section }));
-  // Land on a page that works (master 2026-10-22): leaders on their interviews, promoters
-  // on their shift plan, management on the dashboard. Mock mode keeps the old front pages.
+  // Land on the person's main job (master 2026-10-22). Order matters: an approver who can
+  // also read candidates lands on approvals; leads.write (not leads.read — «promotør med
+  // ekstra tilgang» reads leads too) marks a recruiter. Mock mode keeps the old front pages.
   const held = new Set(access.permissions);
   const home =
-    // admin.view is also opened by tasks.compliance (ledelse); only real admins land on /admin.
-    held.has("access.admin") || (IS_MOCK && gates.includes("admin.view")) ? (IS_MOCK ? "/admin" : "/admin/tilganger")
-      : gates.includes("leader.view") ? (IS_MOCK ? "/leder" : "/leder/intervjuer")
-        : held.has("dashboard.all") && gates.includes("recruitdash.view") ? "/dashboard"
-          : gates.includes("promoter.view") ? (IS_MOCK ? "/promoter" : "/promoter/vaktplan")
-            : navigation[0]?.href;
+    held.has("access.admin") ? (IS_MOCK ? "/admin" : "/admin/tilganger")
+      : held.has("approval.approve") ? "/godkjenning"
+        : held.has("onboarding.write") ? "/onboarding"
+          : held.has("dashboard.all") && gates.includes("recruitdash.view") ? "/dashboard"
+            : gates.includes("leader.view") ? (IS_MOCK ? "/leder" : "/leder/intervjuer")
+              : held.has("leads.write") ? "/rekruttering/innboks"
+                : gates.includes("promoter.view") ? (IS_MOCK ? "/promoter" : "/promoter/vaktplan")
+                  : navigation[0]?.href;
   return {
     homeHref: home,
     key: access.template ?? "custom",
