@@ -179,20 +179,32 @@ function Content({ d, groupBy, onGroupBy }: { d: RecruitmentDashboard; groupBy: 
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Leads mottatt" value={num.format(d.basis.leads)} />
-        <Stat label="Ansatt" value={num.format(hired)} hint={d.basis.leads ? `${pct1.format(hired / d.basis.leads)} av leads` : undefined} />
+        <Stat label="Ansatt" value={num.format(hired)}
+          hint={`${d.basis.leads ? `${pct1.format(hired / d.basis.leads)} av leads` : "ingen leads"}${t.leadToHire.median === null ? "" : ` · median ${dec.format(t.leadToHire.median)} d`}`} />
         <Stat label="Ikke møtt til intervju" value={ivN ? pct.format(ivBad / ivN) : "—"} hint={`${ivBad} av ${ivN}`} />
         <Stat label="Ikke møtt første dag" value={fdN ? pct.format(fdBad / fdN) : "—"} hint={`${fdBad} av ${fdN}`} />
-        <Stat label="Tid til intervju / ansatt" value={`${t.leadToInterview.median === null ? "—" : dec.format(t.leadToInterview.median)} / ${t.leadToHire.median === null ? "—" : dec.format(t.leadToHire.median)} d`}
-          hint={`median · 75 % innen ${t.leadToInterview.p75 ?? "—"} / ${t.leadToHire.p75 ?? "—"} d`} />
+        <Stat label="Dager fra lead til intervju"
+          value={t.leadToInterview.median === null ? "—" : `${dec.format(t.leadToInterview.median)} d`}
+          hint={t.leadToInterview.median === null ? "ingen intervjuer ennå"
+            : `median av ${t.leadToInterview.n} · 75 % innen ${dec.format(t.leadToInterview.p75 ?? 0)} d`} />
       </div>
 
       <Funnel steps={d.funnel} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <NoShowChart title="Ikke møtt per kanal" rows={d.noShowByChannel} marks />
-        <NoShowChart title="Ikke møtt per salgsleder" rows={d.noShowByLeader} />
-      </div>
-      <PeriodTable rows={d.noShowByPeriod} groupBy={groupBy} onGroupBy={onGroupBy} />
+      {ivN + fdN === 0 ? (
+        <Card><CardContent className="py-5 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Ikke møtt</span> — ingen intervjuer eller første arbeidsdager i perioden ennå.
+          Tallene per kanal, salgsleder og periode kommer når de første er gjennomført.
+        </CardContent></Card>
+      ) : (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <NoShowChart title="Ikke møtt per kanal" rows={d.noShowByChannel} marks />
+            <NoShowChart title="Ikke møtt per salgsleder" rows={d.noShowByLeader} />
+          </div>
+          <PeriodTable rows={d.noShowByPeriod} groupBy={groupBy} onGroupBy={onGroupBy} />
+        </>
+      )}
 
       <ChannelTable rows={d.channelQuality} />
       <PromoterTable rows={d.promoterQuality} salesSyncedAt={d.basis.sources.salesSyncedAt} />
