@@ -44,6 +44,7 @@ export function storeTokens(access: string, refresh?: string | null) {
 }
 
 export function clearTokens() {
+  stepUp = null;
   try {
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(REFRESH_KEY);
@@ -51,6 +52,46 @@ export function clearTokens() {
     /* nothing stored */
   }
   announce();
+}
+
+/*
+ * IFK-04 step-up token (platform `erp-2fa`, minted after a real OTP). Held in MEMORY only —
+ * never localStorage, never refreshed (master decision): Auth's refresh would carry
+ * twofa_verified for 7 days, so the proof must die with the access token (max 8 h) or the
+ * tab, whichever comes first. While valid it replaces the normal token as the bearer: same
+ * user, and recruitment-service accepts both platforms.
+ */
+let stepUp: { token: string; exp: number } | null = null;
+
+function expOf(token: string): number {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.exp === "number" ? payload.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setStepUpToken(token: string) {
+  stepUp = { token, exp: expOf(token) };
+  announce();
+}
+
+export function clearStepUpToken() {
+  if (stepUp) {
+    stepUp = null;
+    announce();
+  }
+}
+
+export function hasStepUp(): boolean {
+  if (stepUp && stepUp.exp - 30_000 < Date.now()) stepUp = null;
+  return stepUp !== null;
+}
+
+/** The bearer every API call should send: the step-up token while valid, else the normal one. */
+export function currentBearer(): string | null {
+  return hasStepUp() ? stepUp!.token : readToken();
 }
 
 let refreshing: Promise<string | null> | null = null;
@@ -90,6 +131,16 @@ export function refreshAccessToken(): Promise<string | null> {
 export async function authorizedFetch(input: string, init: RequestInit): Promise<Response> {
   const res = await fetch(input, init);
   if (res.status !== 401 || IS_MOCK) return res;
+  if (stepUp) {
+    // The step-up token expired or was revoked: drop it (never refresh it) and retry with
+    // the normal session. The next sensitive action will ask for 2FA again.
+    clearStepUpToken();
+    const headers = new Headers(init.headers);
+    const normal = readToken();
+    if (normal) headers.set("Authorization", `Bearer ${normal}`);
+    const retry = await fetch(input, { ...init, headers });
+    if (retry.status !== 401) return retry;
+  }
   const fresh = await refreshAccessToken();
   if (!fresh) {
     clearTokens(); // the guard notices and redirects to /login
