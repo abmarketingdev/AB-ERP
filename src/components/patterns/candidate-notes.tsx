@@ -1,5 +1,6 @@
 "use client";
 
+import { showDate } from "@/lib/show-date";
 import * as React from "react";
 import { Lock, Paperclip, Plus, Phone, MessageSquare, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -152,7 +153,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
                       className={`rounded-lg border p-3 ${priv ? "border-warning/40 bg-warning/5" : "border-border"}`}>
                     <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{n.author}</span>
-                      <span className="tabular-nums">{n.at}</span>
+                      <span className="tabular-nums">{showDate(n.at, true)}</span>
                       {priv && (
                         <Badge className="gap-1 bg-warning/10 text-[10px] text-warning-on-tint">
                           <Lock className="size-2.5" aria-hidden /> Privat — {named > 0 ? `HR, ledelse og ${named} valgt${named === 1 ? "" : "e"}` : "kun HR og ledelse"}

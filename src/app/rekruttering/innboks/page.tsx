@@ -239,7 +239,7 @@ function SamleinnboksPage() {
 
         <div id="innboks-filtre"
           className={phone ? (filtersOpen ? "flex flex-col gap-3" : "hidden") : "flex flex-wrap items-end gap-x-2 gap-y-3"}>
-          {!phone && <div className="w-72"><SearchBox value={q} onChange={setQ} /></div>}
+          {!phone && <div className="w-52"><SearchBox value={q} onChange={setQ} /></div>}
           <FilterSelect label="Kanal" value={channel} onChange={setChannel}
             options={(meta.data?.channels ?? []).map((c) => ({ value: c.key, label: c.name, node: <ChannelLabel channel={c.name} /> }))} />
           <FilterSelect label="Status" value={status} onChange={setStatus}
@@ -477,8 +477,8 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
   return (
     <div className="relative">
       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Søk på navn, e-post eller telefon"
-        className="pl-9" aria-label="Søk i samleinnboksen" />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Navn, e-post, telefon"
+        className="h-9 pl-9" aria-label="Søk i samleinnboksen på navn, e-post eller telefon" />
     </div>
   );
 }
@@ -503,7 +503,7 @@ function FilterSelect({
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id} aria-label={label} className="min-w-[8.5rem] max-sm:w-full"><SelectValue /></SelectTrigger>
+        <SelectTrigger id={id} aria-label={label} className="h-9 min-w-[8.5rem] max-sm:w-full"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Alle</SelectItem>
           {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.node ?? o.label}</SelectItem>)}
