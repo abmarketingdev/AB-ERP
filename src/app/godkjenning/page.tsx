@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApprovalQueue, useDecideApproval, type DecisionKind } from "@/lib/api/approval";
 import { errorMessage } from "@/lib/api/client";
+import { formatPhone } from "@/lib/format";
 import { useAccess } from "@/lib/use-access";
 import { useStepUp } from "@/lib/step-up";
 import { IS_MOCK } from "@/lib/data-source";
@@ -163,7 +164,7 @@ export default function Godkjenning() {
                                 )}
                               </div>
                               <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                                {req.candidate.phone} · sendt inn av {req.submittedBy.name}
+                                {formatPhone(req.candidate.phone)} · sendt inn av {req.submittedBy.name}
                               </p>
                             </div>
                             {!open && mayDecide && (
