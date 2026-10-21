@@ -188,7 +188,7 @@ function TaskCard({ task: t }: { task: LeaderTask }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{t.title}{t.subject && <span className="font-normal text-muted-foreground"> — {t.subject}</span>}</span>
+              <span className="font-medium">{t.title}{t.subject && !t.title.includes(t.subject) && <span className="font-normal text-muted-foreground"> — {t.subject}</span>}</span>
               <Badge variant="outline" className="gap-1 text-[10px]">
                 {t.source === "system" ? <Bot className="size-2.5" aria-hidden /> : <User className="size-2.5" aria-hidden />}
                 {t.source === "system" ? "fra systemet" : "egen"}
