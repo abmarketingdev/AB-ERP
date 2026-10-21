@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
 import { WeekSlotPicker } from "./week-slot-picker";
 import { useBookInterview, useLeaders } from "@/lib/api/interviews";
 import { useCandidates } from "@/lib/api/recruitment";
@@ -80,7 +81,7 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
         role="status"
       >
         <div className="flex items-center gap-3">
-          <Mascot state="win-small" size={56} label="Intervjuet er booket" />
+          <Mascot {...mascotFor("allDone")} size={56} label="Intervjuet er booket" />
           <div>
             <p className="font-medium">Intervjuet er booket</p>
             <p className="text-sm text-muted-foreground">

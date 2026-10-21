@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicAd, useApply } from "@/lib/api/ads";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
+import { FormErrorSummary } from "@/components/patterns/form-error-summary";
 import { applicationSchema, CONSENT_TEXT } from "@/types/ad";
 
 /**
@@ -88,7 +90,7 @@ export default function Soknad() {
         {ad.isError ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <Mascot state="sleeping" size={72} label="Fant ikke annonsen" />
+              <Mascot {...mascotFor("empty")} size={72} label="Fant ikke annonsen" />
               <p className="text-base font-medium">Vi fant ikke denne annonsen</p>
               <p className="text-sm text-muted-foreground">Lenken kan være feil, eller annonsen er fjernet.</p>
             </CardContent>
@@ -96,7 +98,7 @@ export default function Soknad() {
         ) : closed || (ad.data && !ad.data.open) ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <Mascot state="sleeping" size={72} label="Søknadsfristen er ute" />
+              <Mascot {...mascotFor("empty")} size={72} label="Søknadsfristen er ute" />
               <p className="text-base font-medium">Søknadsfristen er ute</p>
               <p className="text-sm text-muted-foreground">
                 Denne stillingen tar ikke imot flere søknader. Takk for interessen!
@@ -106,7 +108,7 @@ export default function Soknad() {
         ) : sent ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-              <Mascot state="win-small" size={72} label="Søknaden er sendt" />
+              <Mascot {...mascotFor("allDone")} size={72} label="Søknaden er sendt" />
               <div>
                 <p className="text-base font-medium">Takk for søknaden</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -127,16 +129,12 @@ export default function Soknad() {
 
             <form onSubmit={submit} noValidate className="relative flex flex-col gap-5">
               {/* Error summary first (GOV.UK pattern): on a phone the field errors can be off-screen. */}
-              {Object.keys(errors).length > 0 && (
-                <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 p-4 text-sm">
-                  <p className="font-medium text-danger">Noe mangler før du kan sende</p>
-                  <ul className="mt-2 list-disc pl-5">
-                    {Object.entries(errors).map(([k, m]) => (
-                      <li key={k}><a className="underline underline-offset-2" href={`#ap-${{ name: "name", phone: "phone", email: "email" }[k] ?? "name"}`}>{m}</a></li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <FormErrorSummary
+                title="Noe mangler før du kan sende"
+                errors={Object.entries(errors).map(([k, message]) => ({
+                  field: ({ name: "ap-name", phone: "ap-phone", email: "ap-email" } as Record<string, string>)[k], message,
+                }))}
+              />
               <Card>
                 <CardContent className="flex flex-col gap-4 py-5">
                   <h2 className="text-sm font-medium">Dine opplysninger</h2>

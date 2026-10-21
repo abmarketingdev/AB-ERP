@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePublicInterview, useCancelPublicInterview } from "@/lib/api/interviews";
 import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
+import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { errorMessage } from "@/lib/api/client";
 
 /**
@@ -33,7 +35,6 @@ export default function PublicInterview() {
   const cancel = useCancelPublicInterview(token);
   const [done, setDone] = React.useState<"avlyst" | "flyttet" | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [confirming, setConfirming] = React.useState(false);
 
   async function run(rebookTo?: string) {
     setError(null);
@@ -60,7 +61,7 @@ export default function PublicInterview() {
         ) : interview.isError ? (
           <Card>
             <CardContent className="py-10 text-center">
-              <Mascot state="sleeping" size={72} label="Fant ikke intervjuet" className="mx-auto" />
+              <span className="flex justify-center"><Mascot {...mascotFor("empty")} size={72} label="Fant ikke intervjuet" /></span>
               <p className="mt-3 text-base font-medium">Vi fant ikke dette intervjuet</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Lenken kan være feil eller utløpt. Svar på SMS-en du fikk fra oss, eller kontakt den som booket intervjuet.
@@ -70,8 +71,7 @@ export default function PublicInterview() {
         ) : done ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-              <Mascot state={done === "flyttet" ? "win-small" : "idle"} size={72}
-                label={done === "flyttet" ? "Intervjuet er flyttet" : "Intervjuet er avbestilt"} />
+              {done === "flyttet" && <Mascot {...mascotFor("approved")} size={72} label="Intervjuet er flyttet" />}
               <div>
                 <p className="text-base font-medium">
                   {done === "flyttet" ? "Intervjuet er flyttet" : "Intervjuet er avbestilt"}
@@ -138,25 +138,14 @@ export default function PublicInterview() {
                   <CalendarX className="size-4 text-muted-foreground" aria-hidden />
                   Eller avbestill
                 </h2>
-                {confirming ? (
-                  <div className="flex flex-col gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Er du sikker? Da sletter vi tidspunktet, og lederen får beskjed.
-                    </p>
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="h-11 text-danger" disabled={cancel.isPending} onClick={() => run()}>
-                        Ja, avbestill
-                      </Button>
-                      <Button variant="ghost" className="h-11" onClick={() => setConfirming(false)}>
-                        Nei, behold
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button variant="ghost" className="h-11 w-fit text-muted-foreground" onClick={() => setConfirming(true)}>
-                    Jeg kan ikke komme
-                  </Button>
-                )}
+                <ConfirmStep
+                  trigger="Jeg kan ikke komme"
+                  consequence="Da sletter vi tidspunktet, og lederen får beskjed. Du kan få en ny tid senere."
+                  confirmLabel="Ja, avbestill"
+                  tone="neutral"
+                  pending={cancel.isPending}
+                  onConfirm={() => run()}
+                />
               </CardContent>
             </Card>
 

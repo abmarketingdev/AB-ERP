@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { mascotFor } from "@/lib/use-mascot";
 import { Mascot } from "@/components/patterns/mascot";
 import { useInterviews, useInterviewOutcome } from "@/lib/api/interviews";
 import { errorMessage } from "@/lib/api/client";
@@ -74,8 +75,8 @@ function LederIntervjuerPage() {
               </Section>
             ) : (mine.some((iv) => iv.attended !== null) && (
               <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm" role="status">
-                <Mascot state="win-small" size={48} label="Alt registrert" />
-                Alt er registrert. Godt jobbet!
+                <Mascot {...mascotFor("allClear")} size={56} label="Alt er registrert" />
+                Alt er registrert. Ingen intervjuer venter på oppmøte.
               </div>
             ))}
             {upcoming.length > 0 && (
@@ -122,6 +123,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function InterviewRow({ iv, awaiting, today }: { iv: Interview; awaiting?: boolean; today?: boolean }) {
   const [open, setOpen] = React.useState(false);
+  // A new key per opening: the form starts empty every time, never with a half-answer from before.
+  const [opening, setOpening] = React.useState(0);
   return (
     <Card className={awaiting ? "border-warning/40" : today ? "border-[var(--ab-accent-7)]" : undefined}>
       <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -142,26 +145,15 @@ function InterviewRow({ iv, awaiting, today }: { iv: Interview; awaiting?: boole
           </p>
         </div>
         {awaiting && (
-          <Button className="min-h-11 w-full sm:w-auto" onClick={() => setOpen(true)}>Registrer oppmøte</Button>
+          <Button className="min-h-11 w-full sm:w-auto" onClick={() => { setOpening((n) => n + 1); setOpen(true); }}>Registrer oppmøte</Button>
         )}
       </CardContent>
-      {awaiting && <OutcomeSheet iv={iv} open={open} onOpenChange={setOpen} />}
+      {awaiting && <OutcomeSheet key={opening} iv={iv} open={open} onOpenChange={setOpen} />}
     </Card>
   );
 }
 
 function OutcomeSheet({ iv, open, onOpenChange }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void }) {
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="mx-auto max-h-[92vh] max-w-xl overflow-y-auto rounded-t-xl px-4 pb-6">
-        {/* Mounted per opening, so a cancelled answer never lingers into the next one. */}
-        {open && <OutcomeForm iv={iv} onDone={() => onOpenChange(false)} />}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function OutcomeForm({ iv, onDone }: { iv: Interview; onDone: () => void }) {
   const outcome = useInterviewOutcome();
   const [attended, setAttended] = React.useState<boolean | null>(null);
   const [assessment, setAssessment] = React.useState("");
@@ -176,21 +168,28 @@ function OutcomeForm({ iv, onDone }: { iv: Interview; onDone: () => void }) {
     if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Sjekk skjemaet."); return; }
     try {
       await outcome.mutateAsync({ id: iv.id, ...parsed.data });
-      onDone();
+      onOpenChange(false);
     } catch (e) {
       setError(errorMessage(e));
     }
   }
 
   return (
-    <>
-        <SheetHeader className="px-0">
-          <SheetTitle>Oppmøte: {iv.candidateName}</SheetTitle>
-          <SheetDescription>{fullFmt.format(new Date(iv.startsAt))}</SheetDescription>
-        </SheetHeader>
-
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Oppmøte: ${iv.candidateName}`}
+      description={fullFmt.format(new Date(iv.startsAt))}
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Avbryt</Button>
+          <Button disabled={outcome.isPending} onClick={submit}>{outcome.isPending ? "Lagrer …" : "Lagre oppmøte"}</Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5 pt-1">
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-medium">Møtte kandidaten?</legend>
+          <legend className="mb-1 text-sm font-medium">Møtte kandidaten? <span className="text-danger" aria-hidden>*</span></legend>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant={attended === true ? "default" : "outline"} className="min-h-12 gap-1.5" aria-pressed={attended === true}
               onClick={() => setAttended(true)}>
@@ -204,8 +203,8 @@ function OutcomeForm({ iv, onDone }: { iv: Interview; onDone: () => void }) {
         </fieldset>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`as-${iv.id}`}>{attended === false ? "Hva skjedde?" : "Vurdering"} <span className="text-danger">*</span></Label>
-          <Textarea id={`as-${iv.id}`} rows={4} value={assessment} onChange={(e) => setAssessment(e.target.value)}
+          <Label htmlFor={`as-${iv.id}`}>{attended === false ? "Hva skjedde?" : "Vurdering"} <span className="text-danger" aria-hidden>*</span></Label>
+          <Textarea id={`as-${iv.id}`} rows={4} value={assessment} onChange={(e) => setAssessment(e.target.value)} required
             placeholder={attended === false ? "F.eks. svarte ikke på telefon" : "Kort vurdering av kandidaten"} className="text-base" />
         </div>
 
@@ -235,13 +234,8 @@ function OutcomeForm({ iv, onDone }: { iv: Interview; onDone: () => void }) {
         )}
 
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <div className="flex flex-col gap-2 sm:flex-row-reverse">
-          <Button className="min-h-11" disabled={outcome.isPending} onClick={submit}>
-            {outcome.isPending ? "Lagrer …" : "Lagre"}
-          </Button>
-          <Button variant="ghost" className="min-h-11" onClick={onDone}>Avbryt</Button>
-        </div>
-    </>
+      </div>
+    </ResponsiveSheet>
   );
 }
 

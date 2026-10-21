@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
 import {
   useAdMeta, useAds, useMarkManualPublished, usePublishAd, useRetryPublication, useUnpublishAd,
 } from "@/lib/api/ads";
@@ -112,7 +113,7 @@ function WaitingNotice({ onRefresh }: { onRefresh: () => void }) {
   }, [tries, onRefresh]);
   return (
     <div role="status" className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm">
-      <Mascot state="thinking" size={40} label="Venter på plattformene" />
+      <Mascot {...mascotFor("loading", "Venter på svar fra plattformene")} size={56} />
       <span className="flex-1">Noen plattformer har ikke svart ennå. Annonsen er lagret, og siden oppdateres av seg selv.</span>
       {tries >= 6 && <Button size="sm" variant="outline" onClick={() => { setTries(0); onRefresh(); }}>Oppdater</Button>}
     </div>

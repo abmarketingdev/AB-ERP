@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, CalendarCheck, CalendarX, Clock, Mail, MessageSquare, RotateCcw } from "lucide-react";
+import { AlertTriangle, CalendarCheck, Clock, Mail, MessageSquare, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WeekSlotPicker } from "./week-slot-picker";
+import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { useCancelInterview, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
 import { errorMessage } from "@/lib/api/client";
 import {
@@ -51,7 +52,6 @@ export function InterviewCard({ interview: iv }: { interview: Interview }) {
   const reduce = useReducedMotion();
   const setReminder = useSetReminder();
   const [rebookOpen, setRebookOpen] = React.useState(false);
-  const [cancelOpen, setCancelOpen] = React.useState(false);
   const open = iv.status === "booket";
   const failed = iv.messages.filter((m) => m.status === "failed" || m.status === "blocked_optout").length;
 
@@ -97,9 +97,7 @@ export function InterviewCard({ interview: iv }: { interview: Interview }) {
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setRebookOpen(true)}>
               <RotateCcw className="size-3.5" /> Ombook
             </Button>
-            <Button size="sm" variant="ghost" className="gap-1.5 text-danger hover:text-danger" onClick={() => setCancelOpen(true)}>
-              <CalendarX className="size-3.5" /> Avlys
-            </Button>
+            <CancelStep iv={iv} />
             <label className="ml-auto flex min-h-9 items-center gap-2 text-xs text-muted-foreground">
               <Switch checked={iv.reminderEnabled} disabled={setReminder.isPending}
                 onCheckedChange={(v) => setReminder.mutate({ id: iv.id, reminderEnabled: v })} aria-label="Påminnelse dagen før" />
@@ -138,7 +136,6 @@ export function InterviewCard({ interview: iv }: { interview: Interview }) {
       </CardContent>
 
       <RebookDialog iv={iv} open={rebookOpen} onOpenChange={setRebookOpen} />
-      <CancelDialog iv={iv} open={cancelOpen} onOpenChange={setCancelOpen} />
     </Card>
   );
 }
@@ -182,30 +179,20 @@ function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
   );
 }
 
-function CancelDialog({ iv, open, onOpenChange }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void }) {
+/** BOOK-06 by staff: a confirmation step in the card (never confirm()), with the consequence spelled out. */
+function CancelStep({ iv }: { iv: Interview }) {
   const cancel = useCancelInterview();
   const [error, setError] = React.useState<string | null>(null);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Avlys intervjuet?</DialogTitle>
-          <DialogDescription>
-            {iv.candidateName} får SMS om at intervjuet er avlyst, lederen varsles, og hendelsen fjernes fra kalenderen.
-            Kandidaten settes tilbake til «Kvalifisert».
-          </DialogDescription>
-        </DialogHeader>
-        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Behold</Button>
-          <Button variant="destructive" disabled={cancel.isPending} onClick={async () => {
-            setError(null);
-            try { await cancel.mutateAsync({ id: iv.id }); onOpenChange(false); } catch (e) { setError(errorMessage(e)); }
-          }}>
-            {cancel.isPending ? "Avlyser …" : "Avlys intervjuet"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="flex flex-col gap-1">
+      <ConfirmStep
+        trigger="Avlys"
+        consequence={`${iv.candidateName} får SMS om at intervjuet er avlyst, lederen varsles, og hendelsen fjernes fra kalenderen. Kandidaten settes tilbake til «Kvalifisert».`}
+        confirmLabel="Avlys intervjuet"
+        pending={cancel.isPending}
+        onConfirm={() => cancel.mutate({ id: iv.id }, { onError: (e) => setError(errorMessage(e)) })}
+      />
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+    </div>
   );
 }

@@ -155,10 +155,18 @@ function setCandidateStage(candidateId: string, stageId: string, actor: string, 
 
 function publicView(iv: Interview) {
   const canChange = iv.status === "booket" && new Date(iv.startsAt) > DEMO_TODAY;
-  const alternatives = canChange
-    ? slotsFor(iv.leader.id, iso(new Date(DEMO_TODAY.getTime() + 86_400_000)).slice(0, 10), 10)
-      .filter((s) => s.available).slice(0, 6).map((s) => s.startsAt)
-    : [];
+  // Like the server: a few free times over several days, at most two a day (BOOK-07).
+  const alternatives: string[] = [];
+  if (canChange) {
+    const perDay = new Map<string, number>();
+    for (const s of slotsFor(iv.leader.id, iso(new Date(DEMO_TODAY.getTime() + 86_400_000)).slice(0, 10), 14)) {
+      const day = s.startsAt.slice(0, 10);
+      if (!s.available || (perDay.get(day) ?? 0) >= 2) continue;
+      perDay.set(day, (perDay.get(day) ?? 0) + 1);
+      alternatives.push(s.startsAt);
+      if (alternatives.length >= 6) break;
+    }
+  }
   return {
     id: iv.id, candidateName: iv.candidateName.split(" ")[0], leader: iv.leader.name, startsAt: iv.startsAt,
     location: iv.location, status: iv.status === "booket" && !canChange ? "passert" : iv.status, canChange, alternatives,
