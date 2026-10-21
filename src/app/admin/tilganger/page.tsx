@@ -233,6 +233,10 @@ function UserDetail({ user, catalogue }: { user: UserAccess; catalogue: Permissi
           <Label htmlFor="mal">Mal</Label>
           {IS_MOCK ? (
             <p id="mal" className="text-[15px] font-medium text-foreground">{user.role}</p>
+          ) : !templates.data ? (
+            // A controlled <select> whose options arrive after its value shows the FIRST
+            // option («Ingen mal») — render it only once the templates are known.
+            <Skeleton className="h-11 w-full rounded-md" />
           ) : (
             <select id="mal" value={nextTemplate} disabled={busy || !user.active}
               onChange={(e) => setNextTemplate(e.target.value)}
