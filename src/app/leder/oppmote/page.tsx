@@ -90,7 +90,7 @@ function OppmotePage() {
         source="Vaktplan og registrert oppmøte"
         lastUpdated={shifts.dataUpdatedAt ? new Date(shifts.dataUpdatedAt) : new Date()}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <Button size="icon" variant="outline" aria-label="Forrige måned" onClick={() => setAnchor(shiftMonth(anchor, -1))}>
               <ChevronLeft className="size-4" />
             </Button>
@@ -99,7 +99,7 @@ function OppmotePage() {
               <ChevronRight className="size-4" />
             </Button>
             <Select value={team} onValueChange={setTeam}>
-              <SelectTrigger size="sm" className="w-[11rem]" aria-label="Team"><SelectValue /></SelectTrigger>
+              <SelectTrigger size="sm" className="w-full sm:w-[11rem]" aria-label="Team"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="alle">Alle mine team</SelectItem>
                 {teams.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
@@ -133,7 +133,7 @@ function OppmotePage() {
                   <span className="text-muted-foreground tabular-nums">{fullDay.format(day(s.toDate))}</span>
                   <span className="text-xs text-muted-foreground">«{s.reason}»</span>
                   {s.status === "venter_leder" ? (
-                    <span className="ml-auto flex gap-2">
+                    <span className="flex w-full gap-2 sm:ml-auto sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none">
                       <Button size="sm" className="min-h-10 gap-1.5" disabled={decide.isPending}
                         onClick={() => decide.mutate({ id: s.id, approve: true })}>
                         <Check className="size-3.5" /> Godkjenn
@@ -244,7 +244,27 @@ function OppmotePage() {
                     onChange={(e) => setTarget(e.target.value)} placeholder="f.eks. 120" />
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              {/* Phone: one card per team rather than a squashed table (08-DESIGN-REVIEW). */}
+              <ul className="flex flex-col gap-2 sm:hidden">
+                {list.map((f) => (
+                  <li key={f.teamId} className="rounded-lg border border-border p-3 text-sm">
+                    <p className="font-medium">{f.team}</p>
+                    {f.basisDays === 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Ingen registrert oppmøte ennå — prognosen kommer når det finnes historikk.</p>
+                    ) : (
+                      <dl className="mt-2 grid grid-cols-2 gap-y-1 tabular-nums">
+                        <dt className="text-muted-foreground">Planlagt</dt><dd className="text-right">{f.plannedDays}</dd>
+                        <dt className="text-muted-foreground">Forventet levert</dt>
+                        <dd className="text-right">{f.reliable ? "" : "≈ "}{f.expectedDays.toLocaleString("nb-NO")} <span className="text-xs text-muted-foreground">({f.expectedLow}–{f.expectedHigh})</span></dd>
+                        <dt className="text-muted-foreground">Oppmøtegrad</dt><dd className="text-right">{f.reliable ? "" : "≈ "}{pctFmt.format(f.showRate)}</dd>
+                        {target && <><dt className="text-muted-foreground">Må planlegges</dt><dd className="text-right">{f.neededForTarget ?? "—"}</dd></>}
+                      </dl>
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">{f.basisDays} registrerte dager{!f.reliable && f.basisDays > 0 && " · lite historikk — usikkert"}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

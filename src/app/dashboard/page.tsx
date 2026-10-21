@@ -325,9 +325,9 @@ function PeriodTable({ rows, groupBy, onGroupBy }: { rows: NoShowRow[]; groupBy:
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="pb-2 font-medium">{groupBy === "uke" ? "Uke" : "Måned"}</th>
-                <th className="pb-2 text-right font-medium">Ikke møtt intervju</th>
-                <th className="pb-2 text-right font-medium">Ikke møtt første dag</th>
+                <th className="pb-2 font-medium">{groupBy === "uke" ? "Uke" : "Mnd"}</th>
+                <th className="pb-2 text-right font-medium">Intervju</th>
+                <th className="pb-2 text-right font-medium">Første dag</th>
               </tr></thead>
               <tbody className="divide-y divide-border">
                 {rows.map((r) => (
@@ -358,7 +358,19 @@ function ChannelTable({ rows }: { rows: ChannelQualityRow[] }) {
           Hvilke kanaler gir folk som blir værende og blir robuste. Robust = {ROBUST_SALES_THRESHOLD} endelige godkjente
           avtaler totalt, slik SRS-en definerer det.
         </p>
-        <div className="overflow-x-auto">
+        <ul className="flex flex-col gap-2 sm:hidden">
+          {rows.map((r) => (
+            <li key={r.channel} className="rounded-lg border border-border p-3 text-sm">
+              <p className="flex items-center gap-1.5 font-medium"><ChannelMark channel={r.channel} />{r.channel}</p>
+              <dl className="mt-2 grid grid-cols-2 gap-y-1 tabular-nums">
+                <dt className="text-muted-foreground">Leads / ansatt</dt><dd className="text-right">{num.format(r.leads)} / {num.format(r.hired)}</dd>
+                <dt className="text-muted-foreground">Aktive 90 d</dt><dd className="text-right">{r.eligible90 ? `${r.retained90} av ${r.eligible90}` : "—"}</dd>
+                <dt className="text-muted-foreground">Robuste</dt><dd className="text-right">{num.format(r.robust)}{r.robustRate === null ? "" : ` · ${pct.format(r.robustRate)}`}</dd>
+              </dl>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -405,7 +417,20 @@ function PromoterTable({ rows, salesSyncedAt }: { rows: PromoterQualityRow[]; sa
           manglende oppfølging.
           {salesSyncedAt ? ` Avtaler fra HR, hentet ${new Date(salesSyncedAt).toLocaleString("nb-NO")}.` : " Avtaletall fra HR er ikke hentet ennå."}
         </p>
-        <div className="overflow-x-auto">
+        <ul className="flex flex-col gap-2 sm:hidden">
+          {rows.map((r) => (
+            <li key={r.promoterId} className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium">{r.promoter}</p>
+              <dl className="mt-2 grid grid-cols-2 gap-y-1 tabular-nums">
+                <dt className="text-muted-foreground">Leads → ansatte</dt><dd className="text-right">{num.format(r.leads)} → {num.format(r.hired)}</dd>
+                <dt className="text-muted-foreground">Oppmøtedager</dt><dd className="text-right">{num.format(r.attendanceDays)}</dd>
+                <dt className="text-muted-foreground">Godkjente avtaler</dt><dd className="text-right">{dec.format(r.sales)}</dd>
+                <dt className="text-muted-foreground">Per oppmøtedag</dt><dd className="text-right font-medium">{r.efficiency === null ? "—" : dec.format(r.efficiency)}</dd>
+              </dl>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
