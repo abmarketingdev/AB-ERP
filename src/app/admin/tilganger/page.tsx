@@ -322,11 +322,16 @@ function ModuleRow({ title, keys, user, effective, busy, onAsk, onError, setModu
   const reduced = useReducedMotion();
   const held = keys.filter((p) => effective.has(p.key));
   const on = held.length > 0;
+  // Compared with the TEMPLATE, not with «all of the module» (design review round 2): a
+  // module exactly as the template gives it is unremarkable; only a deviation stands out.
+  const granted = keys.some((p) => provenanceOf(user, p.key) === "granted" && effective.has(p.key));
+  const revoked = keys.some((p) => provenanceOf(user, p.key) === "revoked");
+  const fromTemplate = keys.some((p) => user.roleDefaults.includes(p.key));
   const state =
-    held.length === 0 ? (keys.some((p) => provenanceOf(user, p.key) === "revoked") ? "Fjernet" : "Av")
-      : held.length < keys.length ? "Delvis"
-        : keys.every((p) => provenanceOf(user, p.key) === "role") ? "Fra malen"
-          : keys.some((p) => provenanceOf(user, p.key) === "granted") ? "Gitt" : "På";
+    granted && revoked ? "Gitt og fjernet"
+      : granted ? "Gitt"
+        : revoked ? "Fjernet"
+          : fromTemplate ? "Fra malen" : "Av";
   const panelId = `mod-${title.replace(/\W+/g, "-")}`;
 
   function toggle(next: boolean) {
@@ -412,8 +417,10 @@ function ProvenanceChip({ provenance }: { provenance: Provenance }) {
 }
 
 function StateChip({ state }: { state: string }) {
-  const cls = state === "Fjernet" ? PROV.revoked.cls : state === "Gitt" ? PROV.granted.cls : PROV.role.cls;
-  return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${cls}`}>{state}</span>;
+  // Deviations are emphasised; «Fra malen» stays neutral and quiet.
+  const deviation = state !== "Fra malen";
+  const cls = state === "Fjernet" ? PROV.revoked.cls : state.startsWith("Gitt") ? PROV.granted.cls : PROV.role.cls;
+  return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${deviation ? "font-medium" : ""} ${cls}`}>{state}</span>;
 }
 
 /** Nothing changes without a reason, so the reason is part of the control (FR-A-02). */

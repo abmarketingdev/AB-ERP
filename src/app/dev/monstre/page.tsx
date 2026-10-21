@@ -7,6 +7,7 @@ import { DatePicker, DateRangePicker } from "@/components/patterns/date-picker";
 import { FormErrorSummary } from "@/components/patterns/form-error-summary";
 import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
 import { SelectableButton } from "@/components/patterns/selectable-button";
+import { StaleNotice } from "@/components/patterns/query-boundary";
 import { Label } from "@/components/ui/label";
 
 /**
@@ -63,6 +64,12 @@ export default function Monstre() {
           ))}
           <SelectableButton selected={false} disabled>Deaktivert</SelectableButton>
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">QueryBoundary: delvis/utdatert</h2>
+        <p className="text-sm text-muted-foreground">Når en bakgrunnshenting feiler, beholdes dataene og dette merket vises over dem. Feilboks bare når det ikke finnes data.</p>
+        <StaleNotice updatedAt={new Date().setHours(18, 42, 0, 0)} onRetry={() => undefined} />
       </section>
 
       <section className="space-y-3">
