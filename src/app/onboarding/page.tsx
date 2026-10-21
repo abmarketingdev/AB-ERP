@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewHires } from "@/lib/api/onboarding";
+import { IS_MOCK } from "@/lib/data-source";
 import { CONTRACT_STATUS_LABEL, CHECKLIST_LABEL, type NewHire } from "@/types/onboarding";
 
 /**
@@ -21,11 +22,20 @@ import { CONTRACT_STATUS_LABEL, CHECKLIST_LABEL, type NewHire } from "@/types/on
  */
 
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" });
-const DEMO_TODAY = new Date("2026-08-20T09:12:00.000Z");
+// The mock fixtures are anchored to the demo's «today»; the real API uses the clock.
+const TODAY = IS_MOCK ? new Date("2026-08-20T09:12:00.000Z") : new Date();
 
 function daysUntil(d: string) {
-  return Math.round((new Date(d).getTime() - DEMO_TODAY.getTime()) / 86_400_000);
+  return Math.round((new Date(d).getTime() - TODAY.getTime()) / 86_400_000);
 }
+
+const STATUS_BADGE: Partial<Record<NewHire["status"], { label: string; tone: string }>> = {
+  pending_handover: { label: "Overføres til HR", tone: "bg-muted text-muted-foreground" },
+  ready: { label: "Klar til fullføring", tone: "bg-success/10 text-success" },
+  completed: { label: "Fullført", tone: "bg-success/10 text-success" },
+  no_show: { label: "Ikke møtt", tone: "bg-danger/10 text-danger" },
+  cancelled: { label: "Avbrutt", tone: "bg-muted text-muted-foreground" },
+};
 
 export default function Onboarding() {
   const hires = useNewHires();
@@ -35,7 +45,7 @@ export default function Onboarding() {
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader
         title="Onboarding"
-        description={`${list.filter((h) => !h.completedAt).length} pågående`}
+        description={`${list.filter((h) => h.status === "in_progress" || h.status === "ready" || h.status === "pending_handover").length} pågående`}
         source="Godkjente kandidater"
         lastUpdated={new Date()}
       />
@@ -60,7 +70,9 @@ function HireRow({ hire: h }: { hire: NewHire }) {
   const until = daysUntil(h.startDate);
   // ONB-03 — starting without a signed contract is not allowed, so a start date
   // approaching with an unsigned contract is the one thing worth shouting about.
-  const blocked = h.contract.status !== "signert" && until <= 7;
+  const open = h.status !== "completed" && h.status !== "no_show" && h.status !== "cancelled";
+  const blocked = open && h.contract.status !== "signert" && until <= 7;
+  const badge = STATUS_BADGE[h.status];
   const next = h.checklist.find((c) => !c.done);
 
   return (
@@ -75,6 +87,8 @@ function HireRow({ hire: h }: { hire: NewHire }) {
               <span className="font-medium">{h.name}</span>
               <Badge variant="outline">{h.team}</Badge>
               <Badge variant="outline">{h.campaign}</Badge>
+              {badge && <Badge className={badge.tone}>{badge.label}</Badge>}
+              {h.hrSync?.state === "failed" && <Badge className="bg-warning/10 text-warning-on-tint">HR-synk feilet</Badge>}
               <Badge className={h.contract.status === "signert" ? "bg-success/10 text-success" : "bg-warning/10 text-warning-on-tint"}>
                 Kontrakt: {CONTRACT_STATUS_LABEL[h.contract.status]}
               </Badge>

@@ -206,7 +206,7 @@ function Detail({ hire: h }: { hire: NewHire }) {
           <p className="text-xs text-muted-foreground">
             Kontrakten sendes automatisk fra HR når Ole godkjenner. Personen kan ikke starte før den er signert.
             Endringer i kontraktmalene meldes til Dana før de tas i bruk
-            (<Link href="/admin/kontraktmaler" className="underline">kontraktmaler</Link>).
+            (<Link href="/onboarding/kontraktmaler" className="underline">kontraktmaler</Link>).
           </p>
         </CardContent>
       </Card>
