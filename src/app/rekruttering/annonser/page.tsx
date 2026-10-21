@@ -244,7 +244,31 @@ function PublicationTable({ ad }: { ad: Ad }) {
     }
   }
   return (
-    <div className="overflow-x-auto">
+    <>
+    {/* Phone (IFK-08, 08 §2): one card per platform instead of a squashed table. */}
+    <ul className="flex flex-col divide-y divide-border rounded-lg border border-border sm:hidden">
+      {ad.publications.map((p) => (
+        <li key={p.id} className={`flex flex-col gap-2 p-3 ${p.unpublishedAt ? "text-muted-foreground" : ""}`}>
+          <div className="flex items-start justify-between gap-3">
+            <span className="font-medium">{p.platformName}</span>
+            <span className="shrink-0 text-sm tabular-nums">{numFmt.format(p.applicants)} søkere</span>
+          </div>
+          <PublicationState ad={ad} p={p} />
+          {p.externalId && <span className="font-mono text-xs text-muted-foreground">ID {p.externalId}</span>}
+          <button
+            type="button"
+            onClick={() => copy(p.trackingUrl, p.id)}
+            className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border border-border px-2 text-left font-mono text-xs text-muted-foreground"
+            aria-label={`Kopier sporingslenken for ${p.platformName}`}
+          >
+            <span className="min-w-0 flex-1 truncate">{p.trackingUrl}</span>
+            {copied === p.id ? <Check className="size-4 shrink-0 text-success" aria-hidden /> : <Copy className="size-4 shrink-0" aria-hidden />}
+          </button>
+        </li>
+      ))}
+      <li className="flex justify-between p-3 text-sm"><span className="text-muted-foreground">Totalt</span><span className="font-medium tabular-nums">{numFmt.format(ad.applicantsTotal)}</span></li>
+    </ul>
+    <div className="hidden overflow-x-auto sm:block">
       {/* Fixed columns: «Status» starts in the same place on every card, so the eye can run down the page. */}
       <table className="w-full table-fixed text-sm">
         <colgroup>
@@ -297,6 +321,7 @@ function PublicationTable({ ad }: { ad: Ad }) {
         </tfoot>
       </table>
     </div>
+    </>
   );
 }
 
