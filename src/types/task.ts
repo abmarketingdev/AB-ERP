@@ -56,10 +56,14 @@ export const leaderTaskSchema = z.object({
   /** False for tasks only the underlying action can close (GODK-01 data to Ole). */
   answerable: z.boolean(),
   responseSchema: z.array(responseFieldSchema),
-  response: z.record(z.unknown()).nullable(),
+  /**
+   * A list, not an object: field keys are leader-defined strings, and the
+   * gateway's camelCase translation would rewrite them as if they were ours.
+   */
+  response: z.array(z.object({ key: z.string(), value: z.unknown() })).nullable(),
   completedAt: z.string().nullable(),
   closedReason: z.string().nullable(),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 export type LeaderTask = z.infer<typeof leaderTaskSchema>;
 export const leaderTaskListSchema = z.array(leaderTaskSchema);

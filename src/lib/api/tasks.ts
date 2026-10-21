@@ -28,7 +28,9 @@ export function useCompleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { id: string; response: Record<string, unknown> }) =>
-      apiPost(`${BASE}/${v.id}/complete/`, leaderTaskSchema, { response: v.response }),
+      apiPost(`${BASE}/${v.id}/complete/`, leaderTaskSchema, {
+        response: Object.entries(v.response).map(([key, value]) => ({ key, value })),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.tasks.all() });
       qc.invalidateQueries({ queryKey: qk.schedule.all() });

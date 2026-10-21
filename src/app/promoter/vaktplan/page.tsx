@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Repeat, Check, X, Clock } from "lucide-react";
+import { Repeat, Check, X, Clock, ChevronLeft, ChevronRight, Thermometer } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,65 +12,64 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { useShifts, useSwapRequests, useRequestSwap } from "@/lib/api/srs";
-import { useSession } from "@/lib/permissions";
+import { Mascot } from "@/components/patterns/mascot";
+import { useShifts, useSwapRequests, useRequestSwap, useRespondSwap, useWithdrawSwap, useSetDayKind } from "@/lib/api/staffing";
 import { errorMessage } from "@/lib/api/client";
-import { DAY_KIND_LABEL, type Shift, type DayKind } from "@/types/schedule";
+import { DAY_KIND_LABEL, SWAP_STATUS_LABEL, type Shift, type SwapRequest } from "@/types/schedule";
+import { cellStyle, LEGEND, monthBounds, shiftMonth, TODAY } from "@/lib/shift-cell";
 import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * BEM-06 / BEM-07 — den ansattes egen vaktplan for hele måneden, og vaktbytte.
  *
- * Colour never carries the meaning alone: every day shows its own label as
- * well, because the design system forbids colour as the sole signal and because
- * four kinds of day cannot be told apart by hue on a phone in daylight.
+ * Mobile first (IFK-08): one row per day, large tap targets. Vacation, sickness
+ * and swaps have their own codes (BEM-06), shared with the leader calendar.
+ * Colour never carries the meaning alone: every day shows its label as well.
  *
- * A swap is a request. The cell says "bytte foreslått" until a leader decides,
- * which is BEM-07's whole point — showing it as already swapped would be a lie
- * the employee plans around.
+ * A swap is a request (BEM-07). The colleague accepts first, then the leader
+ * decides, and nothing changes on either day until the leader has approved it —
+ * the row says «bytte venter» meanwhile. Showing it as already swapped would be
+ * a lie the employee plans around.
+ *
+ * Whose schedule this is, is the server's decision (the token). Colleagues'
+ * days come back only as name and date, for choosing a swap.
  */
 
-const KIND_TONE: Record<DayKind, string> = {
-  arbeid: "border-[var(--ab-accent-9)]/35 bg-[var(--ab-accent-3)]/40",
-  ferie: "border-success/35 bg-success/10",
-  syk: "border-warning/35 bg-warning/10",
-  fri: "border-border bg-muted/30",
-};
-
-const weekdayFmt = new Intl.DateTimeFormat("nb-NO", { weekday: "short" });
-const monthFmt = new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeric" });
-const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" });
-const DEMO_TODAY = "2026-08-20";
+const weekdayFmt = new Intl.DateTimeFormat("nb-NO", { weekday: "short", timeZone: "UTC" });
+const monthFmt = new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeric", timeZone: "UTC" });
+const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long", timeZone: "UTC" });
+const day = (d: string) => new Date(`${d}T00:00:00Z`);
 
 function VaktplanPage() {
-  const session = useSession();
-  const name = session?.name ?? "Kari Nordmann";
-  const shifts = useShifts({ employee: name });
+  const [anchor, setAnchor] = React.useState(TODAY);
+  const { from, to } = monthBounds(anchor);
+  const shifts = useShifts({ from, to });
+  const pool = useShifts({ from: TODAY, to: monthBounds(shiftMonth(TODAY, 1)).to, swapTargets: true });
   const swaps = useSwapRequests();
   const request = useRequestSwap();
+  const setKind = useSetDayKind();
 
   const [swapFrom, setSwapFrom] = React.useState<Shift | null>(null);
   const [swapTo, setSwapTo] = React.useState("");
   const [reason, setReason] = React.useState("");
+  const [sick, setSick] = React.useState<Shift | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const mine = (shifts.data ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
-  const myNames = new Set(mine.map((s) => s.employeeName));
-  const mySwaps = (swaps.data ?? []).filter((s) => myNames.has(s.fromEmployee) || myNames.has(s.toEmployee));
-
-  // Everyone else's future working days, as swap targets.
-  const allShifts = useShifts({});
-  const targets = (allShifts.data ?? []).filter(
-    (s) => s.employeeName !== name && s.kind === "arbeid" && s.date > DEMO_TODAY,
-  );
+  const myIds = new Set(mine.map((s) => s.id));
+  const me = mine[0]?.employeeId ?? (pool.data ?? []).find((s) => s.attendanceHistory !== undefined)?.employeeId;
+  const targets = (pool.data ?? []).filter((s) => !myIds.has(s.id) && s.employeeId !== me);
+  const mySwaps = swaps.data ?? [];
+  const incoming = mySwaps.filter((s) => s.status === "venter_kollega" && s.toEmployeeId === me);
+  const outgoing = mySwaps.filter((s) => s.fromEmployeeId === me || (s.toEmployeeId === me && s.status !== "venter_kollega"));
 
   const workDays = mine.filter((s) => s.kind === "arbeid").length;
   const vacation = mine.filter((s) => s.kind === "ferie").length;
-  const sick = mine.filter((s) => s.kind === "syk").length;
+  const sickDays = mine.filter((s) => s.kind === "syk").length;
 
   async function submitSwap() {
     setError(null);
-    if (!swapFrom || !swapTo || !reason.trim()) {
+    if (!swapFrom || !swapTo || reason.trim().length < 3) {
       setError("Velg en vakt å bytte med, og skriv en kort begrunnelse.");
       return;
     }
@@ -84,22 +83,54 @@ function VaktplanPage() {
     }
   }
 
+  async function reportSick() {
+    if (!sick) return;
+    setError(null);
+    try {
+      await setKind.mutateAsync({ id: sick.id, kind: "syk" });
+      setSick(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader
         title="Min vaktplan"
-        description={`${workDays} arbeidsdager · ${vacation} feriedager · ${sick} sykedager`}
-        period={monthFmt.format(new Date(DEMO_TODAY))}
-        lastUpdated={new Date()}
+        description={`${workDays} arbeidsdager · ${vacation} feriedager · ${sickDays} sykedager`}
+        period={monthFmt.format(day(from))}
+        lastUpdated={shifts.dataUpdatedAt ? new Date(shifts.dataUpdatedAt) : new Date()}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="outline" aria-label="Forrige måned" onClick={() => setAnchor(shiftMonth(anchor, -1))}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button size="icon" variant="outline" aria-label="Neste måned" onClick={() => setAnchor(shiftMonth(anchor, 1))}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        }
       />
 
       <Legend />
+
+      {incoming.length > 0 && (
+        <Card className="border-warning/40">
+          <CardContent className="flex flex-col gap-3 py-4">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <Repeat className="size-4 text-muted-foreground" aria-hidden /> En kollega vil bytte vakt med deg
+            </h2>
+            <ul className="flex flex-col gap-3">{incoming.map((s) => <li key={s.id}><IncomingSwap swap={s} /></li>)}</ul>
+          </CardContent>
+        </Card>
+      )}
 
       <QueryBoundary
         query={shifts}
         skeleton={<Skeleton className="h-96 w-full rounded-lg" />}
         isEmpty={(d) => d.length === 0}
-        emptyTitle="Ingen vakter satt opp"
+        emptyTitle="Ingen vakter denne måneden"
         emptyDescription="Når lederen din setter opp vaktplanen, ser du den her."
         className="flex flex-col gap-6"
       >
@@ -107,29 +138,33 @@ function VaktplanPage() {
           <>
             <ul className="flex flex-col gap-2">
               {mine.map((s) => {
-                const past = s.date < DEMO_TODAY;
-                const today = s.date === DEMO_TODAY;
+                const past = s.date < TODAY;
+                const { cls, label, title } = cellStyle(s);
                 return (
                   <li key={s.id}>
-                    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3.5 py-3 ${KIND_TONE[s.kind]} ${past ? "opacity-70" : ""}`}>
+                    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 ${past ? "opacity-75" : ""}`}>
                       <div className="flex items-center gap-3">
-                        <span className="w-24 shrink-0 text-sm capitalize tabular-nums">
-                          {weekdayFmt.format(new Date(s.date))} {dayFmt.format(new Date(s.date))}
-                        </span>
-                        <Badge variant="outline">{DAY_KIND_LABEL[s.kind]}</Badge>
-                        {today && <Badge className="bg-[var(--ab-accent-9)] text-[var(--primary-foreground)]">I dag</Badge>}
+                        <span className={`flex size-9 shrink-0 items-center justify-center rounded text-xs font-medium ${cls}`} aria-hidden>{label}</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm capitalize tabular-nums">{weekdayFmt.format(day(s.date))} {dayFmt.format(day(s.date))}</span>
+                          <span className="text-xs text-muted-foreground">{title}</span>
+                        </div>
+                        {s.date === TODAY && <Badge className="bg-[var(--ab-accent-9)] text-[var(--primary-foreground)]">I dag</Badge>}
                         {s.swapPending && (
-                          <Badge className="gap-1 bg-warning/10 text-warning-on-tint">
-                            <Clock className="size-3" aria-hidden /> Bytte foreslått
-                          </Badge>
+                          <Badge className="gap-1 bg-warning/10 text-warning-on-tint"><Clock className="size-3" aria-hidden /> Bytte venter</Badge>
                         )}
-                        {s.attendance === "mott" && <Badge className="bg-success/10 text-success">Møtt</Badge>}
-                        {s.attendance === "ikke-mott" && <Badge className="bg-danger/10 text-danger">Ikke møtt</Badge>}
                       </div>
-                      {s.kind === "arbeid" && !past && !s.swapPending && (
-                        <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => { setSwapFrom(s); setError(null); }}>
-                          <Repeat className="size-3.5" /> Be om bytte
-                        </Button>
+                      {s.kind === "arbeid" && !past && (
+                        <div className="flex gap-1">
+                          {!s.swapPending && s.date > TODAY && (
+                            <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => { setSwapFrom(s); setError(null); }}>
+                              <Repeat className="size-3.5" /> Be om bytte
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => { setSick(s); setError(null); }}>
+                            <Thermometer className="size-3.5" /> Meld syk
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </li>
@@ -137,27 +172,12 @@ function VaktplanPage() {
               })}
             </ul>
 
-            {mySwaps.length > 0 && (
+            {outgoing.length > 0 && (
               <section className="flex flex-col gap-2">
                 <h2 className="text-sm font-medium text-muted-foreground">Mine bytteforespørsler</h2>
                 <Card>
                   <CardContent className="flex flex-col divide-y divide-border p-0">
-                    {mySwaps.map((s) => (
-                      <div key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                        <span className="tabular-nums">{dayFmt.format(new Date(s.fromDate))}</span>
-                        <Repeat className="size-3.5 text-muted-foreground" aria-hidden />
-                        <span className="tabular-nums">{dayFmt.format(new Date(s.toDate))}</span>
-                        <span className="text-muted-foreground">med {s.toEmployee}</span>
-                        <Badge className={
-                          s.status === "godkjent" ? "bg-success/10 text-success"
-                            : s.status === "avvist" ? "bg-danger/10 text-danger"
-                              : "bg-warning/10 text-warning-on-tint"
-                        }>
-                          {s.status === "venter" ? "Venter på leder" : s.status === "godkjent" ? "Godkjent" : "Avvist"}
-                        </Badge>
-                        <span className="ml-auto text-xs text-muted-foreground">{s.reason}</span>
-                      </div>
-                    ))}
+                    {outgoing.map((s) => <OutgoingSwap key={s.id} swap={s} />)}
                   </CardContent>
                 </Card>
               </section>
@@ -172,32 +192,28 @@ function VaktplanPage() {
           <DialogHeader>
             <DialogTitle>Be om vaktbytte</DialogTitle>
             <DialogDescription>
-              Byttet gjelder først når lederen din har godkjent det. Begge vaktene står som før
-              til da.
+              Kollegaen din må si ja først, og deretter må lederen godkjenne. Begge vaktene står som før til da.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
-            <p className="text-sm">
-              Din vakt: <span className="font-medium">{swapFrom && dayFmt.format(new Date(swapFrom.date))}</span>
-            </p>
+            <p className="text-sm">Din vakt: <span className="font-medium">{swapFrom && dayFmt.format(day(swapFrom.date))}</span></p>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="swap-to">Bytt med</Label>
               <Select value={swapTo} onValueChange={setSwapTo}>
-                <SelectTrigger id="swap-to"><SelectValue placeholder="Velg en kollegas vakt" /></SelectTrigger>
+                <SelectTrigger id="swap-to" className="min-h-10"><SelectValue placeholder="Velg en kollegas vakt" /></SelectTrigger>
                 <SelectContent>
-                  {targets.slice(0, 40).map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.employeeName} — {dayFmt.format(new Date(t.date))}
-                    </SelectItem>
+                  {targets.filter((t) => t.date !== swapFrom?.date).slice(0, 60).map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.employeeName} — {dayFmt.format(day(t.date))}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {targets.length === 0 && <p className="text-xs text-muted-foreground">Ingen kolleger på teamet ditt har ledige arbeidsdager å bytte med.</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="swap-reason">Begrunnelse</Label>
               <Textarea id="swap-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
             </div>
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {error && <p className="text-sm text-danger" role="alert">{error}</p>}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSwapFrom(null)}>Avbryt</Button>
@@ -205,21 +221,76 @@ function VaktplanPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={Boolean(sick)} onOpenChange={(o) => !o && setSick(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Meld deg syk</DialogTitle>
+            <DialogDescription>
+              {sick && `${weekdayFmt.format(day(sick.date))} ${dayFmt.format(day(sick.date))} blir registrert som sykedag. Lederen din ser det i kalenderen.`}
+            </DialogDescription>
+          </DialogHeader>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSick(null)}>Avbryt</Button>
+            <Button disabled={setKind.isPending} onClick={reportSick}>Meld syk</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function IncomingSwap({ swap: s }: { swap: SwapRequest }) {
+  const respond = useRespondSwap();
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      <span><span className="font-medium">{s.fromEmployee}</span> vil ta din vakt {dayFmt.format(day(s.toDate))} og gi deg {dayFmt.format(day(s.fromDate))}.</span>
+      <span className="text-xs text-muted-foreground">«{s.reason}»</span>
+      <span className="ml-auto flex gap-2">
+        <Button size="sm" className="min-h-10 gap-1.5" disabled={respond.isPending} onClick={() => respond.mutate({ id: s.id, accept: true })}>
+          <Check className="size-3.5" /> Ja, send til leder
+        </Button>
+        <Button size="sm" variant="outline" className="min-h-10 gap-1.5" disabled={respond.isPending} onClick={() => respond.mutate({ id: s.id, accept: false })}>
+          <X className="size-3.5" /> Nei
+        </Button>
+      </span>
+      {respond.isError && <p className="w-full text-sm text-danger" role="alert">{errorMessage(respond.error)}</p>}
+    </div>
+  );
+}
+
+function OutgoingSwap({ swap: s }: { swap: SwapRequest }) {
+  const withdraw = useWithdrawSwap();
+  const open = s.status === "venter_kollega" || s.status === "venter_leder";
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+      {s.status === "godkjent" && <Mascot state="win-small" size={36} label="Byttet er godkjent" />}
+      <span className="tabular-nums">{dayFmt.format(day(s.fromDate))}</span>
+      <Repeat className="size-3.5 text-muted-foreground" aria-label="byttes med" />
+      <span className="tabular-nums">{dayFmt.format(day(s.toDate))}</span>
+      <span className="text-muted-foreground">med {s.toEmployee}</span>
+      <Badge className={s.status === "godkjent" ? "bg-success/10 text-success"
+        : open ? "bg-warning/10 text-warning-on-tint" : "bg-muted text-muted-foreground"}>
+        {SWAP_STATUS_LABEL[s.status]}
+      </Badge>
+      {open && (
+        <Button size="sm" variant="ghost" className="ml-auto min-h-10" disabled={withdraw.isPending}
+          onClick={() => withdraw.mutate({ id: s.id })}>Trekk tilbake</Button>
+      )}
     </div>
   );
 }
 
 function Legend() {
   return (
-    <ul className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-      {(Object.keys(DAY_KIND_LABEL) as DayKind[]).map((k) => (
-        <li key={k} className="flex items-center gap-1.5">
-          <span className={`size-3 rounded border ${KIND_TONE[k]}`} aria-hidden />
-          {DAY_KIND_LABEL[k]}
+    <ul className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground" aria-label="Fargekoder">
+      {LEGEND.map((i) => (
+        <li key={i.text} className="flex items-center gap-1.5">
+          <span className={`flex size-4 items-center justify-center rounded text-[9px] ${i.cls}`} aria-hidden>{i.label}</span>
+          {i.text === "Planlagt" ? DAY_KIND_LABEL.arbeid : i.text}
         </li>
       ))}
-      <li className="flex items-center gap-1.5"><Check className="size-3 text-success" aria-hidden /> Møtt</li>
-      <li className="flex items-center gap-1.5"><X className="size-3 text-danger" aria-hidden /> Ikke møtt</li>
     </ul>
   );
 }

@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, API } from "./client";
+import { apiDownload, apiGet, apiPut, API } from "./client";
 import { qk } from "./keys";
 import { IS_MOCK } from "@/lib/data-source";
-import { authorizedFetch } from "@/lib/auth-tokens";
 import {
   dashboardFilterOptionsSchema,
   dashboardSchema,
@@ -56,7 +55,7 @@ export function useSetReportSubscription() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { enabled: boolean; frequency: "ukentlig" | "manedlig"; filters?: Record<string, unknown> }) =>
-      apiPost(`${BASE}/subscription/`, reportSubscriptionSchema, { filters: {}, ...v }),
+      apiPut(`${BASE}/subscription/`, reportSubscriptionSchema, { filters: {}, ...v }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recruitment-dashboard", "subscription"] }),
   });
 }
@@ -68,19 +67,10 @@ export function useSetReportSubscription() {
  */
 export async function downloadDashboard(format: "xlsx" | "pdf", filter: DashboardFilter, onScreen: RecruitmentDashboard) {
   if (IS_MOCK) return downloadDashboardLocally(format, onScreen);
-  const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE ?? ""}${BASE}/export.${format}`, window.location.origin);
-  for (const [k, v] of Object.entries(dashboardParams(filter))) if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
-  const token = window.localStorage.getItem("ab-erp-token");
-  const res = await authorizedFetch(url.toString(), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (!res.ok) {
-    let message = res.status === 403 ? "Du har ikke tilgang til eksport." : "Eksporten feilet. Prøv igjen.";
-    try { message = ((await res.json()) as { message?: string }).message ?? message; } catch { /* not json */ }
-    throw new Error(message);
-  }
-  const blob = await res.blob();
+  const { blob, filename } = await apiDownload(`${BASE}/export.${format}`, dashboardParams(filter));
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? `rekruttering.${format}`;
+  a.download = filename ?? `rekruttering.${format}`;
   a.click();
   URL.revokeObjectURL(a.href);
 }

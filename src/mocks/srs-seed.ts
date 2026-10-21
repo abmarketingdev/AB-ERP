@@ -325,6 +325,11 @@ export function buildEmployees(): Employee[] {
  * whole blue/green/red distinction meaningless, which is the one thing BEM-01
  * is about.
  */
+/** Mock team ids: the real API keys teams by uuid, the demo by a slug of the name. */
+export function teamIdOf(team: string) {
+  return `team-${team.toLowerCase().replace(/[^a-zæøå0-9]+/g, "-")}`;
+}
+
 export function buildShifts(employees: Employee[]): Shift[] {
   const out: Shift[] = [];
   for (const [ei, e] of employees.entries()) {
@@ -348,19 +353,32 @@ export function buildShifts(employees: Employee[]): Shift[] {
       }
 
       const missed = attendance === "ikke-mott";
+      const followUp =
+        missed && r() > 0.5
+          ? { at: iso(dayOffset(d + 1, 9)), by: LEADERS[ei % LEADERS.length], note: "Ringt. Sykt barn, kommer tilbake i morgen." }
+          : null;
       out.push({
         id: `sh-${e.id}-${d + 14}`,
+        personRef: { kind: "user", id: e.id },
         employeeId: e.id,
         employeeName: e.name,
+        teamId: teamIdOf(e.team),
         team: e.team,
         date: isoDay(date),
         kind,
+        kindAtPlan: kind,
+        source: "plan",
+        declaredAvailable: true,
         attendance,
-        followUp:
-          missed && r() > 0.5
-            ? { at: iso(dayOffset(d + 1, 9)), by: LEADERS[ei % LEADERS.length], note: "Ringt. Sykt barn, kommer tilbake i morgen." }
-            : null,
+        attendanceHistory:
+          attendance === "mott" || attendance === "ikke-mott"
+            ? [{ status: attendance, at: iso(dayOffset(d, 16)), by: LEADERS[ei % LEADERS.length], reason: null, correction: false }]
+            : [],
+        followUps: followUp ? [followUp] : [],
+        followUp,
+        clearance: null,
         swapPending: false,
+        swapState: "none",
       });
     }
   }
@@ -377,16 +395,22 @@ export function buildSwaps(shifts: Shift[]): SwapRequest[] {
     out.push({
       id: `sw-${i + 1}`,
       fromEmployee: a.employeeName,
+      fromEmployeeId: a.employeeId,
       toEmployee: b.employeeName,
+      toEmployeeId: b.employeeId,
+      teamId: a.teamId,
       fromShiftId: a.id,
       toShiftId: b.id,
       fromDate: a.date,
       toDate: b.date,
       reason: ["Eksamen samme dag", "Skal i bryllup", "Legetime jeg ikke får flyttet"][i],
-      status: "venter",
+      status: i === 0 ? "venter_kollega" : "venter_leder",
       requestedAt: iso(dayOffset(-1, 18)),
+      counterpartRespondedAt: i === 0 ? null : iso(dayOffset(-1, 20)),
+      counterpartComment: null,
       decidedAt: null,
       decidedBy: null,
+      decisionComment: null,
     });
   }
   return out;
@@ -394,8 +418,59 @@ export function buildSwaps(shifts: Shift[]): SwapRequest[] {
 
 // ── Lederoppgaver (OPPG) ────────────────────────────────────────────────────
 
+/** The seed is written the readable way; toTask() turns it into the API's shape. */
+interface SeedTask {
+  id: string;
+  leader: string;
+  title: string;
+  detail: string;
+  source: "system" | "egen";
+  relatedCandidateId: string | null;
+  dueDate: string;
+  status: "apen" | "fullfort" | "forfalt";
+  response: string | null;
+  completedAt: string | null;
+}
+
+const INTERVIEW_SCHEMA: LeaderTask["responseSchema"] = [
+  { key: "mott", label: "Møtte kandidaten?", type: "bool", required: true },
+  { key: "vurdering", label: "Vurdering", type: "text", required: true, minLength: 3 },
+  { key: "rating", label: "Helhetsinntrykk (1–5)", type: "number", min: 1, max: 5, integer: true },
+  { key: "anbefales", label: "Anbefales?", type: "bool" },
+];
+
+export function leaderIdOf(name: string) {
+  return `leader-${name.toLowerCase().replace(/[^a-zæøå]+/g, "-")}`;
+}
+
+function toTask(t: SeedTask): LeaderTask {
+  const kind = t.source === "egen" ? "egen"
+    : t.id.startsWith("tk-sys-a") ? "registrer_oppmote_intervju"
+    : t.id === "tk-sys-c3" ? "fyll_godkjenningsdata" : "systemoppgave";
+  return {
+    id: t.id,
+    leaderId: leaderIdOf(t.leader),
+    leaderName: t.leader,
+    kind,
+    kindLabel: kind === "egen" ? "Egen oppgave" : "Systemoppgave",
+    source: t.source,
+    title: t.title,
+    detail: t.detail,
+    relatedCandidateId: t.relatedCandidateId,
+    dueAt: `${t.dueDate}T12:00:00+02:00`,
+    status: t.status === "forfalt" ? "apen" : t.status,
+    overdue: t.status === "forfalt",
+    answerable: kind !== "fyll_godkjenningsdata",
+    responseSchema: kind === "registrer_oppmote_intervju" ? INTERVIEW_SCHEMA : [],
+    response: t.response ? [{ key: kind === "registrer_oppmote_intervju" ? "vurdering" : "svar", value: t.response }] : null,
+    completedAt: t.completedAt,
+    closedReason: t.status === "fullfort" ? "svar" : null,
+    payload: kind === "fyll_godkjenningsdata" ? { formUrl: "/godkjenning" } : {},
+  };
+}
+
 export function buildTasks(): LeaderTask[] {
-  const out: LeaderTask[] = [];
+  const out: SeedTask[] = [];
   const interviewed = CANDIDATES.filter((c) => c.stageId === "intervjuet");
   const booked = CANDIDATES.filter((c) => c.stageId === "intervju-booket");
 
@@ -494,5 +569,5 @@ export function buildTasks(): LeaderTask[] {
     },
   );
 
-  return out;
+  return out.map(toTask);
 }

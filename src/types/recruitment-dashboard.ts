@@ -102,7 +102,7 @@ export const dashboardSchema = z.object({
     candidates: z.number(),
     leads: z.number(),
     period: z.string(),
-    filters: z.record(z.unknown()),
+    filters: z.record(z.string(), z.unknown()),
     scope: z.enum(["alle", "egne"]),
     computedAt: z.string(),
     definitionVersion: z.string(),
@@ -133,7 +133,7 @@ export const kpiDefinitionListSchema = z.array(kpiDefinitionSchema);
 export const reportSubscriptionSchema = z.object({
   enabled: z.boolean(),
   frequency: z.enum(["ukentlig", "manedlig"]),
-  filters: z.record(z.unknown()),
+  filters: z.record(z.string(), z.unknown()),
   scope: z.enum(["alle", "egne"]),
   lastSentAt: z.string().nullable(),
 });
