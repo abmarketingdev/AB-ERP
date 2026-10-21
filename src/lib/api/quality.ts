@@ -10,6 +10,9 @@ import {
   fetchUserAccess,
   patchPermission,
   patchUserActive,
+  fetchTemplates,
+  patchTemplate,
+  patchModule,
 } from "./recruitment-admin";
 import {
   auditLogSchema,
@@ -356,6 +359,41 @@ export function useApproveCorrection() {
       for (const key of qk.afterCorrection()) {
         qc.invalidateQueries({ queryKey: key });
       }
+    },
+  });
+}
+
+/** SRS §2.2 role templates (api mode only — the demo has fixed roles). */
+export function useAccessTemplates() {
+  return useQuery({
+    queryKey: [...qk.quality.access(), "templates"],
+    queryFn: fetchTemplates,
+    enabled: !IS_MOCK,
+    staleTime: 60_000,
+  });
+}
+
+export function useSetTemplate() {
+  const qc = useQueryClient();
+  const stepUp = useStepUp();
+  return useMutation({
+    mutationFn: (vars: { id: string; template: string | null; reason: string }) => stepUp.run(() => patchTemplate(vars)),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: qk.quality.access() });
+      qc.invalidateQueries({ queryKey: qk.quality.audit() });
+    },
+  });
+}
+
+export function useSetModule() {
+  const qc = useQueryClient();
+  const stepUp = useStepUp();
+  return useMutation({
+    mutationFn: (vars: { id: string; grant?: string[]; revoke?: string[]; reset?: string[]; reason: string }) =>
+      stepUp.run(() => patchModule(vars)),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: qk.quality.access() });
+      qc.invalidateQueries({ queryKey: qk.quality.audit() });
     },
   });
 }

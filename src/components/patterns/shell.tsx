@@ -152,13 +152,22 @@ export function Shell({ session, children }: ShellProps) {
               accessibility tree — the other is display:none at that width — so
               they share a name rather than inventing "desktop"/"mobile", which
               are facts about the device, not about the menu. */}
-          <nav aria-label={t("Hovedmeny")} className="relative flex-1 px-2">
-            {session.navigation.map((item) => {
+          <nav aria-label={t("Hovedmeny")} className="relative flex-1 overflow-y-auto px-2">
+            {session.navigation.map((item, i) => {
+              /* A heading where the section changes — an admin's 20 entries read as four
+                 short lists instead of one long one (design review round 1, point 12). */
+              const heading =
+                item.section && item.section !== session.navigation[i - 1]?.section ? item.section : null;
               const active = pathname === item.href;
               const Icon = item.icon ? ICONS[item.icon] : undefined;
               return (
+                <React.Fragment key={item.id}>
+                {heading && (
+                  <p className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80 ${i > 0 ? "pt-4" : "pt-1"}`}>
+                    {t(heading)}
+                  </p>
+                )}
                 <Link
-                  key={item.id}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={`group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-colors ${
@@ -185,6 +194,7 @@ export function Shell({ session, children }: ShellProps) {
                   )}
                   <span className="truncate">{t(item.label)}</span>
                 </Link>
+                </React.Fragment>
               );
             })}
           </nav>

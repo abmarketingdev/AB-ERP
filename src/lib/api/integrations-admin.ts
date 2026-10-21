@@ -14,7 +14,7 @@ const KEY = ["recruitment", "integrations"] as const;
 export const adminIntegrationSchema = z.object({
   name: z.string(),
   label: z.string(),
-  owner: z.string(),
+  group: z.string(),
   breaksWhat: z.string(),
   enabled: z.boolean(),
   provider: z.enum(["mock", "real"]),

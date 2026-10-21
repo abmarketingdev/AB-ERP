@@ -177,6 +177,8 @@ export const userAccessSchema = z.object({
   revoked: z.array(z.string()),
   /** Why each individual change was made, keyed by permission. FR-A-02. */
   reasons: z.record(z.string(), z.string()),
+  /** api mode: the role template key (SRS §2.2) — the base everything else deviates from. */
+  template: z.string().nullable().optional(),
 });
 export type UserAccess = z.infer<typeof userAccessSchema>;
 
@@ -188,6 +190,8 @@ export const permissionSchema = z.object({
   area: z.string(),
   /** Marks access that carries personnel or financial consequence. */
   sensitive: z.boolean(),
+  /** api mode: the module the key belongs to (`<modul>.<handling>`). */
+  module: z.string().optional(),
 });
 export type Permission = z.infer<typeof permissionSchema>;
 export const permissionListSchema = z.array(permissionSchema);

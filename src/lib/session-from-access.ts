@@ -33,28 +33,28 @@ export const VIEW_GATES: Record<string, string[]> = {
   "admin.view": ["access.admin", "integrations.read", "audit.read", "privacy.admin", "tasks.compliance"],
 };
 
-/** Every screen, with the gate that shows it. Order is the menu order. */
+/** Every screen, with the gate that shows it, grouped in sections. Order is the menu order. */
 const NAV: (NavItem & { gate: string })[] = [
-  { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid", gate: "admin.view" },
-  { id: "forside-leder", label: "Forside", href: "/leder", icon: "home", gate: "leader.view" },
-  { id: "forside-promoter", label: "Forside", href: "/promoter", icon: "home", gate: "promoter.view" },
-  { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "promoter.view" },
-  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "promoter.view" },
-  { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox", gate: "leads.view" },
-  { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users", gate: "recruitment.view" },
-  { id: "intervjuer", label: "Intervjuer", href: "/rekruttering/intervjuer", icon: "calendar", gate: "interviews.view" },
-  { id: "annonser", label: "Annonser", href: "/rekruttering/annonser", icon: "megaphone", gate: "ads.view" },
-  { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check", gate: "approval.view" },
-  { id: "onboarding", label: "Onboarding", href: "/onboarding", icon: "clipboard-list", gate: "onboarding.view" },
-  { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users", gate: "employees.view" },
-  { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list", gate: "tasks.view" },
-  { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "leader.view" },
-  { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check", gate: "leader.view" },
-  { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "bar-chart", gate: "recruitdash.view" },
-  { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "admin.view" },
-  { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "admin.view" },
-  { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "admin.view" },
-  { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "admin.view" },
+  { id: "forside-promoter", label: "Forside", href: "/promoter", icon: "home", gate: "promoter.view", section: "Min side" },
+  { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "promoter.view", section: "Min side" },
+  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "promoter.view", section: "Min side" },
+  { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox", gate: "leads.view", section: "Rekruttering" },
+  { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users", gate: "recruitment.view", section: "Rekruttering" },
+  { id: "intervjuer", label: "Intervjuer", href: "/rekruttering/intervjuer", icon: "calendar", gate: "interviews.view", section: "Rekruttering" },
+  { id: "annonser", label: "Annonser", href: "/rekruttering/annonser", icon: "megaphone", gate: "ads.view", section: "Rekruttering" },
+  { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check", gate: "approval.view", section: "Rekruttering" },
+  { id: "onboarding", label: "Onboarding", href: "/onboarding", icon: "clipboard-list", gate: "onboarding.view", section: "Rekruttering" },
+  { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users", gate: "employees.view", section: "Rekruttering" },
+  { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "bar-chart", gate: "recruitdash.view", section: "Rekruttering" },
+  { id: "forside-leder", label: "Forside", href: "/leder", icon: "home", gate: "leader.view", section: "Ledere" },
+  { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "leader.view", section: "Ledere" },
+  { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check", gate: "leader.view", section: "Ledere" },
+  { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list", gate: "tasks.view", section: "Ledere" },
+  { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid", gate: "admin.view", section: "Administrasjon" },
+  { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "admin.view", section: "Administrasjon" },
+  { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "admin.view", section: "Administrasjon" },
+  { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "admin.view", section: "Administrasjon" },
+  { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "admin.view", section: "Administrasjon" },
 ];
 
 export function viewGatesFor(serverKeys: string[]): string[] {
@@ -81,7 +81,7 @@ export function sessionFromAccess(access: AccessMe, name?: string): Session {
       seen.add(key);
       return true;
     })
-    .map(({ id, label, href, icon }) => ({ id, label, href, icon }));
+    .map(({ id, label, href, icon, section }) => ({ id, label, href, icon, section }));
   return {
     key: access.template ?? "custom",
     userId: access.userId,

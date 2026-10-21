@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { BellRing, CircleAlert, CircleCheck, Clock, KeyRound, Power, Send, TriangleAlert } from "lucide-react";
+import { BellRing, ChevronDown, CircleAlert, CircleCheck, Clock, KeyRound, Power, Send, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Mascot } from "@/components/patterns/mascot";
@@ -40,6 +40,17 @@ const STATUS = {
   ok: { label: "I rute", icon: CircleCheck, chip: "border-success/30 bg-success/10 text-success", dot: "bg-success" },
 } as const;
 const RANK = { failing: 0, late: 1, off: 2, ok: 3 } as const;
+const GROUP_ORDER = ["Leads inn", "Annonser ut", "Kommunikasjon", "Kalender", "HR og lønn", "Annet"];
+
+/** Sections in a fixed order; a section with a failure moves to the top, worst row first. */
+function groupsOf(rows: AdminIntegration[]): [string, AdminIntegration[]][] {
+  const by = new Map<string, AdminIntegration[]>();
+  for (const r of rows) by.set(r.group, [...(by.get(r.group) ?? []), r]);
+  const worst = (items: AdminIntegration[]) => Math.min(...items.map((r) => RANK[r.status]));
+  return [...by.entries()]
+    .map(([g, items]) => [g, [...items].sort((a, b) => RANK[a.status] - RANK[b.status] || a.label.localeCompare(b.label, "nb"))] as [string, AdminIntegration[]])
+    .sort((a, b) => worst(a[1]) - worst(b[1]) || GROUP_ORDER.indexOf(a[0]) - GROUP_ORDER.indexOf(b[0]));
+}
 
 const dt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const when = (iso: string | null) => (iso ? dt.format(new Date(iso)) : "Aldri");
@@ -93,13 +104,16 @@ export function IntegrationAdmin() {
                   )}
                 </p>
               </motion.div>
-              <ul className="flex flex-col gap-2.5">
-                {[...rows].sort((a, b) => RANK[a.status] - RANK[b.status]).map((r, i) => (
-                  <motion.li key={r.name} {...riseIn(i + 1, reduced)}>
-                    <Row r={r} canAdmin={canAdmin} />
-                  </motion.li>
-                ))}
-              </ul>
+              {groupsOf(rows).map(([group, items], gi) => (
+                <motion.section key={group} {...riseIn(gi + 1, reduced)} aria-labelledby={`grp-${gi}`}>
+                  <h2 id={`grp-${gi}`} className="mb-2 text-[13px] font-medium text-muted-foreground">{group}</h2>
+                  <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+                    {items.map((r) => (
+                      <li key={r.name}><Row r={r} canAdmin={canAdmin} /></li>
+                    ))}
+                  </ul>
+                </motion.section>
+              ))}
               <p className="text-[12px] text-muted-foreground">
                 Feilede kall prøves på nytt automatisk. Etter tre feil på rad får administratorene varsel her og på e-post.
                 Mens en integrasjon er av, venter jobbene. Ingenting går tapt.
@@ -138,66 +152,69 @@ function Row({ r, canAdmin }: { r: AdminIntegration; canAdmin: boolean }) {
   const Icon = s.icon;
   const toggle = useToggleIntegration();
   const test = useSendTest();
+  const [open, setOpen] = React.useState(r.status === "failing");
   const [keysOpen, setKeysOpen] = React.useState(false);
   const toggleError = toggle.error ? errorMessage(toggle.error) : null;
+  const panelId = `int-${r.name}`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
-        <div className="flex min-w-0 gap-3.5">
-          <span className={`mt-1.5 size-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
-          <div className="min-w-0">
-            <p className="text-[14px] font-medium text-foreground">{r.label}</p>
-            <p className="mt-1 text-[12.5px] text-muted-foreground">{r.breaksWhat || "—"}</p>
-            {r.status === "failing" && r.lastError && (
-              <p className="mt-1.5 flex items-start gap-1.5 text-[12.5px] text-danger">
-                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                <span className="break-words">Siste feil: {r.lastError}</span>
-              </p>
-            )}
-          </div>
-        </div>
-        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${s.chip}`}>
-          <Icon className="size-3" aria-hidden />
-          {s.label}
+    <div>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={panelId}
+        className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+        <span className={`size-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[14px] font-medium text-foreground">{r.label}</span>
+          {!open && r.status !== "ok" && (
+            <span className="block truncate text-[12.5px] text-muted-foreground">{r.breaksWhat}</span>
+          )}
         </span>
-      </div>
+        <span className="hidden text-[12px] text-muted-foreground sm:inline">Sist ok {when(r.lastSuccessAt)}</span>
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${s.chip}`}>
+          <Icon className="size-3" aria-hidden />{s.label}
+        </span>
+        <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
 
-      <dl className="grid grid-cols-2 gap-x-8 gap-y-2 border-t border-border px-5 py-3 sm:flex sm:flex-wrap">
-        <Field label="Siste vellykkede" value={when(r.lastSuccessAt)} />
-        <Field label="Feil på rad" value={String(r.consecutiveFailures)} tone={r.consecutiveFailures ? "text-danger" : undefined} />
-        <Field label="Venter i kø" value={String(r.pendingJobs)} />
-        <Field label="Leverandør" value={r.provider === "mock" ? "Test (mock)" : "Ekte"} />
-        <Field label="Nøkler" value={r.hasSecrets ? "Lagret" : "Ikke lagt inn"} />
-        <Field label="Eier" value={r.owner || "—"} />
-      </dl>
-
-      {canAdmin && (
-        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-muted/20 px-5 py-3">
-          <label className="flex min-h-11 items-center gap-2.5 text-[13px] text-foreground">
-            <Switch
-              checked={r.enabled}
-              disabled={toggle.isPending}
-              onCheckedChange={(on) => toggle.mutate({ name: r.name, enabled: on })}
-              aria-label={`${r.label} ${r.enabled ? "på" : "av"}`}
-            />
-            {r.enabled ? "På" : "Av"}
-          </label>
-          <Button variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setKeysOpen(true)}>
-            <KeyRound className="size-4" aria-hidden /> Nøkler
-          </Button>
-          <Button variant="outline" className="min-h-11 sm:min-h-9" disabled={test.isPending || !r.enabled}
-            title={!r.enabled ? "Skru på integrasjonen for å teste" : undefined}
-            onClick={() => test.mutate(r.name)}>
-            <Send className="size-4" aria-hidden /> {test.isPending ? "Tester…" : "Send test"}
-          </Button>
-          <span aria-live="polite" className="text-[12.5px]">
-            {test.data && (test.data.ok
-              ? <span className="text-success">Testen gikk gjennom.</span>
-              : <span className="text-danger">Testen feilet: {String(test.data.detail ?? "ukjent feil")}</span>)}
-            {test.error && <span className="text-danger">{errorMessage(test.error)}</span>}
-            {toggleError && <span className="text-danger">{toggleError}</span>}
-          </span>
+      {open && (
+        <div id={panelId} className="border-t border-border bg-muted/15 px-4 pb-4 pt-3">
+          <p className="text-[13px] text-muted-foreground">{r.breaksWhat || "Ingen beskrivelse."}</p>
+          {r.status === "failing" && r.lastError && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-danger">
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span className="break-words">Siste feil: {r.lastError}</span>
+            </p>
+          )}
+          <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-2 sm:flex sm:flex-wrap">
+            <Field label="Siste vellykkede" value={when(r.lastSuccessAt)} />
+            <Field label="Feil på rad" value={String(r.consecutiveFailures)} tone={r.consecutiveFailures ? "text-danger" : undefined} />
+            <Field label="Venter i kø" value={String(r.pendingJobs)} />
+            <Field label="Leverandør" value={r.provider === "mock" ? "Test (mock)" : "Ekte"} />
+            <Field label="Nøkler" value={r.hasSecrets ? "Lagret" : "Ikke lagt inn"} />
+          </dl>
+          {canAdmin && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="flex min-h-11 items-center gap-2.5 text-[13px] text-foreground">
+                <Switch checked={r.enabled} disabled={toggle.isPending}
+                  onCheckedChange={(on) => toggle.mutate({ name: r.name, enabled: on })}
+                  aria-label={`${r.label} ${r.enabled ? "på" : "av"}`} />
+                {r.enabled ? "På" : "Av"}
+              </label>
+              <Button variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setKeysOpen(true)}>
+                <KeyRound className="size-4" aria-hidden /> Nøkler
+              </Button>
+              <Button variant="outline" className="min-h-11 sm:min-h-9" disabled={test.isPending || !r.enabled}
+                title={!r.enabled ? "Skru på integrasjonen for å teste" : undefined} onClick={() => test.mutate(r.name)}>
+                <Send className="size-4" aria-hidden /> {test.isPending ? "Tester…" : "Send test"}
+              </Button>
+              <span aria-live="polite" className="text-[12.5px]">
+                {test.data && (test.data.ok
+                  ? <span className="text-success">Testen gikk gjennom.</span>
+                  : <span className="text-danger">Testen feilet: {String(test.data.detail ?? "ukjent feil")}</span>)}
+                {test.error && <span className="text-danger">{errorMessage(test.error)}</span>}
+                {toggleError && <span role="alert" className="text-danger">{toggleError}</span>}
+              </span>
+            </div>
+          )}
         </div>
       )}
       {keysOpen && <SecretsSheet integration={r} onClose={() => setKeysOpen(false)} />}

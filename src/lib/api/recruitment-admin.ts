@@ -68,6 +68,7 @@ export function toUserAccess(u: ServerUser): UserAccess {
     granted: u.granted.filter(activeGrant).map((g) => g.key),
     revoked: u.revoked.map((g) => g.key),
     reasons,
+    template: u.template,
   };
 }
 
@@ -79,6 +80,7 @@ export async function fetchUserAccess(): Promise<UserAccess[]> {
 export async function fetchPermissionCatalogue(): Promise<Permission[]> {
   const schema = z.array(z.object({
     key: z.string(), label: z.string(), description: z.string(), area: z.string(), sensitive: z.boolean(),
+    module: z.string(),
   }));
   return apiGet(`${R}/access/catalogue/`, schema);
 }
@@ -119,4 +121,33 @@ const serverAuditSchema = z.object({
 export async function fetchAuditLog(): Promise<AuditEntry[]> {
   const body = await apiGet(`${R}/audit/events/`, page(serverAuditSchema), { page_size: 500 });
   return body.results.map((e) => ({ ...e, before: e.before ?? undefined, after: e.after ?? undefined }));
+}
+
+export const templateSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  description: z.string(),
+  permissions: z.array(z.string()),
+  isAll: z.boolean(),
+  userCount: z.number(),
+});
+export type AccessTemplate = z.infer<typeof templateSchema>;
+
+export async function fetchTemplates(): Promise<AccessTemplate[]> {
+  return apiGet(`${R}/access/templates/`, z.array(templateSchema));
+}
+
+export async function patchTemplate(vars: { id: string; template: string | null; reason: string }): Promise<UserAccess> {
+  return toUserAccess(
+    await apiPatch(`${R}/access/users/${vars.id}/`, serverUserSchema, { template: vars.template, reason: vars.reason }),
+  );
+}
+
+/** «Gi hele modulen» / «Fjern hele modulen»: several keys in one audited change. */
+export async function patchModule(vars: {
+  id: string; grant?: string[]; revoke?: string[]; reset?: string[]; reason: string;
+}): Promise<UserAccess> {
+  return toUserAccess(await apiPatch(`${R}/access/users/${vars.id}/`, serverUserSchema, {
+    grant: (vars.grant ?? []).map((key) => ({ key })), revoke: vars.revoke ?? [], reset: vars.reset ?? [], reason: vars.reason,
+  }));
 }
