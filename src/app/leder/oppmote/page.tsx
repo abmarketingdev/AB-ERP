@@ -78,12 +78,14 @@ function OppmotePage() {
   const todayOpen = rows.filter((s) => s.date === TODAY && s.attendance === "planlagt");
   const todayDone = rows.filter((s) => s.date === TODAY && (s.attendance === "mott" || s.attendance === "ikke-mott"));
   const current = open ? rows.find((s) => s.id === open.id) ?? open : null;
+  // Past working days nobody registered: still blue, but the leader should know they owe them.
+  const unregistered = rows.filter((s) => s.kind === "arbeid" && s.date < TODAY && s.attendance === "planlagt");
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader
         title="Oppmøte"
-        description={`${missed.length} fravær i ${monthFmt.format(day(from))} · ${unaddressed.length} ikke fulgt opp`}
+        description={`${missed.length} fravær i ${monthFmt.format(day(from))} · ${unaddressed.length} ikke fulgt opp${unregistered.length ? ` · ${unregistered.length} tidligere dager uten registrering` : ""}`}
         source="Vaktplan og registrert oppmøte"
         lastUpdated={shifts.dataUpdatedAt ? new Date(shifts.dataUpdatedAt) : new Date()}
         actions={
@@ -105,6 +107,9 @@ function OppmotePage() {
           </div>
         }
       />
+
+      {/* The leader's main daily action, first and one tap per person (IFK-08). */}
+      {anchor.slice(0, 7) === TODAY.slice(0, 7) && todayOpen.length > 0 && <TodayCard days={todayOpen} />}
 
       {todayDone.length > 0 && todayOpen.length === 0 && (
         <Card>
@@ -168,7 +173,7 @@ function OppmotePage() {
             <CardContent className="flex flex-col gap-3 py-4">
               <Legend />
               <div className="hidden overflow-x-auto md:block">
-                <table className="border-separate border-spacing-0.5 text-sm">
+                <table className="w-full border-separate border-spacing-0.5 text-sm">
                   <thead>
                     <tr>
                       <th className="sticky left-0 z-10 bg-card px-2 py-1 text-left text-xs font-medium text-muted-foreground">Ansatt</th>
@@ -190,7 +195,7 @@ function OppmotePage() {
                         <tr key={id}>
                           <td className="sticky left-0 z-10 whitespace-nowrap bg-card px-2 py-1 text-xs">{p.name}</td>
                           {dates.map((d) => (
-                            <td key={d} className="p-0"><Cell s={byDate.get(d)} name={p.name} date={d} size="size-6" onOpen={setOpen} /></td>
+                            <td key={d} className="p-0"><Cell s={byDate.get(d)} name={p.name} date={d} size="h-7 w-full min-w-6" onOpen={setOpen} /></td>
                           ))}
                           <td className="px-2 text-right text-xs tabular-nums text-muted-foreground">{came} / {planned}</td>
                         </tr>
@@ -304,6 +309,51 @@ function OppmotePage() {
       {/* Keyed by the day, so each day opens with a clean form. */}
       {current && <DayDialog key={current.id} shift={current} onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+function TodayCard({ days }: { days: Shift[] }) {
+  const record = useRecordAttendance();
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  async function mark(s: Shift, status: "mott" | "ikke-mott") {
+    setBusy(s.id);
+    setError(null);
+    try {
+      await record.mutateAsync({ id: s.id, status });
+    } catch (err) {
+      setError(`${s.employeeName}: ${errorMessage(err)}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <Card className="border-[oklch(0.62_0.12_255)]/50">
+      <CardContent className="flex flex-col gap-3 py-4">
+        <h2 className="text-sm font-medium">Registrer dagens oppmøte · {days.length} igjen</h2>
+        <ul className="flex flex-col divide-y divide-border">
+          {days.map((s) => {
+            const locked = Boolean(s.clearance && !s.clearance.cleared);
+            return (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="flex items-center gap-2 text-sm">
+                  {s.employeeName}
+                  {s.source === "first_day" && <Badge variant="outline" className="text-[10px]">første dag</Badge>}
+                  {locked && <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock className="size-3" aria-hidden /> venter på signert kontrakt</span>}
+                </span>
+                <span className="flex gap-2">
+                  <Button size="sm" className="min-h-11 min-w-24 gap-1.5" disabled={busy === s.id || locked}
+                    onClick={() => mark(s, "mott")}><Check className="size-4" /> Møtt</Button>
+                  <Button size="sm" variant="outline" className="min-h-11 min-w-24 gap-1.5 text-danger" disabled={busy === s.id}
+                    onClick={() => mark(s, "ikke-mott")}><X className="size-4" /> Ikke møtt</Button>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
