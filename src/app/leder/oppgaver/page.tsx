@@ -101,7 +101,7 @@ function LederoppgaverPage() {
       <ResponsiveSheet open={newOpen} onOpenChange={(o) => !o && setNewOpen(false)} title="Ny oppgave"
         footer={<>
           <Button variant="ghost" onClick={() => setNewOpen(false)}>Avbryt</Button>
-          <Button disabled={create.isPending} onClick={submitNew}>Opprett oppgave</Button>
+          <Button disabled={create.isPending || form.title.trim().length < 3 || !form.dueAt} onClick={submitNew}>Opprett oppgave</Button>
         </>}>
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
@@ -160,6 +160,12 @@ function TaskCard({ task: t }: { task: LeaderTask }) {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
   const formUrl = typeof t.payload?.formUrl === "string" ? t.payload.formUrl : null;
+  // The primary action waits for the required fields (08-DESIGN-REVIEW §5); the server re-checks.
+  const fields = t.responseSchema.length ? t.responseSchema : [{ key: "svar", required: true }];
+  const requiredDone = fields.filter((f) => f.required).every((f) => {
+    const v = values[f.key];
+    return v !== undefined && v !== null && !(typeof v === "string" && !v.trim());
+  });
 
   async function submit() {
     setError(null);
@@ -229,7 +235,7 @@ function TaskCard({ task: t }: { task: LeaderTask }) {
               onChange={(k, v) => setValues((cur) => ({ ...cur, [k]: v }))} />
             {error && <p className="text-sm text-danger" role="alert">{error}</p>}
             <div className="flex gap-2">
-              <Button size="sm" className="min-h-10 gap-1.5" disabled={complete.isPending} onClick={submit}>
+              <Button size="sm" className="min-h-10 gap-1.5" disabled={complete.isPending || !requiredDone} onClick={submit}>
                 <Check className="size-4" /> Fullfør
               </Button>
               <Button size="sm" variant="ghost" className="min-h-10" onClick={() => { setOpen(false); setError(null); setErrors({}); }}>

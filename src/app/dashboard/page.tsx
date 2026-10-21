@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Clock, Mail, FileSpreadsheet, Printer } from "lucide-react";
+import { AlertTriangle, Check, Clock, Mail, FileSpreadsheet, Printer } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -529,8 +529,10 @@ function ReportSubscription() {
           <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
             <Label className="text-xs text-muted-foreground">Hyppighet</Label>
             {(["ukentlig", "manedlig"] as const).map((fr) => (
-              <Button key={fr} size="sm" variant={data.frequency === fr ? "default" : "outline"} disabled={save.isPending}
+              <Button key={fr} size="sm" variant="outline" aria-pressed={data.frequency === fr} disabled={save.isPending}
+                className={data.frequency === fr ? "gap-1.5 border-[var(--ab-accent-9)] font-medium" : "gap-1.5"}
                 onClick={() => save.mutate({ enabled: true, frequency: fr, filters: data.filters })}>
+                {data.frequency === fr && <Check className="size-3.5" aria-hidden />}
                 {fr === "ukentlig" ? "Ukentlig (mandag)" : "Månedlig (den 1.)"}
               </Button>
             ))}

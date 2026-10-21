@@ -190,7 +190,7 @@ function VaktplanPage() {
         description="Kollegaen din må si ja først, og deretter må lederen godkjenne. Begge vaktene står som før til da."
         footer={<>
           <Button variant="ghost" onClick={() => setSwapFrom(null)}>Avbryt</Button>
-          <Button disabled={request.isPending} onClick={submitSwap}>Send forespørsel</Button>
+          <Button disabled={request.isPending || !swapTo || reason.trim().length < 3} onClick={submitSwap}>Send forespørsel</Button>
         </>}>
         <div className="flex flex-col gap-4 py-2">
           <p className="text-sm">Din vakt: <span className="font-medium">{swapFrom && dayFmt.format(day(swapFrom.date))}</span></p>
