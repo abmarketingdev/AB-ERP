@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,8 +27,11 @@ import {
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate, CandidateHistoryEntry, RecruitmentStage } from "@/types/recruitment";
 import { STAGE_BADGE, CONTRACT_LABEL, CONTRACT_BADGE, TERMINAL_STAGE_IDS } from "@/lib/recruitment";
+import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
+import { CandidateTags } from "@/components/patterns/candidate-tags";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
+import { formatPhone } from "@/lib/format";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -187,15 +189,13 @@ export default function CandidateDetail() {
   const [closeError, setCloseError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
 
-  function advanceTo(nextStageId: string, fieldValues: Record<string, string>) {
+  // The picker chooses the stage; the shared AdvanceStageDialog captures what that
+  // stage needs (reason codes, automatic rejection) — the same form the board uses.
+  const [picked, setPicked] = React.useState<string | null>(null);
+  function advanceTo(nextStageId: string) {
     setFailed(null);
-    advance.mutate(
-      { candidateId: params.id, toStageId: nextStageId, fields: fieldValues },
-      {
-        onSuccess: () => setAdvanceOpen(false),
-        onError: (err) => setFailed(errorMessage(err)),
-      },
-    );
+    setAdvanceOpen(false);
+    setPicked(nextStageId);
   }
 
   return (
@@ -309,7 +309,7 @@ export default function CandidateDetail() {
                         )}
 
                         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {c.phone}</span>
+                          <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {formatPhone(c.phone)}</span>
                           <span className="flex items-center gap-1.5"><Mail className="size-3.5" /> {c.email}</span>
                           <span>Eier: <span className="text-foreground">{c.owner}</span></span>
                         </div>
@@ -327,11 +327,13 @@ export default function CandidateDetail() {
                     <OnboardingCard candidate={c} stage={stage} />
                   </div>
 
+                  <CandidateTags candidate={c} />
+
                   <CandidateNotes candidate={c} />
 
                   <HistoryTimeline history={c.history} />
 
-                  <AdvanceStageDialog
+                  <StagePickerDialog
                     open={advanceOpen}
                     onOpenChange={setAdvanceOpen}
                     stages={stageList}
@@ -339,6 +341,11 @@ export default function CandidateDetail() {
                     pending={advance.isPending}
                     error={failed}
                     onAdvance={advanceTo}
+                  />
+                  <AdvanceStageDialog
+                    candidate={picked ? c : null}
+                    stage={stageList.find((st) => st.id === picked) ?? null}
+                    onClose={() => setPicked(null)}
                   />
                 </div>
               );
@@ -429,7 +436,7 @@ function HistoryTimeline({ history }: { history: CandidateHistoryEntry[] }) {
   );
 }
 
-function AdvanceStageDialog({
+function StagePickerDialog({
   open,
   onOpenChange,
   stages,
@@ -444,7 +451,7 @@ function AdvanceStageDialog({
   currentStageId: string;
   pending: boolean;
   error: string | null;
-  onAdvance: (stageId: string, fields: Record<string, string>) => void;
+  onAdvance: (stageId: string) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -479,21 +486,20 @@ function AdvanceStageForm({
   currentStageId: string;
   pending: boolean;
   error: string | null;
-  onAdvance: (stageId: string, fields: Record<string, string>) => void;
+  onAdvance: (stageId: string) => void;
   onClose: () => void;
 }) {
+  /*
+   * GODK-03 — only the moves the SERVER allows a recruiter (manualTargets). Booking
+   * and approval are their own flows, named here instead of offered as options, so
+   * the approval gate cannot be stepped around from this page either.
+   */
+  const current = stages.find((s) => s.id === currentStageId);
   const currentIdx = stages.findIndex((s) => s.id === currentStageId);
-  const options = stages.filter((s, i) => i !== currentIdx && (i === currentIdx + 1 || TERMINAL_STAGE_IDS.includes(s.id)));
+  const allowed = current?.manualTargets
+    ?? stages.filter((s, i) => i !== currentIdx && (i === currentIdx + 1 || TERMINAL_STAGE_IDS.includes(s.id))).map((s) => s.id);
+  const options = stages.filter((s) => allowed.includes(s.id));
   const [target, setTarget] = React.useState(options[0]?.id ?? "");
-  const [values, setValues] = React.useState<Record<string, string>>({});
-
-  const targetStage = stages.find((s) => s.id === target);
-
-  function setField(id: string, value: string) {
-    setValues((prev) => ({ ...prev, [id]: value }));
-  }
-
-  const requiredFilled = targetStage ? targetStage.fields.every((f) => values[f.id]?.trim()) : false;
 
   return (
     <>
@@ -513,18 +519,21 @@ function AdvanceStageForm({
           </Select>
         </div>
 
-        {targetStage?.fields.map((f) => (
-          <div key={f.id} className="space-y-1.5">
-            <Label htmlFor={`f-${f.id}`}>{f.label}</Label>
-            <Input id={`f-${f.id}`} value={values[f.id] ?? ""} onChange={(e) => setField(f.id, e.target.value)} placeholder={f.placeholder} />
-          </div>
-        ))}
+        {currentStageId === "kvalifisert" && (
+          <p className="text-xs text-muted-foreground">«Intervju booket» settes når intervjuet bookes under Intervjuer.</p>
+        )}
+        {currentStageId === "intervjuet" && (
+          <p className="text-xs text-muted-foreground">«Til godkjenning» sendes med godkjenningsskjemaet (leder fyller det ut).</p>
+        )}
+        {options.length === 0 && (
+          <p className="text-sm text-muted-foreground">Ingen flytting er tilgjengelig herfra — neste steg skjer i booking, godkjenning eller onboarding.</p>
+        )}
       </div>
 
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>Avbryt</Button>
-        <Button disabled={!target || !requiredFilled || pending} className="gap-1.5" onClick={() => onAdvance(target, values)}>
-          {pending ? "Lagrer…" : (<><Check className="size-4" /> Bekreft</>)}
+        <Button disabled={!target || pending} className="gap-1.5" onClick={() => onAdvance(target)}>
+          <Check className="size-4" /> Fortsett
         </Button>
       </DialogFooter>
     </>

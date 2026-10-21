@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, RotateCcw } from "lucide-react";
+import { CloudOff, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCreateStandLead } from "@/lib/api/leads";
+import { useCreateStandLead, useStandMeta } from "@/lib/api/leads";
 import { errorMessage } from "@/lib/api/client";
 import { standLeadSchema } from "@/types/lead";
-import { LEAD_CAMPAIGNS } from "@/mocks/leads";
 import { useSession } from "@/lib/permissions";
+import { Mascot } from "@/components/patterns/mascot";
+import { mascotFor } from "@/lib/use-mascot";
+import { FormErrorSummary, type FieldError } from "@/components/patterns/form-error-summary";
+
+/** Field → input id, so the error summary can link to (and focus) the field. */
+const FIELD_IDS: Record<string, string> = {
+  name: "st-name", phone: "st-phone", email: "st-email", campaign: "st-campaign", consentContact: "st-consent",
+};
+import { isRetryable, newClientId, useStandQueue, type QueuedLead } from "@/lib/stand-queue";
+
+const LAST_CAMPAIGN = "ab-erp:stand-campaign";
 
 /**
  * LEAD-05 — "Promotør skal kunne registrere leads fra stand i et mobilskjema,
@@ -25,28 +35,47 @@ import { useSession } from "@/lib/permissions";
  * it is filled in standing up, outdoors, with one hand, next to the person whose
  * details are being typed.
  *
- * The promoter is taken from the session and shown read-only rather than
- * selected. Typing it would make "registrert av" a guess, and DASH-03 measures
- * promotørkvalitet off exactly that field.
+ * The promoter is not sent at all: the server takes it from the login token
+ * (§8.1 l.729 *knyttet til riktig promotør*). Typing it would make "registrert av"
+ * a guess, and DASH-03 measures promotørkvalitet off exactly that field.
+ *
+ * Bad signal is normal at a stand, so a send that fails on the network is queued
+ * on the phone and retried (lib/stand-queue.ts); the server is idempotent on
+ * `clientId`, so a retry never makes a second lead.
  */
 export default function StandSkjema() {
   const session = useSession();
   const create = useCreateStandLead();
-  const [done, setDone] = React.useState<string | null>(null);
+  const meta = useStandMeta();
+  const campaigns = React.useMemo(() => meta.data?.campaigns ?? [], [meta.data]);
+  const send = React.useCallback((item: QueuedLead) => create.mutateAsync({ ...item.payload, clientId: item.clientId }),
+                                 [create]);
+  const queue = useStandQueue(send);
+  const [done, setDone] = React.useState<{ name: string; queued: boolean } | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     name: "", phone: "", email: "",
-    campaign: LEAD_CAMPAIGNS[0],
+    campaign: "",
     consentContact: false, consentAdAudience: false, note: "",
   });
+
+  // The last campaign is pre-selected: a promotor stands at one stand all day.
+  // Derived, not set in an effect: an untouched form shows the remembered campaign.
+  const [remembered] = React.useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return localStorage.getItem(LAST_CAMPAIGN); } catch { return null; }
+  });
+  const campaign = form.campaign
+    || (campaigns.find((c) => c.id === remembered) ?? campaigns[0])?.id
+    || "";
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function reset() {
-    setForm({ name: "", phone: "", email: "", campaign: LEAD_CAMPAIGNS[0], consentContact: false, consentAdAudience: false, note: "" });
+    setForm({ name: "", phone: "", email: "", campaign, consentContact: false, consentAdAudience: false, note: "" });
     setErrors({});
     setSubmitError(null);
     setDone(null);
@@ -55,7 +84,8 @@ export default function StandSkjema() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    const parsed = standLeadSchema.safeParse(form);
+    const data = { ...form, campaign };
+    const parsed = standLeadSchema.safeParse(data);
     if (!parsed.success) {
       const next: Record<string, string> = {};
       for (const issue of parsed.error.issues) next[String(issue.path[0])] = issue.message;
@@ -63,11 +93,18 @@ export default function StandSkjema() {
       return;
     }
     setErrors({});
+    try { localStorage.setItem(LAST_CAMPAIGN, campaign); } catch { /* storage blocked */ }
+    const item: QueuedLead = { clientId: newClientId(), payload: data, queuedAt: new Date().toISOString() };
     try {
-      const lead = await create.mutateAsync({ ...form, promoter: session?.name });
-      setDone(lead.name);
+      const lead = await send(item);
+      setDone({ name: (lead as { name: string }).name, queued: false });
     } catch (err) {
-      setSubmitError(errorMessage(err));
+      if (isRetryable(err)) {
+        queue.enqueue(item);
+        setDone({ name: form.name, queued: true });
+      } else {
+        setSubmitError(errorMessage(err));
+      }
     }
   }
 
@@ -79,13 +116,22 @@ export default function StandSkjema() {
         <PageHeader title="Registrert" description="Leadet ligger nå i samleinnboksen" />
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-            <span className="flex size-12 items-center justify-center rounded-full bg-success/10 text-success">
-              <Check className="size-6" aria-hidden />
-            </span>
+            {done.queued ? (
+              <span className="flex size-12 items-center justify-center rounded-full bg-warning/10 text-warning-on-tint">
+                <CloudOff className="size-6" aria-hidden />
+              </span>
+            ) : (
+              // The screen exists because a lead was just sent — a real transition, so `once` is right.
+              <Mascot {...mascotFor("allDone", "Registrert")} motion="once" size={72} />
+            )}
             <div>
-              <p className="text-base font-medium">{done} er registrert</p>
+              <p className="text-base font-medium">
+                {done.queued ? `${done.name} er lagret på telefonen` : `${done.name} er registrert`}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Rekrutterer ser det i samleinnboksen med deg som promotør.
+                {done.queued
+                  ? "Ingen dekning akkurat nå. Leadet sendes automatisk så snart du er på nett igjen."
+                  : "Rekrutterer ser det i samleinnboksen med deg som rekruttert av."}
               </p>
             </div>
             <Button size="lg" className="h-11 w-full max-w-xs gap-2" onClick={reset}>
@@ -104,29 +150,45 @@ export default function StandSkjema() {
         description={session ? `Registreres på ${session.name}` : "Registrer en interessert person fra stand"}
       />
 
-      <form onSubmit={submit} className="flex flex-col gap-5">
+      {queue.pending > 0 && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm">
+          <span className="flex items-center gap-2">
+            <CloudOff className="size-4" aria-hidden />
+            {queue.pending === 1 ? "1 lead venter på nett" : `${queue.pending} leads venter på nett`}
+          </span>
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => void queue.flush()}>
+            Send nå
+          </Button>
+        </div>
+      )}
+
+      <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+        <FormErrorSummary errors={Object.entries(errors).map(([field, message]): FieldError => ({ field: FIELD_IDS[field] ?? field, message }))} />
         <Card>
           <CardContent className="flex flex-col gap-4 py-5">
-            <Field label="Navn" id="st-name" error={errors.name}>
-              <Input id="st-name" className="h-11 text-base" autoComplete="name"
+            <Field label="Navn" id="st-name" error={errors.name} required>
+              <Input id="st-name" aria-invalid={Boolean(errors.name)} className="h-11 text-base" autoComplete="name"
                 value={form.name} onChange={(e) => set("name", e.target.value)} />
             </Field>
 
-            <Field label="Telefon" id="st-phone" error={errors.phone}>
-              <Input id="st-phone" className="h-11 text-base" type="tel" inputMode="tel" autoComplete="tel"
+            <Field label="Telefon" id="st-phone" error={errors.phone} required>
+              <Input id="st-phone" aria-invalid={Boolean(errors.phone)} className="h-11 text-base" type="tel" inputMode="tel" autoComplete="tel"
                 value={form.phone} onChange={(e) => set("phone", e.target.value)} />
             </Field>
 
             <Field label="E-post" id="st-email" error={errors.email} hint="Kan stå tomt">
-              <Input id="st-email" className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
+              <Input id="st-email" aria-invalid={Boolean(errors.email)} className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
                 value={form.email} onChange={(e) => set("email", e.target.value)} />
             </Field>
 
-            <Field label="Kampanje" id="st-campaign" error={errors.campaign}>
-              <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}>
-                <SelectTrigger id="st-campaign" className="h-11 text-base"><SelectValue /></SelectTrigger>
+            <Field label="Kampanje" id="st-campaign" error={errors.campaign} required>
+              <Select value={campaign} onValueChange={(v) => set("campaign", v)}
+                disabled={meta.isLoading || campaigns.length === 0}>
+                <SelectTrigger id="st-campaign" className="h-11 text-base">
+                  <SelectValue placeholder={meta.isLoading ? "Henter kampanjer…" : meta.isError ? "Kunne ikke hente kampanjer" : "Velg kampanje"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {LEAD_CAMPAIGNS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>
@@ -148,9 +210,9 @@ export default function StandSkjema() {
           <CardContent className="flex flex-col gap-4 py-5">
             <p className="text-sm font-medium">Samtykke</p>
             <label className="flex min-h-11 items-start gap-3 text-[15px]">
-              <Checkbox className="mt-0.5 size-5" checked={form.consentContact}
+              <Checkbox id="st-consent" className="mt-0.5 size-5" checked={form.consentContact} aria-required="true"
                 onCheckedChange={(v) => set("consentContact", Boolean(v))} />
-              <span>Jeg samtykker til å bli kontaktet om stilling hos AB Marketing.</span>
+              <span>Jeg samtykker til å bli kontaktet om stilling hos AB Marketing. <span className="text-danger" aria-hidden>*</span></span>
             </label>
             {errors.consentContact && <p className="text-sm text-danger">{errors.consentContact}</p>}
 
@@ -173,14 +235,16 @@ export default function StandSkjema() {
 }
 
 function Field({
-  label, id, error, hint, children,
+  label, id, error, hint, required, children,
 }: {
-  label: string; id: string; error?: string; hint?: string; children: React.ReactNode;
+  label: string; id: string; error?: string; hint?: string; required?: boolean; children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-sm">
         {label}
+        {required && <span className="ml-0.5 text-danger" aria-hidden>*</span>}
+        {required && <span className="sr-only"> (påkrevd)</span>}
         {hint && <span className="ml-1.5 font-normal text-muted-foreground">{hint}</span>}
       </Label>
       {children}

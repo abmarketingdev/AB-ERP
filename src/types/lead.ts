@@ -37,7 +37,8 @@ export type LeadStatus = z.infer<typeof leadStatusSchema>;
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   ny: "Ny",
-  sendt: "Sendt til rekruttering",
+  // Short on purpose: it is a table badge. «Sendt videre» = sent on to recruitment (LEAD-08).
+  sendt: "Sendt videre",
   duplikat: "Duplikat",
   forkastet: "Forkastet",
 };
@@ -64,8 +65,19 @@ export const leadSchema = z.object({
   name: z.string(),
   phone: z.string(),
   email: z.string(),
-  /** LEAD-06 */
-  channel: z.enum(LEAD_CHANNELS),
+  /**
+   * LEAD-06 — the channel's display name. A string, not the enum above: the server
+   * also knows Recman-import, manual entry and job boards beyond the first seven
+   * (Jobbnorge, Karrierestart — SRS §7.2 l.706), and an unknown channel must not
+   * make the whole inbox fail to parse. `channelKey` is the stable id.
+   */
+  channel: z.string(),
+  channelKey: z.string().optional(),
+  campaignId: z.string().nullable().optional(),
+  /** Server ids behind the display names, for filters and assignment. */
+  promoterId: z.string().nullable().optional(),
+  assignedToId: z.string().nullable().optional(),
+  mergedIntoId: z.string().nullable().optional(),
   campaign: z.string(),
   receivedAt: z.string(),
   /** LEAD-05 — set automatically when the lead comes from a stand. */
@@ -112,6 +124,16 @@ export const leadFilterSchema = z.object({
 export type LeadFilter = z.infer<typeof leadFilterSchema>;
 
 /** LEAD-08 — one or many, the same endpoint. The UI never loops over requests. */
+/** `/leads/meta` — filter and picker options, so pages never import mock data. */
+const optionSchema = z.object({ id: z.string(), name: z.string() });
+export const leadMetaSchema = z.object({
+  channels: z.array(z.object({ key: z.string(), name: z.string(), kind: z.string() })),
+  campaigns: z.array(optionSchema),
+  recruiters: z.array(optionSchema),
+  promoters: z.array(optionSchema),
+});
+export type LeadMeta = z.infer<typeof leadMetaSchema>;
+
 export const sendLeadsSchema = z.object({
   ids: z.array(z.string()).min(1),
   assignTo: z.string().optional(),

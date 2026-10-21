@@ -8,9 +8,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLeads, useMergeLeads } from "@/lib/api/leads";
+import { useDismissDuplicate, useLeads, useMergeLeads } from "@/lib/api/leads";
+import { errorMessage } from "@/lib/api/client";
 import { LEAD_STATUS_LABEL, type Lead } from "@/types/lead";
 import { ChannelMark } from "@/components/patterns/channel-mark";
+import { contactLine } from "@/lib/phone";
 
 /**
  * LEAD-07 — "oppdage duplikater på telefon og epost og la rekrutterer slå dem
@@ -24,11 +26,16 @@ import { ChannelMark } from "@/components/patterns/channel-mark";
  *
  * Merging is not deletion: the folded-away rows become `duplikat` and stay
  * visible under that filter. Somebody will ask why there were three records for
- * one person, and a deleted row cannot answer.
+ * one person, and a deleted row cannot answer. An admin can undo a merge.
+ *
+ * The server decides the attribution channel, not this choice: whichever record is
+ * kept, the person counts for the OLDEST lead's channel (master 21.10), and that
+ * is stated here so the recruiter is not surprised by it.
  */
 export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
   const merge = useMergeLeads();
-  const [keepId, setKeepId] = React.useState<string | null>(null);
+  const dismiss = useDismissDuplicate();
+  const [picked, setKeepId] = React.useState<string | null>(null);
 
   /*
    * The duplicates are fetched rather than passed in: the matches are computed
@@ -51,21 +58,38 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
   const loading = dupes.isPending || byEmail.isPending;
 
   /** Completeness beats age: more filled-in fields wins, ties go to the oldest. */
-  React.useEffect(() => {
-    if (!group.length) { setKeepId(null); return; }
+  const bestId = React.useMemo(() => {
+    if (!group.length) return null;
+    // A lead already sent on is a candidate: it must be the one kept (the server
+    // refuses folding a candidate into an inbox lead).
     const score = (l: Lead) =>
-      (l.email ? 2 : 0) + (l.phone ? 2 : 0) + (l.promoter ? 1 : 0) +
+      (l.candidateId ? 10 : 0) + (l.email ? 2 : 0) + (l.phone ? 2 : 0) + (l.promoter ? 1 : 0) +
       (l.assignedTo ? 1 : 0) + (l.consent.adAudience ? 1 : 0);
-    const best = [...group].sort((a, b) => score(b) - score(a) || (a.receivedAt < b.receivedAt ? -1 : 1))[0];
-    setKeepId(best.id);
+    return [...group].sort((a, b) => score(b) - score(a) || (a.receivedAt < b.receivedAt ? -1 : 1))[0].id;
   }, [group]);
+  const keepId = picked && group.some((l) => l.id === picked) ? picked : bestId;
 
   const others = group.filter((l) => l.id !== keepId);
 
+  const oldest = group.length ? [...group].sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : 1))[0] : null;
+
   async function run() {
     if (!keepId || !others.length) return;
-    await merge.mutateAsync({ keepId, mergeIds: others.map((l) => l.id) });
-    onClose();
+    try {
+      await merge.mutateAsync({ keepId, mergeIds: others.map((l) => l.id) });
+      onClose();
+    } catch { /* shown below from merge.error */ }
+  }
+
+  /** «Ikke duplikat» — the same phone or e-mail, but two different people. */
+  async function notDuplicate() {
+    if (!lead) return;
+    try {
+      for (const other of group.filter((l) => l.id !== lead.id)) {
+        await dismiss.mutateAsync({ id: lead.id, otherId: other.id });
+      }
+      onClose();
+    } catch { /* shown below */ }
   }
 
   return (
@@ -105,7 +129,7 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
                     {keep && <span className="ml-auto text-xs text-[var(--ab-accent-9)]">Beholdes</span>}
                   </div>
                   <div className="text-xs tabular-nums text-muted-foreground">
-                    {l.phone} · {l.email}
+                    {contactLine(l.phone, l.email)}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Mottatt {new Intl.DateTimeFormat("nb-NO", { dateStyle: "long" }).format(new Date(l.receivedAt))}
@@ -123,19 +147,31 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
         )}
 
         {/*
-          LEAD-10 — consent is unioned on merge, and that is a consequence worth
-          stating before the button is pressed rather than discovering after.
+          LEAD-10 — consents are not unioned: the person's latest answer per purpose
+          wins, so a «nei» given later beats an older «ja». Stated before the button,
+          not discovered after.
         */}
-        {others.some((l) => l.consent.adAudience) && (
+        {group.some((l) => l.consent.adAudience) && group.some((l) => !l.consent.adAudience) && (
           <p className="flex items-start gap-2 rounded-md bg-warning/10 p-3 text-xs text-warning-on-tint">
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            En av oppføringene har samtykket til bruk i annonsemålgrupper. Samtykket følger med
-            oppføringen som beholdes.
+            Oppføringene har ulikt svar på samtykke til annonsemålgrupper. Etter sammenslåing gjelder
+            det siste svaret personen ga.
           </p>
         )}
+        {oldest && (
+          <p className="text-xs text-muted-foreground">
+            Personen telles på kanalen der de først kom inn: <span className="font-medium">{oldest.channel}</span>.
+          </p>
+        )}
+        {(merge.isError || dismiss.isError) && (
+          <p role="alert" className="text-sm text-danger">{errorMessage(merge.error ?? dismiss.error)}</p>
+        )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose}>Avbryt</Button>
+          <Button variant="outline" onClick={notDuplicate} disabled={dismiss.isPending || group.length < 2}>
+            Ikke duplikat
+          </Button>
           <Button onClick={run} disabled={!keepId || !others.length || merge.isPending}>
             {merge.isPending ? "Slår sammen…" : `Slå sammen ${others.length + 1} oppføringer`}
           </Button>

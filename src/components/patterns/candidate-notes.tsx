@@ -10,10 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAddNote, useAddAttachment } from "@/lib/api/srs";
+import { attachmentUrl, useAddNote, useAddAttachment } from "@/lib/api/srs";
+import { apiDownload } from "@/lib/api/client";
+import { useNoteAudience } from "@/lib/api/recruitment";
+import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
 import { useSession } from "@/lib/permissions";
 import type { Candidate } from "@/types/recruitment";
+import { formatPhone, phoneHref } from "@/lib/format";
 
 /**
  * KAND-06 og KAND-09 — notater, private notater og vedlegg.
@@ -33,22 +37,43 @@ const KIND_LABEL: Record<string, string> = {
 
 export function CandidateNotes({ candidate }: { candidate: Candidate }) {
   const session = useSession();
+  const access = useAccess();
   const addNote = useAddNote();
   const addFile = useAddAttachment();
-  const canSeePrivate = Boolean(session?.permissions.includes("privatenotes.view"));
+  // Writing a private note is its own permission; reading is decided per note by the server.
+  const canWritePrivate = access.can("private_notes.write") || Boolean(session?.permissions.includes("privatenotes.view"));
 
   const [body, setBody] = React.useState("");
   const [isPrivate, setIsPrivate] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [fileName, setFileName] = React.useState("");
+  const [people, setPeople] = React.useState<string[]>([]);
+  const audience = useNoteAudience(isPrivate);
+
+  const [file, setFile] = React.useState<File | null>(null);
   const [fileKind, setFileKind] = React.useState("cv");
   const [fileOpen, setFileOpen] = React.useState(false);
 
-  const visible = candidate.notes.filter(
-    (n) => n.visibleTo.length === 0 || n.visibleTo.some((p) => session?.permissions.includes(p)),
-  );
-  const hiddenCount = candidate.notes.length - visible.length;
+  /*
+   * KAND-09 — the server only sends the notes this viewer may read, so there is
+   * nothing to filter here, and deliberately no "n hidden notes" count: telling
+   * someone a private note exists about a candidate is already telling them too much.
+   */
+  const visible = candidate.notes;
+
+  /** KAND-06 — authenticated download (a plain link would not carry the token). */
+  async function download(id: string, fallbackName: string) {
+    setError(null);
+    try {
+      const { blob, filename } = await apiDownload(attachmentUrl(candidate.id, id));
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = filename ?? fallbackName;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch (err) { setError(errorMessage(err)); }
+  }
 
   async function submitNote() {
     setError(null);
@@ -57,43 +82,54 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
       await addNote.mutateAsync({
         id: candidate.id,
         body: body.trim(),
-        visibleTo: isPrivate ? ["privatenotes.view"] : [],
+        // Private with nobody picked = the private-notes module (HR, ledelse); the
+        // server fills that in. Picked people are added on top of it.
+        visibleTo: [],
+        visibleToUsers: isPrivate ? people : [],
+        private: isPrivate,
         author: session?.name,
       });
-      setBody(""); setIsPrivate(false);
+      setBody(""); setIsPrivate(false); setPeople([]);
     } catch (err) { setError(errorMessage(err)); }
   }
 
   async function submitFile() {
     setError(null);
-    if (!fileName.trim()) { setError("Skriv et filnavn."); return; }
+    if (!file) { setError("Velg en fil."); return; }
+    if (file.size > 10 * 1024 * 1024) { setError("Filen er større enn 10 MB."); return; }
     try {
-      await addFile.mutateAsync({ id: candidate.id, name: fileName.trim(), kind: fileKind });
-      setFileName(""); setFileOpen(false);
+      await addFile.mutateAsync({ id: candidate.id, name: file.name, kind: fileKind, file });
+      setFile(null); setFileOpen(false);
     } catch (err) { setError(errorMessage(err)); }
   }
 
+  const tel = phoneHref(candidate.phone);
   return (
     <div className="flex flex-col gap-4">
       {/* KAND-08 — ring eller send melding direkte fra kandidatkortet. */}
       <Card>
         <CardContent className="flex flex-wrap items-center gap-2 py-4">
           <span className="mr-2 text-sm text-muted-foreground">Ta kontakt</span>
-          <Button asChild size="sm" variant="outline" className="gap-1.5">
-            <a href={`tel:${candidate.phone.replace(/\s/g, "")}`}>
-              <Phone className="size-3.5" aria-hidden /> Ring {candidate.phone}
-            </a>
-          </Button>
-          <Button asChild size="sm" variant="outline" className="gap-1.5">
-            <a href={`sms:${candidate.phone.replace(/\s/g, "")}`}>
-              <MessageSquare className="size-3.5" aria-hidden /> Send SMS
-            </a>
-          </Button>
-          <Button asChild size="sm" variant="ghost" className="gap-1.5">
+          {/* No usable number → no call/SMS buttons (a button that goes nowhere is orphaned UI). */}
+          {tel && (
+            <>
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <a href={tel}>
+                  <Phone className="size-3.5" aria-hidden /> Ring {formatPhone(candidate.phone)}
+                </a>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <a href={tel.replace(/^tel:/, "sms:")}>
+                  <MessageSquare className="size-3.5" aria-hidden /> Send SMS
+                </a>
+              </Button>
+            </>
+          )}
+          {candidate.email && <Button asChild size="sm" variant="ghost" className="gap-1.5">
             <a href={`mailto:${candidate.email}`}>
               <FileText className="size-3.5" aria-hidden /> {candidate.email}
             </a>
-          </Button>
+          </Button>}
         </CardContent>
       </Card>
 
@@ -102,12 +138,6 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
         <CardContent className="flex flex-col gap-4 py-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-medium">Notater</h2>
-            {hiddenCount > 0 && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Lock className="size-3" aria-hidden />
-                {hiddenCount} privat{hiddenCount === 1 ? "" : "e"} notat{hiddenCount === 1 ? "" : "er"} er skjult for deg
-              </span>
-            )}
           </div>
 
           {visible.length === 0 ? (
@@ -115,7 +145,8 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
           ) : (
             <ul className="flex flex-col gap-2">
               {visible.map((n) => {
-                const priv = n.visibleTo.length > 0;
+                const priv = n.private ?? n.visibleTo.length > 0;
+                const named = n.visibleToUsers?.length ?? 0;
                 return (
                   <li key={n.id}
                       className={`rounded-lg border p-3 ${priv ? "border-warning/40 bg-warning/5" : "border-border"}`}>
@@ -124,7 +155,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
                       <span className="tabular-nums">{n.at}</span>
                       {priv && (
                         <Badge className="gap-1 bg-warning/10 text-[10px] text-warning-on-tint">
-                          <Lock className="size-2.5" aria-hidden /> Privat — kun HR og ledelse
+                          <Lock className="size-2.5" aria-hidden /> Privat — {named > 0 ? `HR, ledelse og ${named} valgt${named === 1 ? "" : "e"}` : "kun HR og ledelse"}
                         </Badge>
                       )}
                     </p>
@@ -139,7 +170,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
             <Label htmlFor="note-body" className="text-xs text-muted-foreground">Nytt notat</Label>
             <Textarea id="note-body" rows={2} value={body} onChange={(e) => setBody(e.target.value)} />
             <div className="flex flex-wrap items-center gap-3">
-              {canSeePrivate && (
+              {canWritePrivate && (
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={isPrivate} onCheckedChange={(v) => setIsPrivate(Boolean(v))} />
                   <span className="flex items-center gap-1.5">
@@ -152,6 +183,22 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
                 <Plus className="size-4" /> Legg til
               </Button>
             </div>
+            {isPrivate && (
+              <fieldset className="flex flex-col gap-1.5 rounded-md border border-border p-2.5">
+                <legend className="px-1 text-xs text-muted-foreground">Også synlig for (valgfritt)</legend>
+                {audience.isLoading ? <p className="text-xs text-muted-foreground">Henter personer…</p> : (
+                  <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">
+                    {(audience.data ?? []).map((p) => (
+                      <label key={p.id} className="flex min-h-9 items-center gap-2 text-sm">
+                        <Checkbox checked={people.includes(p.id)}
+                          onCheckedChange={(v) => setPeople((cur) => v ? [...cur, p.id] : cur.filter((x) => x !== p.id))} />
+                        {p.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </fieldset>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -183,6 +230,9 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
                   <span className="ml-auto text-xs text-muted-foreground">
                     {f.uploadedBy} · {f.uploadedAt}
                   </span>
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => void download(f.id, f.name)}>
+                    Last ned
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -191,9 +241,9 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
           {fileOpen && (
             <div className="flex flex-wrap items-end gap-3 border-t border-border pt-3">
               <div className="flex flex-1 flex-col gap-1.5">
-                <Label htmlFor="file-name" className="text-xs text-muted-foreground">Filnavn</Label>
-                <Input id="file-name" value={fileName} placeholder="CV - Navn Navnesen.pdf"
-                  onChange={(e) => setFileName(e.target.value)} />
+                <Label htmlFor="file-input" className="text-xs text-muted-foreground">Fil (PDF, Word eller bilde, maks 10 MB)</Label>
+                <Input id="file-input" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/heic"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="file-kind" className="text-xs text-muted-foreground">Type</Label>

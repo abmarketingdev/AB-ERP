@@ -12,9 +12,20 @@ export const recruitmentStageSchema = z.object({
       id: z.string(),
       label: z.string(),
       placeholder: z.string().optional(),
+      /** "date" → rendered with the shared nb-NO DatePicker. */
+      kind: z.enum(["text", "date"]).optional(),
     }),
   ),
   terminal: z.enum(["hired", "withdrawn"]).optional(),
+  /**
+   * KAND-02 — the server's own locks, so the board refuses the same drops the API
+   * would. `manualTargets`: where a recruiter may drag from this stage. `requires`:
+   * the form a drop onto this stage opens instead (booking → A3, approval → A4).
+   * `locked`: only Ole's approval flow reaches it (GODK-03).
+   */
+  manualTargets: z.array(z.string()).optional(),
+  requires: z.string().nullable().optional(),
+  locked: z.boolean().optional(),
 });
 export type RecruitmentStage = z.infer<typeof recruitmentStageSchema>;
 
@@ -22,7 +33,8 @@ export const candidateHistoryEntrySchema = z.object({
   id: z.string(),
   at: z.string(),
   actor: z.string(),
-  type: z.enum(["created", "stage-change", "note"]),
+  /** `event`: a log row that is not a move (rebooked, channel corrected); `assignment`: owner changed. */
+  type: z.enum(["created", "stage-change", "note", "event", "assignment"]),
   stageId: z.string().optional(),
   detail: z.string(),
 });
@@ -60,6 +72,10 @@ export const candidateNoteSchema = z.object({
   body: z.string(),
   /** Empty = visible to anyone who can see the candidate. */
   visibleTo: z.array(z.string()),
+  /** KAND-09 / §8.1 l.737 — named people who may also read it (master 21.10). */
+  visibleToUsers: z.array(z.string()).optional(),
+  authorId: z.string().optional(),
+  private: z.boolean().optional(),
 });
 export type CandidateNote = z.infer<typeof candidateNoteSchema>;
 
@@ -112,6 +128,20 @@ export const candidateSchema = z.object({
     })
     .nullable(),
   onboarding: z.array(z.object({ id: z.string(), task: z.string(), done: z.boolean() })),
+  /** KAND-01 — «Interesse for senere» and friends: tags, never a column. */
+  tags: z.array(z.string()).optional(),
+  followUpOn: z.string().nullable().optional(),
+  channelKey: z.string().optional(),
+  /** «Rekrutterer» = owner; «Rekruttert av» = the promotor who brought them in (master Q4). */
+  recruiterId: z.string().nullable().optional(),
+  recruitedBy: z.string().nullable().optional(),
+  recruitedById: z.string().nullable().optional(),
+  rejectionReason: z.string().nullable().optional(),
+  importedFrom: z.string().nullable().optional(),
+  /** When the candidate entered its current status (the board's «dager i steget»). */
+  stageSince: z.string().optional(),
+  age: z.number().nullable().optional(),
+  region: z.string().optional(),
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
@@ -135,6 +165,22 @@ export type AdvanceStage = z.infer<typeof advanceStageSchema>;
 
 export const candidateListSchema = z.array(candidateSchema);
 export const stageListSchema = z.array(recruitmentStageSchema);
+
+/** KAND-07 reasons and KAND-01 tags — codes from the server, labels for people. */
+export const candidateReasonsSchema = z.object({
+  rejection: z.array(z.object({ code: z.string(), label: z.string() })),
+  withdraw: z.array(z.object({ code: z.string(), label: z.string() })),
+  tags: z.array(z.object({ slug: z.string(), label: z.string() })),
+});
+export type CandidateReasons = z.infer<typeof candidateReasonsSchema>;
+
+/** A refused move (409): what to say, and which form to open instead. */
+export const moveRefusalSchema = z.object({
+  message: z.string(),
+  code: z.string().optional(),
+  requires: z.string().nullable().optional(),
+});
+export type MoveRefusal = z.infer<typeof moveRefusalSchema>;
 
 /** KAND-06 / KAND-09 — add a note, optionally restricted to an audience. */
 export const newNoteSchema = z.object({

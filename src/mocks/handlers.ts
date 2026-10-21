@@ -30,7 +30,14 @@ import {
 import type { Candidate, CandidateHistoryEntry } from "@/types/recruitment";
 import { accessHandlers } from "./access-handlers";
 import type { Lead } from "@/types/lead";
-import { queryLeads, leadCounts, leadById, leadsByIds, patchLead } from "./lead-query";
+import { queryLeads, leadCounts, leadMeta, leadById, leadsByIds, patchLead } from "./lead-query";
+import { APPROVAL_GATED, REQUIRES, manualTargets, refuseMove } from "./recruitment-graph";
+import { CANDIDATE_TAGS, REJECTION_REASONS } from "@/lib/mock-data";
+
+/** Mock codes for list entries — the server uses the same shape (lower-case, hyphens). */
+const slug = (label: string) =>
+  label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ø/g, "o").replace(/æ/g, "ae")
+    .replace(/å/g, "a").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 import { leadCorpus } from "./leads";
 import { buildDashboard } from "./srs-dashboard";
 import { LEADERS, TEAMS_SRS, JOB_TYPES, LOCATIONS, dayOffset, iso, isoDay, DEMO_TODAY } from "./srs-seed";
@@ -1015,7 +1022,7 @@ export const handlers = [
    * browser, and "we don't render it" is not the same promise as "you cannot
    * read it". This is personal data about somebody who has not been hired.
    */
-  http.post("/api/hr/recruitment/candidates/:id/notes", async ({ request, params }) => {
+  http.post("/api/recruitment/candidates/:id/notes", async ({ request, params }) => {
     await latency();
     const body = (await request.json()) as { body: string; visibleTo: string[]; author?: string };
     const c = db.candidates.find((x) => x.id === params.id);
@@ -1041,9 +1048,15 @@ export const handlers = [
     return HttpResponse.json(c);
   }),
 
-  http.post("/api/hr/recruitment/candidates/:id/attachments", async ({ request, params }) => {
+  http.post("/api/recruitment/candidates/:id/attachments", async ({ request, params }) => {
     await latency();
-    const body = (await request.json()) as { name: string; kind: string; sizeKb?: number };
+    const form = await request.formData();
+    const file = form.get("file");
+    const body = {
+      name: String(form.get("name") ?? (file instanceof File ? file.name : "vedlegg")),
+      kind: String(form.get("kind") ?? "annet"),
+      sizeKb: file instanceof File ? Math.max(1, Math.round(file.size / 1024)) : undefined,
+    };
     const c = db.candidates.find((x) => x.id === params.id);
     if (!c) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
     c.attachments.push({
@@ -1096,7 +1109,7 @@ export const handlers = [
    * response reports how many were excluded for exactly that reason — an export
    * that silently drops a third of the list is one nobody can verify.
    */
-  http.post("/api/hr/leads/audience-export", async ({ request }) => {
+  http.post("/api/recruitment/leads/audience-export", async ({ request }) => {
     await latency();
     const body = (await request.json()) as { platform: "Meta" | "TikTok"; basis: "hired" | "qualified" };
     const all = [...db.leadExtra, ...leadCorpus()];
@@ -1246,13 +1259,15 @@ export const handlers = [
    * carries `tookMs` so the demo can show the number instead of claiming it.
    */
   get(
-    "/api/hr/leads",
+    "/api/recruitment/leads/",
     (request) => queryLeads(new URL(request.url)),
     { rows: [], total: 0, tookMs: 0 },
   ),
-  get("/api/hr/leads/counts", () => leadCounts()),
+  get("/api/recruitment/leads/counts", () => leadCounts()),
+  get("/api/recruitment/leads/meta", () => leadMeta()),
+  get("/api/recruitment/leads/stand/meta", () => ({ campaigns: leadMeta().campaigns })),
 
-  http.get("/api/hr/leads/:id", async ({ params }) => {
+  http.get("/api/recruitment/leads/:id", async ({ params }) => {
     await latency();
     const lead = leadById(String(params.id));
     if (!lead) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
@@ -1268,7 +1283,7 @@ export const handlers = [
    * to the audit log. Sending an already-sent lead is a no-op rather than an
    * error — a double-click on a bulk action should not produce duplicates.
    */
-  http.post("/api/hr/leads/send", async ({ request }) => {
+  http.post("/api/recruitment/leads/send", async ({ request }) => {
     await latency();
     const body = (await request.json()) as { ids: string[]; assignTo?: string };
     const leads = leadsByIds(body.ids).filter((l) => l.status === "ny");
@@ -1319,7 +1334,7 @@ export const handlers = [
   }),
 
   /** LEAD-09 — distribute, or hand on to a colleague. */
-  http.post("/api/hr/leads/assign", async ({ request }) => {
+  http.post("/api/recruitment/leads/assign", async ({ request }) => {
     await latency();
     const body = (await request.json()) as { ids: string[]; assignTo: string };
     for (const id of body.ids) patchLead(id, { assignedTo: body.assignTo });
@@ -1341,7 +1356,7 @@ export const handlers = [
    * will ask why there were three records for the same person and which one the
    * phone number came from, and a deleted row cannot answer that.
    */
-  http.post("/api/hr/leads/merge", async ({ request }) => {
+  http.post("/api/recruitment/leads/merge", async ({ request }) => {
     await latency();
     const body = (await request.json()) as { keepId: string; mergeIds: string[] };
     const keep = leadById(body.keepId);
@@ -1379,7 +1394,7 @@ export const handlers = [
     return HttpResponse.json({ kept: keep.id, merged: merged.length });
   }),
 
-  http.post("/api/hr/leads/discard", async ({ request }) => {
+  http.post("/api/recruitment/leads/discard", async ({ request }) => {
     await latency();
     const body = (await request.json()) as { ids: string[]; reason?: string };
     for (const id of body.ids) patchLead(id, { status: "forkastet", note: body.reason ?? null });
@@ -1392,22 +1407,24 @@ export const handlers = [
    * than typed, which is what makes "registrert av" trustworthy on the
    * promotørkvalitet dashboard (DASH-03).
    */
-  http.post("/api/hr/leads/stand", async ({ request }) => {
+  http.post("/api/recruitment/leads/stand", async ({ request }) => {
     await latency();
     const body = (await request.json()) as {
       name: string; phone: string; email: string; campaign: string;
-      consentContact: boolean; consentAdAudience: boolean; note?: string; promoter?: string;
+      consentContact: boolean; consentAdAudience: boolean; note?: string; clientId?: string;
     };
+    const existing = body.clientId && db.leadExtra.find((l) => l.id === `l-stand-${body.clientId}`);
+    if (existing) return HttpResponse.json(existing);
     const now = new Date().toISOString();
     const lead: Lead = {
-      id: `l-stand-${Date.now()}`,
+      id: `l-stand-${body.clientId ?? Date.now()}`,
       name: body.name,
       phone: body.phone,
       email: body.email,
       channel: "Stand",
       campaign: body.campaign,
       receivedAt: now,
-      promoter: body.promoter ?? "Kari Nordmann",
+      promoter: "Kari Nordmann",   // the server takes this from the token
       assignedTo: null,
       status: "ny",
       consent: {
@@ -1427,9 +1444,58 @@ export const handlers = [
     return HttpResponse.json(lead, { status: 201 });
   }),
 
-  get("/api/hr/recruitment/stages", () => db.stages, []),
-  get("/api/hr/recruitment/candidates", () => db.candidates, []),
-  http.get("/api/hr/recruitment/candidates/:id", async ({ params }) => {
+  // Stages carry the server's locks (manualTargets/requires/locked) in mock mode too.
+  get("/api/recruitment/candidates/stages", () => db.stages.map((st) => ({
+    ...st, manualTargets: manualTargets(st.id), requires: REQUIRES[st.id] ?? null,
+    locked: APPROVAL_GATED.includes(st.id) && st.id !== "til-godkjenning",
+  })), []),
+  get("/api/recruitment/candidates/reasons", () => ({
+    rejection: REJECTION_REASONS.map((label) => ({ code: slug(label), label })),
+    withdraw: [{ code: "kandidat-trakk-seg", label: "Kandidaten trakk seg" },
+               { code: "fikk-annen-jobb", label: "Fikk annen jobb" }, { code: "annet", label: "Annet (se notat)" }],
+    tags: CANDIDATE_TAGS.map((label) => ({ slug: slug(label), label })),
+  })),
+  get("/api/recruitment/candidates/", () => db.candidates, []),
+  get("/api/recruitment/candidates/note-audience", () => [
+    { id: "Hanne HR", name: "Hanne HR" }, { id: "Lars Ledelse", name: "Lars Ledelse" },
+    { id: "Ole Godkjenner", name: "Ole Godkjenner" },
+  ], []),
+  http.get("/api/recruitment/candidates/:id/rejection-preview", async ({ params }) => {
+    const c = db.candidates.find((x) => x.id === params.id);
+    if (!c) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    return HttpResponse.json({
+      channel: c.email ? "email" : "sms", subject: c.email ? "Søknaden din hos AB Marketing" : "",
+      body: `Hei ${c.name.split(" ")[0]},\n\nTakk for interessen for å jobbe hos AB Marketing. Vi har dessverre ` +
+        "besluttet å ikke gå videre denne gangen.\n\nVi ønsker deg lykke til videre.\n\nVennlig hilsen\nAB Marketing",
+    });
+  }),
+  http.post("/api/recruitment/candidates/:id/tags", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { add?: string[]; remove?: string[]; followUpOn?: string | null };
+    const c = db.candidates.find((x) => x.id === params.id) as (Candidate & { tags?: string[]; followUpOn?: string | null }) | undefined;
+    if (!c) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const tags = new Set(c.tags ?? []);
+    (body.add ?? []).forEach((t) => tags.add(t));
+    (body.remove ?? []).forEach((t) => tags.delete(t));
+    c.tags = [...tags].sort();
+    if (body.followUpOn !== undefined) c.followUpOn = body.followUpOn;
+    persistDb();
+    return HttpResponse.json(c);
+  }),
+  http.post("/api/recruitment/candidates/:id/assign", async ({ request, params }) => {
+    await latency();
+    const body = (await request.json()) as { assignTo: string };
+    const c = db.candidates.find((x) => x.id === params.id);
+    if (!c) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    c.history.push({ id: `h-${Date.now()}`, at: nowStamp(), actor: "Fredrik Amundsen", type: "assignment",
+                     detail: `Tildelt ${body.assignTo}` });
+    c.owner = body.assignTo;
+    persistDb();
+    return HttpResponse.json(c);
+  }),
+  http.post("/api/recruitment/leads/:id/unmerge", async () => HttpResponse.json({ restored: 1 })),
+  http.post("/api/recruitment/leads/:id/not-duplicate", async () => HttpResponse.json({ dismissed: 1 })),
+  http.get("/api/recruitment/candidates/:id", async ({ params }) => {
     await latency();
     const found = db.candidates.find((c) => c.id === params.id);
     if (!found) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
@@ -1552,7 +1618,7 @@ export const handlers = [
     return HttpResponse.json(row, { status: 201 });
   }),
 
-  http.post("/api/hr/recruitment/candidates", async ({ request }) => {
+  http.post("/api/recruitment/candidates/", async ({ request }) => {
     await latency();
     const body = (await request.json()) as {
       name: string;
@@ -1598,11 +1664,15 @@ export const handlers = [
     return HttpResponse.json(candidate, { status: 201 });
   }),
 
-  http.post("/api/hr/recruitment/candidates/:id/advance", async ({ request, params }) => {
+  http.post("/api/recruitment/candidates/:id/advance", async ({ request, params }) => {
     await latency();
-    const body = (await request.json()) as { toStageId: string; fields: Record<string, string> };
+    const body = (await request.json()) as {
+      toStageId: string; fields: Record<string, string>; reasonCode?: string; sendRejection?: boolean;
+    };
     const candidate = db.candidates.find((c) => c.id === params.id);
     if (!candidate) return HttpResponse.json({ message: "Ikke funnet" }, { status: 404 });
+    const refusal = refuseMove(candidate.stageId, body.toStageId, body.reasonCode ?? body.fields?.arsak);
+    if (refusal) return HttpResponse.json(refusal, { status: 409 });
 
     const from = db.stages.find((s) => s.id === candidate.stageId);
     const to = db.stages.find((s) => s.id === body.toStageId);
