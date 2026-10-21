@@ -1,9 +1,11 @@
+import * as React from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { MockBadge } from "@/components/patterns/mock-badge";
+import { IS_MOCK } from "@/lib/data-source";
 
 /*
  * IBM Plex, not Geist or Inter. Those two plus Poppins and Space Grotesk are the
@@ -59,7 +61,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <Providers>
           {children}
-          <MockBadge />
+          {/* Mock mode only: in api mode the data is real, and "Demo på testdata" would be a lie.
+              Suspense because the badge reads ?scenario= (useSearchParams), which would
+              otherwise opt every statically rendered page out of prerendering. */}
+          {IS_MOCK && (
+            <React.Suspense fallback={null}>
+              <MockBadge />
+            </React.Suspense>
+          )}
         </Providers>
       </body>
     </html>
