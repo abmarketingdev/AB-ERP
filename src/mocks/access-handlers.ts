@@ -35,7 +35,20 @@ function accessFor(userKey: string): AccessMe | null {
   };
 }
 
+// §8.1 l.743 demo: code DEMO1234 is a live link, anything else is invalid.
+const optedOut = new Set<string>();
+const optOut = (code: string) => ({ masked: "+47 9•• •• 470", optedOut: optedOut.has(code), already: false });
+
 export const accessHandlers = [
+  http.get("/api/recruitment/public/optout/:code/", ({ params }) =>
+    String(params.code).toUpperCase() === "DEMO1234"
+      ? HttpResponse.json(optOut("DEMO1234"))
+      : HttpResponse.json({ message: "Lenken er ugyldig eller utløpt. Svar STOPP på SMS-en for å melde deg av." }, { status: 404 })),
+  http.post("/api/recruitment/public/optout/:code/", () => {
+    const already = optedOut.has("DEMO1234");
+    optedOut.add("DEMO1234");
+    return HttpResponse.json({ ...optOut("DEMO1234"), optedOut: true, already });
+  }),
   http.get("/api/recruitment/access/me/", ({ request }) => {
     const token = request.headers.get("Authorization")?.replace(/^Bearer /, "");
     try {
