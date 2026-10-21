@@ -38,6 +38,11 @@ const weekdayFmt = new Intl.DateTimeFormat("nb-NO", { weekday: "short", timeZone
 const monthFmt = new Intl.DateTimeFormat("nb-NO", { month: "long", year: "numeric", timeZone: "UTC" });
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long", timeZone: "UTC" });
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
+/** «Søn. 18. oktober» — sentence case. CSS `capitalize` would also capitalise the month. */
+const dayTitle = (d: string) => {
+  const t = `${weekdayFmt.format(day(d))} ${dayFmt.format(day(d))}`;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 
 function VaktplanPage() {
   const [anchor, setAnchor] = React.useState(TODAY);
@@ -60,7 +65,10 @@ function VaktplanPage() {
   const targets = (pool.data ?? []).filter((s) => !myIds.has(s.id) && s.employeeId !== me);
   const mySwaps = swaps.data ?? [];
   const incoming = mySwaps.filter((s) => s.status === "venter_kollega" && s.toEmployeeId === me);
-  const outgoing = mySwaps.filter((s) => s.fromEmployeeId === me || (s.toEmployeeId === me && s.status !== "venter_kollega"));
+  // Open requests first, then the five most recent decided — history is not a to-do list.
+  const mine2 = mySwaps.filter((s) => s.fromEmployeeId === me || (s.toEmployeeId === me && s.status !== "venter_kollega"));
+  const isOpen = (s: SwapRequest) => s.status === "venter_kollega" || s.status === "venter_leder";
+  const outgoing = [...mine2.filter(isOpen), ...mine2.filter((s) => !isOpen(s)).slice(0, 5)];
 
   const workDays = mine.filter((s) => s.kind === "arbeid").length;
   const vacation = mine.filter((s) => s.kind === "ferie").length;
@@ -145,7 +153,7 @@ function VaktplanPage() {
                       <div className="flex items-center gap-3">
                         <span className={`flex size-9 shrink-0 items-center justify-center rounded text-xs font-medium ${cls}`} aria-hidden>{label}</span>
                         <div className="flex flex-col">
-                          <span className="text-sm capitalize tabular-nums">{weekdayFmt.format(day(s.date))} {dayFmt.format(day(s.date))}</span>
+                          <span className="text-sm tabular-nums">{dayTitle(s.date)}</span>
                           <span className="text-xs text-muted-foreground">{title}</span>
                         </div>
                         {s.date === TODAY && <Badge className="bg-[var(--ab-accent-9)] text-[var(--primary-foreground)]">I dag</Badge>}
@@ -160,9 +168,12 @@ function VaktplanPage() {
                               <Repeat className="size-3.5" /> Be om bytte
                             </Button>
                           )}
-                          <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => { setSick(s); setError(null); }}>
-                            <Thermometer className="size-3.5" /> Meld syk
-                          </Button>
+                          {/* Not on a day already registered: the server would refuse it (already_attended). */}
+                          {(s.attendance === "planlagt" || !s.attendance) && (
+                            <Button size="sm" variant="ghost" className="min-h-10 gap-1.5" onClick={() => { setSick(s); setError(null); }}>
+                              <Thermometer className="size-3.5" /> Meld syk
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -215,7 +226,7 @@ function VaktplanPage() {
       </ResponsiveSheet>
 
       <ResponsiveSheet open={Boolean(sick)} onOpenChange={(o) => !o && setSick(null)} title="Meld deg syk"
-        description={sick ? `${weekdayFmt.format(day(sick.date))} ${dayFmt.format(day(sick.date))} blir registrert som sykedag. Lederen din ser det i kalenderen.` : undefined}
+        description={sick ? `${dayTitle(sick.date)} blir registrert som sykedag. Lederen din ser det i kalenderen.` : undefined}
         footer={<>
           <Button variant="ghost" onClick={() => setSick(null)}>Avbryt</Button>
           <Button disabled={setKind.isPending} onClick={reportSick}>Meld syk</Button>
