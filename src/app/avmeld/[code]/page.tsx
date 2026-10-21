@@ -45,7 +45,7 @@ export default function AvmeldSms() {
             <ConfirmStep
               tone="neutral"
               trigger="Meld meg av SMS"
-              consequence="Du får ikke flere SMS fra oss. Har du et intervju, kan du fortsatt se tid og sted i e-posten fra oss."
+              consequence="Du får ikke flere SMS fra oss. Et avtalt intervju gjelder fortsatt."
               confirmLabel="Ja, meld meg av"
               pending={confirm.isPending}
               onConfirm={() => confirm.mutate()}

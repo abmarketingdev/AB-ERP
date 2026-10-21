@@ -30,6 +30,7 @@ export const VIEW_GATES: Record<string, string[]> = {
   "recruitdash.view": ["dashboard.read"],
   "import.view": ["recman_import.admin"],
   "kpi.view": ["dashboard.read"],
+  "privacy.view": ["privacy.admin"],
   "admin.view": ["access.admin", "integrations.read", "audit.read", "privacy.admin", "tasks.compliance"],
 };
 
@@ -56,6 +57,7 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "admin.view", section: "Administrasjon" },
   { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "admin.view", section: "Administrasjon" },
   { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "admin.view", section: "Administrasjon" },
+  { id: "personvern", label: "Personvern", href: "/admin/personvern", icon: "shield-check", gate: "privacy.view", section: "Administrasjon" },
 ];
 
 export function viewGatesFor(serverKeys: string[]): string[] {
