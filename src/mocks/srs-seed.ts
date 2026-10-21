@@ -309,9 +309,11 @@ export function buildEmployees(): Employee[] {
       team: TEAMS_SRS[i % TEAMS_SRS.length],
       campaign: ["Høstkampanjen 2026", "Vinterrekruttering 2027", "Bergen oppstart"][i % 3],
       role: isLeader ? "Teamleder" : "Promotør",
-      startDate: isoDay(dayOffset(-30 - Math.floor(r() * 400))),
+      // As in real HR: people employed before the recruitment flow have no start
+      // date or access template (an empty startDate crashed /ansatte on staging).
+      startDate: i % 7 === 5 ? "" : isoDay(dayOffset(-30 - Math.floor(r() * 400))),
       active: i !== 17,
-      accessTemplate: isLeader ? "Leder" : "Promotør",
+      accessTemplate: i % 7 === 5 ? "" : isLeader ? "Leder" : "Promotør",
       equipment:
         i % 3 === 0
           ? [{ id: `eqe-${i}`, kind: "Mobiltelefon", model: "Samsung A54", serial: `SM-A54-${80000 + i}`, handedOutAt: iso(dayOffset(-30 - i)), handedOutBy: "Ole Marius Sormbråten" }]

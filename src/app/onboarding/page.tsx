@@ -20,6 +20,7 @@ import { CONTRACT_STATUS_LABEL, CHECKLIST_LABEL, type NewHire } from "@/types/on
  * so that combination is flagged rather than left to be spotted.
  */
 
+const days = (n: number) => `${n} ${n === 1 ? "dag" : "dager"}`;
 const dayFmt = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "long" });
 const TODAY = new Date();
 
@@ -71,7 +72,8 @@ function HireRow({ hire: h }: { hire: NewHire }) {
   const open = h.status !== "completed" && h.status !== "no_show" && h.status !== "cancelled";
   const blocked = open && h.contract.status !== "signert" && until <= 7;
   const badge = STATUS_BADGE[h.status];
-  const next = h.checklist.find((c) => !c.done);
+  // A finished or stopped onboarding has no «next» step to point at.
+  const next = open ? h.checklist.find((c) => !c.done) : undefined;
 
   return (
     <Link
@@ -96,7 +98,7 @@ function HireRow({ hire: h }: { hire: NewHire }) {
             </div>
             <span className="flex items-center gap-2 text-sm tabular-nums text-muted-foreground">
               Starter {dayFmt.format(new Date(h.startDate))}
-              {until >= 0 ? ` (om ${until} dager)` : ` (for ${Math.abs(until)} dager siden)`}
+              {until === 0 ? " (i dag)" : until > 0 ? ` (om ${days(until)})` : ` (for ${days(-until)} siden)`}
               <ArrowRight className="size-3.5" aria-hidden />
             </span>
           </div>
@@ -104,7 +106,7 @@ function HireRow({ hire: h }: { hire: NewHire }) {
           {blocked && (
             <p className="flex items-center gap-2 text-[13px] text-danger">
               <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-              Kontrakten er ikke signert, og oppstart er om {until} dager. Den ansatte kan ikke starte før den er signert.
+              Kontrakten er ikke signert, og oppstart er {until <= 0 ? "i dag" : `om ${days(until)}`}. Den ansatte kan ikke starte før den er signert.
             </p>
           )}
 
