@@ -156,7 +156,7 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="campaignId">Prosjekt <span aria-hidden className="text-danger">*</span></Label>
           <Select value={campaignId} onValueChange={(v) => { setCampaignId(v); setLevel("junior"); }}>
-            <SelectTrigger id="campaignId" {...aria("campaignId")}><SelectValue placeholder="Velg prosjekt" /></SelectTrigger>
+            <SelectTrigger id="campaignId" className="w-full" {...aria("campaignId")}><SelectValue placeholder="Velg prosjekt" /></SelectTrigger>
             <SelectContent>{base.campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
           </Select>
           {fieldError("campaignId")}
@@ -165,7 +165,7 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="teamId">Team <span aria-hidden className="text-danger">*</span></Label>
           <Select value={teamId} onValueChange={setTeamId}>
-            <SelectTrigger id="teamId" {...aria("teamId")}><SelectValue placeholder="Velg team" /></SelectTrigger>
+            <SelectTrigger id="teamId" className="w-full" {...aria("teamId")}><SelectValue placeholder="Velg team" /></SelectTrigger>
             <SelectContent>{base.teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
           </Select>
           {fieldError("teamId")}

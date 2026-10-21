@@ -40,8 +40,10 @@ export const approvalSubmitSchema = z.object({
   campaignId: z.string().min(1, "Velg prosjekt"),
   positionLevel: z.string().min(1, "Velg junior eller senior"),
   workDays: z.array(z.number().int().min(1).max(7)).min(1, "Velg hvilke dager personen skal jobbe"),
-  positionPercentage: z.coerce.number({ message: "Skriv inn stillingsprosent" })
-    .min(1, "Mellom 1 og 100").max(100, "Mellom 1 og 100"),
+  // An empty field must say what is missing, not that 0 is out of range.
+  positionPercentage: z.preprocess((v) => (v === "" || v == null ? undefined : v),
+    z.coerce.number({ message: "Skriv inn stillingsprosent" }).min(1, "Stillingsprosent må være mellom 1 og 100")
+      .max(100, "Stillingsprosent må være mellom 1 og 100")),
   /** An explicit choice: a missing answer is not «nei». */
   isStudent: z.boolean({ message: "Velg om personen er student" }),
   note: z.string().max(2000).optional(),

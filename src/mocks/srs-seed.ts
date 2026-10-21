@@ -266,7 +266,7 @@ function buildNewHiresRaw() {
       ],
       contract: {
         status: contractSigned ? "signert" : stage === 0 ? "sendt" : "apnet",
-        templateId: "scrive-tpl-promotoravtale-2026",
+        templateId: "9222115557590686491",
         sentAt: iso(dayOffset(-3 + i, 12)),
         signedAt: contractSigned ? iso(dayOffset(-2 + i, 15)) : null,
         // ONB-03 — purring on what has not been signed.

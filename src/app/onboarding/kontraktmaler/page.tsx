@@ -139,8 +139,8 @@ export default function Kontraktmaler() {
 
               <section className="flex flex-col gap-2">
                 <h2 className="text-sm font-medium">I bruk nå</h2>
-                {/* Desktop: a table. Phone: one card per template (08-DESIGN-REVIEW «tables become cards»). */}
-                <Card className="hidden sm:block">
+                {/* Desktop: a table. Tablet and phone: one card per template (08-DESIGN-REVIEW «tables become cards»). */}
+                <Card className="hidden lg:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -164,7 +164,7 @@ export default function Kontraktmaler() {
                     </TableBody>
                   </Table>
                 </Card>
-                <ul className="flex flex-col gap-2 sm:hidden">
+                <ul className="grid gap-2 sm:grid-cols-2 lg:hidden">
                   {active.map((r) => (
                     <li key={r.id} className="rounded-lg border border-border px-3 py-2.5">
                       <p className="text-sm">{slot(r)}</p>
@@ -213,25 +213,25 @@ function ProposeChange() {
               Endringen sendes til Dana og tas ikke i bruk før hun har kvittert.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="tpl-kind">Kontrakt</Label>
               <Select value={kind} onValueChange={setKind}>
-                <SelectTrigger id="tpl-kind"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tpl-kind" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(CONTRACT_KIND_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="tpl-camp">Kampanje</Label>
               <Select value={campaignSlug || "_"} onValueChange={(v) => setCampaign(v === "_" ? "" : v)}>
-                <SelectTrigger id="tpl-camp"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tpl-camp" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(CAMPAIGN_LABEL).map(([k, v]) => <SelectItem key={k || "_"} value={k || "_"}>{v}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="tpl-level">Nivå</Label>
               <Select value={level || "_"} onValueChange={(v) => setLevel(v === "_" ? "" : v)}>
-                <SelectTrigger id="tpl-level"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tpl-level" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_">Junior</SelectItem>
                   {Object.entries(POSITION_LEVEL_LABEL).filter(([k]) => k !== "junior").map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
