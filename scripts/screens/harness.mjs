@@ -32,6 +32,11 @@ export async function upstream(route) {
   return route.fetch({ url: API_BASE + u.pathname + u.search });
 }
 
+/** Wrap an override handler so a late failure never dumps headers (tokens) to the log. */
+export const quiet = (handler) => async (route) => {
+  try { await handler(route); } catch { await route.abort().catch(() => {}); }
+};
+
 export const emptyPage = { count: 0, page: 1, pageSize: 100, totalPages: 0, next: null, previous: null, results: [] };
 
 export async function startServer() {
@@ -68,10 +73,15 @@ export async function shoot(browser, { out, name, state, url, auth = null, route
     const p = await ctx.newPage();
     await p.route("**/api/**", async (route) => {
       const u = new URL(route.request().url());
-      const r = await route.fetch({ url: API_BASE + u.pathname + u.search });
-      await route.fulfill({ response: r });
+      // A request still in flight when the context closes rejects; swallow it quietly —
+      // Playwright's error dump would otherwise print the request headers, Bearer token included.
+      try {
+        await route.fulfill({ response: await route.fetch({ url: API_BASE + u.pathname + u.search }) });
+      } catch {
+        await route.abort().catch(() => {});
+      }
     });
-    for (const [pattern, handler] of routes) await p.route(pattern, handler);
+    for (const [pattern, handler] of routes) await p.route(pattern, quiet(handler));
     await p.goto(BASE + url, { waitUntil: "domcontentloaded", timeout: 120000 });
     await p.waitForTimeout(wait);
     if (after) await after(p, { width: w, theme });
@@ -86,7 +96,7 @@ export async function run(fn) {
   const stop = await startServer();
   // A throw inside a route handler is an unhandled rejection, not an exception in fn — stop
   // the server on that path too, or it keeps the port.
-  process.once("unhandledRejection", (e) => { stop(); console.error(e); process.exit(1); });
+  process.once("unhandledRejection", (e) => { stop(); console.error(String(e?.message ?? e).split("\n")[0]); process.exit(1); });
   const browser = await chromium.launch();
   try { await fn(browser); } finally { await browser.close(); stop(); }
 }

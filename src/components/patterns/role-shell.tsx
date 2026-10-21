@@ -5,6 +5,8 @@ import { Shell } from "./shell";
 import { NoAccess } from "./permission-gate";
 import { MascotLoadingScreen } from "./mascot-loading";
 import { useSessionGuard } from "@/lib/use-session-guard";
+import { usePathname, useRouter } from "next/navigation";
+import { isAvailable } from "@/lib/modules";
 
 /**
  * A portal is gated by what a session may do, not by who it is. `/leder` admits
@@ -30,8 +32,16 @@ export function RoleShell({
   children: React.ReactNode;
 }) {
   const { session, denied } = useSessionGuard(PERMISSION[role]);
+  const pathname = usePathname();
+  const router = useRouter();
+  // api mode: a screen whose module has no backend yet sends the user home instead of
+  // rendering widgets that 404 (src/lib/modules.ts).
+  const unavailable = !isAvailable(pathname);
+  React.useEffect(() => {
+    if (unavailable && session?.homeHref && session.homeHref !== pathname) router.replace(session.homeHref);
+  }, [unavailable, session, pathname, router]);
 
-  if (session === undefined) {
+  if (session === undefined || (unavailable && session)) {
     return (
       <MascotLoadingScreen label="Henter din side…" />
     );

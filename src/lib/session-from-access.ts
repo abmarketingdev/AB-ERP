@@ -1,3 +1,5 @@
+import { IS_MOCK } from "./data-source";
+import { isAvailable } from "./modules";
 import type { AccessMe } from "@/types/access";
 import type { NavItem, Session } from "./permissions";
 
@@ -30,6 +32,7 @@ export const VIEW_GATES: Record<string, string[]> = {
   "recruitdash.view": ["dashboard.read"],
   "import.view": ["recman_import.admin"],
   "kpi.view": ["dashboard.read"],
+  "privacy.view": ["privacy.admin"],
   "admin.view": ["access.admin", "integrations.read", "audit.read", "privacy.admin", "tasks.compliance"],
 };
 
@@ -56,6 +59,7 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "admin.view", section: "Administrasjon" },
   { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "admin.view", section: "Administrasjon" },
   { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "admin.view", section: "Administrasjon" },
+  { id: "personvern", label: "Personvern", href: "/admin/personvern", icon: "shield-check", gate: "privacy.view", section: "Administrasjon" },
 ];
 
 export function viewGatesFor(serverKeys: string[]): string[] {
@@ -82,12 +86,19 @@ export function sessionFromAccess(access: AccessMe, name?: string): Session {
       seen.add(key);
       return true;
     })
+    // api mode: screens whose module has no backend yet are not offered (src/lib/modules.ts).
+    .filter((n) => isAvailable(n.href))
     .map(({ id, label, href, icon, section }) => ({ id, label, href, icon, section }));
+  // Land on a page that works (master 2026-10-22): leaders on their interviews, promoters
+  // on their shift plan, management on the dashboard. Mock mode keeps the old front pages.
+  const held = new Set(access.permissions);
   const home =
-    gates.includes("admin.view") ? "/admin"
-      : gates.includes("leader.view") ? "/leder"
-        : gates.includes("promoter.view") ? "/promoter"
-          : navigation[0]?.href;
+    // admin.view is also opened by tasks.compliance (ledelse); only real admins land on /admin.
+    held.has("access.admin") || (IS_MOCK && gates.includes("admin.view")) ? (IS_MOCK ? "/admin" : "/admin/tilganger")
+      : gates.includes("leader.view") ? (IS_MOCK ? "/leder" : "/leder/intervjuer")
+        : held.has("dashboard.all") && gates.includes("recruitdash.view") ? "/dashboard"
+          : gates.includes("promoter.view") ? (IS_MOCK ? "/promoter" : "/promoter/vaktplan")
+            : navigation[0]?.href;
   return {
     homeHref: home,
     key: access.template ?? "custom",

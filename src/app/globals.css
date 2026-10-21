@@ -2,7 +2,10 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* `.light` is a light island inside a dark document (the public /soknad and /intervju pages,
+   which applicants see once and which must look like the company's site). Without the
+   :not(), `dark:` utilities inside the island still fired because <html> carries .dark. */
+@custom-variant dark (&:is(.dark *):not(.light *));
 
 @theme inline {
   --color-background: var(--background);
