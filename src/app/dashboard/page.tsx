@@ -21,6 +21,7 @@ import { ChannelMark } from "@/components/patterns/channel-mark";
 import {
   downloadDashboard, useDashboardFilters, useRecruitmentDashboard, useReportSubscription, useSetReportSubscription,
 } from "@/lib/api/recruitment-dashboard";
+import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
 import { TODAY } from "@/lib/shift-cell";
 import {
@@ -100,6 +101,7 @@ function DashboardPage() {
   const [f, set] = useUrlFilter();
   const dash = useRecruitmentDashboard(f);
   const options = useDashboardFilters();
+  const access = useAccess();
   const [exporting, setExporting] = React.useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = React.useState<string | null>(null);
 
@@ -189,7 +191,7 @@ function DashboardPage() {
         {(d) => <Content d={d} groupBy={f.groupBy} onGroupBy={(v) => set({ per: v === "maned" ? "maned" : "" })} />}
       </QueryBoundary>
 
-      <ReportSubscription />
+      {access.can("dashboard.subscribe") && <ReportSubscription />}
     </div>
   );
 }

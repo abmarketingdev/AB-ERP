@@ -229,7 +229,14 @@ function OppmotePage() {
       {/* BEM-03 / BEM-04 — the forecast, with its range and how much history it rests on. */}
       <QueryBoundary query={forecast} skeleton={<Skeleton className="h-32 w-full rounded-lg" />} isEmpty={(d) => d.length === 0}
         emptyTitle="Ingen prognose ennå" emptyDescription="Prognosen bygger på registrert oppmøte. Registrer noen uker, så kommer den.">
-        {(list) => (
+        {(all) => {
+          // Real HR has dozens of teams that never plan in the ERP. Listing each with
+          // «ingen historikk» buried the few that do, so those fold into one line.
+          const list = all.filter((f) => f.plannedDays > 0 || f.basisDays > 0)
+            .sort((x, y) => y.plannedDays - x.plannedDays || x.team.localeCompare(y.team, "nb"));
+          const idle = all.filter((f) => f.plannedDays === 0 && f.basisDays === 0)
+            .sort((x, y) => x.team.localeCompare(y.team, "nb"));
+          return (
           <Card>
             <CardContent className="flex flex-col gap-3 py-4">
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -238,10 +245,13 @@ function OppmotePage() {
                     <TrendingDown className="size-4 text-muted-foreground" aria-hidden />
                     Reelt behov for dagsverk, neste fire uker
                   </h2>
-                  <p className="mt-1 max-w-prose text-xs text-muted-foreground">{list[0]?.explanation}</p>
+                  <p className="mt-1 max-w-prose text-xs text-muted-foreground">{all[0]?.explanation}</p>
                 </div>
 
               </div>
+              {list.length === 0 && (
+                <p className="text-sm text-muted-foreground">Ingen team har planlagte dager eller registrert oppmøte ennå. Prognosen kommer når det finnes historikk.</p>
+              )}
               {/* Phone: one card per team rather than a squashed table (08-DESIGN-REVIEW). */}
               <ul className="flex flex-col gap-2 sm:hidden">
                 {list.map((f) => (
@@ -269,9 +279,9 @@ function OppmotePage() {
                   <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="pb-2 font-medium">Team</th>
-                      <th className="pb-2 text-right font-medium">Planlagt</th>
-                      <th className="pb-2 text-right font-medium">Forventet levert</th>
-                      <th className="pb-2 text-right font-medium">Oppmøtegrad</th>
+                      <th className="whitespace-nowrap pb-2 pl-4 text-right font-medium">Planlagt</th>
+                      <th className="whitespace-nowrap pb-2 pl-4 text-right font-medium">Forventet levert</th>
+                      <th className="whitespace-nowrap pb-2 pl-4 text-right font-medium">Oppmøtegrad</th>
                       <th className="pb-2 pl-6 font-medium">Mål</th>
                       <th className="pb-2 pl-6 font-medium">Grunnlag</th>
                     </tr>
@@ -315,10 +325,19 @@ function OppmotePage() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-muted-foreground">Tallet i parentes er et 80 %-intervall: med lite historikk blir det bredere.</p>
+              {idle.length > 0 && (
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer select-none">
+                    {idle.length} team uten planlagte dager eller registrert oppmøte
+                  </summary>
+                  <p className="mt-1.5 leading-relaxed">{idle.map((f) => f.team).join(" · ")}</p>
+                </details>
+              )}
+              {list.length > 0 && <p className="text-xs text-muted-foreground">Tallet i parentes er et 80 %-intervall: med lite historikk blir det bredere.</p>}
             </CardContent>
           </Card>
-        )}
+          );
+        }}
       </QueryBoundary>
 
       <SlackPreview kind="absence" />

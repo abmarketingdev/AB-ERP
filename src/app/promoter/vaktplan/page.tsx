@@ -48,8 +48,8 @@ const dayTitle = (d: string) => {
 function VaktplanPage() {
   const [anchor, setAnchor] = React.useState(TODAY);
   const { from, to } = monthBounds(anchor);
-  const shifts = useShifts({ from, to });
-  const pool = useShifts({ from: TODAY, to: monthBounds(shiftMonth(TODAY, 1)).to, swapTargets: true });
+  const shifts = useShifts({ from, to, mine: true });
+  const pool = useShifts({ from: TODAY, to: monthBounds(shiftMonth(TODAY, 1)).to, swapTargets: true, mine: true });
   const swaps = useSwapRequests();
   const request = useRequestSwap();
   const setKind = useSetDayKind();

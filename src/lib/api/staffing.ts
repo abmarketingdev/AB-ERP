@@ -19,10 +19,13 @@ import {
  */
 const BASE = `${API.recruitment}/staffing`;
 
-export function useShifts(scope: { from?: string; to?: string; teamId?: string; userId?: string; swapTargets?: boolean } = {}) {
+export function useShifts(scope: { from?: string; to?: string; teamId?: string; userId?: string; swapTargets?: boolean; mine?: boolean } = {}) {
   const params = {
     from: scope.from, to: scope.to, team_id: scope.teamId, user_id: scope.userId,
     swap_targets: scope.swapTargets ? 1 : undefined,
+    // «Min vaktplan»: own days even for someone who also manages teams (else the server
+    // returns the whole team and the page would show colleagues' days as one's own).
+    mine: scope.mine ? 1 : undefined,
   };
   return useQuery({
     queryKey: qk.schedule.shifts(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined)
