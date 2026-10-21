@@ -21,5 +21,7 @@ export const accessMeSchema = z.object({
   /** False only on test environments where the 2FA requirement is switched off. */
   stepUpEnforced: z.boolean().default(true),
   isSuperuser: z.boolean(),
+  /** Set when the user holds no modules at all: who to ask (Norwegian, from the server). */
+  message: z.string().nullable().optional(),
 });
 export type AccessMe = z.infer<typeof accessMeSchema>;

@@ -7,6 +7,7 @@ import { MockProvider } from "@/mocks/mock-provider";
 import { MascotFilters } from "@/components/patterns/mascot-filters";
 import { LocaleProvider, LocaleScope } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
+import { StepUpProvider } from "@/lib/step-up";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(
@@ -35,7 +36,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
             refetching everything. */}
         <LocaleProvider>
           <TooltipProvider delayDuration={150}>
-            <LocaleScope>{children}</LocaleScope>
+            {/* IFK-04: any page can ask for 2FA when the server answers step_up_required. */}
+            <StepUpProvider>
+              <LocaleScope>{children}</LocaleScope>
+            </StepUpProvider>
           </TooltipProvider>
         </LocaleProvider>
       </QueryClientProvider>

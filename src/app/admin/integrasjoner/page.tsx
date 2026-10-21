@@ -10,6 +10,8 @@ import { useIntegrations } from "@/lib/api/quality";
 import { riseIn } from "@/lib/motion";
 import { Mascot } from "@/components/patterns/mascot";
 import type { Integration } from "@/types/quality";
+import { IS_MOCK } from "@/lib/data-source";
+import { IntegrationAdmin } from "@/components/patterns/integration-admin";
 
 /**
  * FR-A-10 — integration health.
@@ -53,6 +55,11 @@ const KIND_LABEL: Record<Integration["kind"], string> = {
 };
 
 export default function AdminIntegrasjoner() {
+  // api mode: the real §4 framework (on/off, keys, test, alerts). Mock: the FR-A-10 demo view.
+  return IS_MOCK ? <IntegrationHealthDemo /> : <IntegrationAdmin />;
+}
+
+function IntegrationHealthDemo() {
   const now = new Date();
   const reduced = useReducedMotion();
   const query = useIntegrations();
