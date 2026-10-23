@@ -6,6 +6,7 @@ import {
   type ApprovalSubmit,
 } from "@/types/approval";
 import { z } from "zod";
+import { useStepUp } from "@/lib/step-up";
 
 /**
  * GODK-01 … GODK-05 — recruitment-service `approvals` (`/api/recruitment/approval/`).
@@ -73,11 +74,13 @@ export function useApprovers() {
 
 export function useSetDeputy() {
   const qc = useQueryClient();
+  // approval.approve is a step-up key (IFK-04): ask for the code instead of only failing.
+  const stepUp = useStepUp();
   return useMutation({
     mutationFn: (v: { deputyUserId: string | null; validFrom?: string; validUntil?: string }) =>
-      v.deputyUserId
+      stepUp.run(() => v.deputyUserId
         ? apiPost(`${BASE}/deputy/`, deputySchema, { deputyUserId: v.deputyUserId, validFrom: v.validFrom, validUntil: v.validUntil })
-        : apiSend("DELETE", `${BASE}/deputy/`, deputySchema),
+        : apiSend("DELETE", `${BASE}/deputy/`, deputySchema)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: approvalKeys.deputy() });
       qc.invalidateQueries({ queryKey: approvalKeys.approvers() });
@@ -96,8 +99,9 @@ export function useApprovalSettings() {
 }
 export function useUpdateApprovalSettings() {
   const qc = useQueryClient();
+  const stepUp = useStepUp();
   return useMutation({
-    mutationFn: (v: Partial<z.infer<typeof settingsSchema>>) => apiPatch(`${BASE}/settings/`, settingsSchema, v),
+    mutationFn: (v: Partial<z.infer<typeof settingsSchema>>) => stepUp.run(() => apiPatch(`${BASE}/settings/`, settingsSchema, v)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["approval", "settings"] }),
   });
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { z } from "zod";
 import { API, apiGet, apiPost, apiUpload } from "./client";
 import { qk } from "./keys";
+import { useStepUp } from "@/lib/step-up";
 import { employeeListSchema, newHireListSchema, newHireSchema } from "@/types/onboarding";
 import { templateMappingListSchema, templateMappingSchema } from "@/types/approval";
 
@@ -82,19 +83,22 @@ export function useEmployees() {
 export function useTemplateMappings() {
   return useQuery({ queryKey: ["onboarding", "templates"], queryFn: () => apiGet(`${BASE}/templates/`, templateMappingListSchema) });
 }
+// onboarding.templates is a step-up key (IFK-04): both template actions ask for the code.
 export function useProposeTemplate() {
   const qc = useQueryClient();
+  const stepUp = useStepUp();
   return useMutation({
     mutationFn: (v: { kind: string; campaignSlug: string; level: string; templateId: string; note: string }) =>
-      apiPost(`${BASE}/templates/`, templateMappingSchema, v),
+      stepUp.run(() => apiPost(`${BASE}/templates/`, templateMappingSchema, v)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["onboarding", "templates"] }),
   });
 }
 export function useTemplateAction() {
   const qc = useQueryClient();
+  const stepUp = useStepUp();
   return useMutation({
     mutationFn: (v: { id: string; action: "acknowledge" | "activate" }) =>
-      apiPost(`${BASE}/templates/${v.id}/${v.action}/`, templateMappingSchema, {}),
+      stepUp.run(() => apiPost(`${BASE}/templates/${v.id}/${v.action}/`, templateMappingSchema, {})),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["onboarding", "templates"] }),
   });
 }
