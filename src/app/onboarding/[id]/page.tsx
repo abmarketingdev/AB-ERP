@@ -261,7 +261,9 @@ function Detail({ hire: h }: { hire: NewHire }) {
               if (file) run(() => photo.mutateAsync({ id: h.id, file }));
             }} />
           <Button size="sm" variant={h.photo ? "ghost" : "outline"} className="gap-1.5"
-            disabled={photo.isPending || !h.authUserId || closed} onClick={() => fileRef.current?.click()}>
+            // A finished onboarding keeps its photo up to date (ONB-06); only a cancelled or no-show case is locked.
+            disabled={photo.isPending || !h.authUserId || h.status === "no_show" || h.status === "cancelled"}
+            onClick={() => fileRef.current?.click()}>
             {photo.isPending
               ? <><Mascot state="thinking" motion="loop" size={20} label="Laster opp" /> Laster opp</>
               : <><Camera className="size-4" aria-hidden /> {h.photo ? "Ta nytt bilde" : "Ta bilde"}</>}
