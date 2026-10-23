@@ -55,6 +55,9 @@ function VaktplanPage() {
   const setKind = useSetDayKind();
 
   const [swapFrom, setSwapFrom] = React.useState<Shift | null>(null);
+  // Only swaps that can succeed: neither person may already work the other's day.
+  const offer = useShifts({ from: TODAY, to: monthBounds(shiftMonth(TODAY, 1)).to, swapTargets: true, mine: true,
+    swapFrom: swapFrom?.date, enabled: Boolean(swapFrom) });
   const [swapTo, setSwapTo] = React.useState("");
   const [reason, setReason] = React.useState("");
   const [sick, setSick] = React.useState<Shift | null>(null);
@@ -72,6 +75,8 @@ function VaktplanPage() {
   const myIds = new Set(mine.map((s) => s.id));
   const me = mine[0]?.employeeId ?? (pool.data ?? []).find((s) => s.attendanceHistory !== undefined)?.employeeId;
   const targets = (pool.data ?? []).filter((s) => !myIds.has(s.id) && s.employeeId !== me);
+  const offerIds = new Set((offer.data ?? []).map((s) => s.id));
+  const swapOptions = targets.filter((t) => t.date !== swapFrom?.date && offerIds.has(t.id));
   const mySwaps = swaps.data ?? [];
   const incoming = mySwaps.filter((s) => s.status === "venter_kollega" && s.toEmployeeId === me);
   // Open requests first, then the five most recent decided — history is not a to-do list.
@@ -195,12 +200,16 @@ function VaktplanPage() {
             <Select value={swapTo} onValueChange={setSwapTo}>
               <SelectTrigger id="swap-to" className="min-h-11"><SelectValue placeholder="Velg en kollegas vakt" /></SelectTrigger>
               <SelectContent>
-                {targets.filter((t) => t.date !== swapFrom?.date).slice(0, 60).map((t) => (
+                {swapOptions.slice(0, 60).map((t) => (
                   <SelectItem key={t.id} value={t.id}>{t.employeeName} — {dayFmt.format(day(t.date))}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {targets.length === 0 && <p className="text-xs text-muted-foreground">Ingen kolleger på teamet ditt har arbeidsdager du kan bytte til — du jobber allerede de dagene, eller ingen er satt opp.</p>}
+            {offer.isFetched && swapOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Ingen bytter er mulige for denne dagen: kollegaene dine jobber den allerede, eller du jobber deres dager. Prøv en annen av vaktene dine.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="swap-reason">Begrunnelse</Label>
