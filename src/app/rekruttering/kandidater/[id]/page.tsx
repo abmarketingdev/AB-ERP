@@ -28,6 +28,8 @@ import { errorMessage } from "@/lib/api/client";
 import type { Candidate, CandidateHistoryEntry, RecruitmentStage } from "@/types/recruitment";
 import { STAGE_BADGE, CONTRACT_LABEL, CONTRACT_BADGE, TERMINAL_STAGE_IDS } from "@/lib/recruitment";
 import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
+import { ApprovalSubmitDialog } from "@/components/patterns/approval-submit-dialog";
+import { useAccess } from "@/lib/use-access";
 import { CandidateTags } from "@/components/patterns/candidate-tags";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
@@ -187,6 +189,9 @@ export default function CandidateDetail() {
   const minimise = useMinimiseCandidate();
   const [advanceOpen, setAdvanceOpen] = React.useState(false);
   const [closing, setClosing] = React.useState(false);
+  // GODK-01: the leader sends an interviewed candidate to Ole from here (and from the board's link).
+  const [approvalOpen, setApprovalOpen] = React.useState(false);
+  const canSubmitApproval = useAccess().can("approval.submit");
   const [closeError, setCloseError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
 
@@ -233,9 +238,15 @@ export default function CandidateDetail() {
                     actions={
                       !isTerminal ? (
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
-                            Flytt til neste steg <ArrowRight className="size-4" />
-                          </Button>
+                          {c.stageId === "intervjuet" && canSubmitApproval ? (
+                            <Button size="sm" className="gap-1.5" onClick={() => setApprovalOpen(true)}>
+                              <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
+                            </Button>
+                          ) : (
+                            <Button size="sm" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
+                              Flytt til neste steg <ArrowRight className="size-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
@@ -348,6 +359,9 @@ export default function CandidateDetail() {
                     stage={stageList.find((st) => st.id === picked) ?? null}
                     onClose={() => setPicked(null)}
                   />
+                  {canSubmitApproval && (
+                    <ApprovalSubmitDialog candidateId={c.id} open={approvalOpen} onOpenChange={setApprovalOpen} />
+                  )}
                 </div>
               );
             }}
