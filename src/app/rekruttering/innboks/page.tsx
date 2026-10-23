@@ -51,6 +51,17 @@ const PAGE_SIZE = 50;
 const EMPTY: Set<string> = new Set();
 const ALL = "alle";
 
+/** Why some selected leads cannot be sent: only «Ny» leads go to recruitment (LEAD-08). */
+function skippedReason(rows: Lead[]): string {
+  const n = (st: LeadStatus) => rows.filter((l) => l.status === st).length;
+  const parts = [
+    n("sendt") && `${n("sendt")} er allerede sendt videre (finnes under Kandidater)`,
+    n("duplikat") && `${n("duplikat")} er duplikat – slå sammen først`,
+    n("forkastet") && `${n("forkastet")} er forkastet`,
+  ].filter(Boolean);
+  return `Bare leads med status «Ny» kan sendes. ${parts.join(" · ")}.`;
+}
+
 const STATUS_TONE: Record<LeadStatus, string> = {
   ny: "bg-[var(--ab-accent-3)] text-[var(--ab-accent-12)]",
   sendt: "bg-success/10 text-success",
@@ -299,7 +310,7 @@ function SamleinnboksPage() {
             />
             {sendable.length < selected.size && (
               <span className="text-xs text-muted-foreground">
-                {selected.size - sendable.length} er allerede behandlet og hoppes over
+                {skippedReason(selectedRows)}
               </span>
             )}
             <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setSelected(new Set())}>

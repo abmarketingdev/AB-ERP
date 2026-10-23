@@ -82,6 +82,8 @@ export function WeekSlotPicker({
   const freeCount = (slots.data?.slots ?? []).filter((s) => s.available).length;
   const shownDay = mobileDay ?? days.find(([, s]) => s.some((x) => x.available))?.[0] ?? days[0]?.[0];
   const isThisWeek = week <= mondayOf(todayOslo());
+  const rangeFrom = days[0]?.[0] ?? week;
+  const rangeTo = days[days.length - 1]?.[0] ?? addDays(week, 6);
 
   return (
     <div className="flex flex-col gap-3">
@@ -92,7 +94,8 @@ export function WeekSlotPicker({
             <ChevronLeft className="size-4" />
           </Button>
           <p className="min-w-[11rem] text-center text-sm font-medium tabular-nums">
-            Uke {isoWeek(week)} · {dayHead.format(new Date(`${week}T12:00:00Z`))} – {dayHead.format(new Date(`${addDays(week, 6)}T12:00:00Z`))}
+            {/* The server starts at today, not at Monday, so the label follows the days actually shown. */}
+            Uke {isoWeek(rangeFrom) === isoWeek(rangeTo) ? isoWeek(rangeFrom) : `${isoWeek(rangeFrom)}–${isoWeek(rangeTo)}`} · {dayHead.format(new Date(`${rangeFrom}T12:00:00Z`))} – {dayHead.format(new Date(`${rangeTo}T12:00:00Z`))}
           </p>
           <Button size="icon" variant="ghost" className="size-9" aria-label="Neste uke"
             onClick={() => setWeek((w) => addDays(w, 7))}>

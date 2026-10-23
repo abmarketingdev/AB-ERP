@@ -73,7 +73,7 @@ export function decideDrop(stages: RecruitmentStage[], fromId: string, toId: str
     return { kind: "requires", requires: "approval", message: "Send til godkjenning med godkjenningsskjemaet." };
   }
   if (to.locked || to.requires === "approval") {
-    return { kind: "refused", message: "Kandidaten må godkjennes av Ole før onboarding kan starte." };
+    return { kind: "refused", message: `Kortet ble ikke flyttet: «${to.label}» settes først når Ole har godkjent kandidaten. Kandidaten må være intervjuet og sendt til godkjenning.` };
   }
   return { kind: "refused", message: `Kan ikke flytte fra «${from.label}» til «${to.label}».` };
 }
@@ -91,13 +91,9 @@ export function CandidateBoard({
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
   // A refused drop explains itself IN the column it was dropped on (master: «avvist drop
-  // må forklare seg på stedet»), and fades after a while; a live region reads it aloud.
+  // må forklare seg på stedet») and stays until «Lukk» or the next drag: one that faded
+  // on its own read as «the card moved, then vanished». A live region reads it aloud.
   const [refusal, setRefusal] = React.useState<{ stageId: string; message: string; href?: string; cta?: string } | null>(null);
-  React.useEffect(() => {
-    if (!refusal) return;
-    const t = window.setTimeout(() => setRefusal(null), 8000);
-    return () => window.clearTimeout(t);
-  }, [refusal]);
 
   const sensors = useSensors(
     // A small distance threshold keeps a click on the card a click, not a drag.
@@ -138,7 +134,10 @@ export function CandidateBoard({
         : { stageId: toId, message: decision.message, href: `/rekruttering/kandidater/${candidate.id}`, cta: "Åpne kandidaten" });
       return;
     }
-    if (decision.kind === "refused") { setRefusal({ stageId: toId, message: decision.message }); return; }
+    if (decision.kind === "refused") {
+      setRefusal({ stageId: toId, message: decision.message, href: `/rekruttering/kandidater/${candidate.id}`, cta: "Åpne kandidaten" });
+      return;
+    }
 
     const stage = stages.find((s) => s.id === toId);
     if (stage) setPending({ candidate, stage });

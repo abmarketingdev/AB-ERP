@@ -88,6 +88,8 @@
   --ab-accent-10: #2a3034;
   --ab-accent-11: #3d4349;
   --ab-accent-12: #1b1e21;
+  /* Label colour on an accent-9/12 ground: white on graphite here, black on the light ground in .dark. */
+  --ab-accent-contrast: #ffffff;
 
   /* Status roles */
   --success: oklch(0.63 0.17 149);
@@ -248,6 +250,7 @@
   --ab-accent-10: #d8e1ea;
   --ab-accent-11: #e4ebf1;
   --ab-accent-12: #e8eef4;
+  --ab-accent-contrast: #0b0d0f;
 
   --success: oklch(0.7 0.16 149);
   --success-foreground: oklch(0.16 0.03 149);

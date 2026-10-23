@@ -251,7 +251,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="h-11 w-full bg-[var(--ab-accent-9)] text-sm font-medium text-white shadow-lg shadow-[var(--ab-accent-9)]/25 hover:bg-[var(--ab-accent-10)] disabled:opacity-70"
+                  className="h-11 w-full bg-[var(--ab-accent-12)] text-sm font-semibold text-[var(--ab-accent-contrast)] shadow-lg shadow-black/20 hover:bg-[var(--ab-accent-9)] disabled:opacity-70"
                 >
                   {submitting ? "Logger inn…" : "Logg inn"}
                   {!submitting && <ArrowRight className="size-4" />}
@@ -283,7 +283,7 @@ export default function LoginPage() {
                       onClick={() => fillDemo(account)}
                       className="group flex w-full items-center gap-3 rounded-lg border border-border bg-secondary/40 px-4 py-3 text-left transition-colors hover:border-[var(--ab-accent-9)]/50 hover:bg-secondary"
                     >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--ab-accent-9)]/15 text-[var(--ab-accent-11)] transition-colors group-hover:bg-[var(--ab-accent-9)] group-hover:text-white">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--ab-accent-9)]/15 text-[var(--ab-accent-11)] transition-colors group-hover:bg-[var(--ab-accent-9)] group-hover:text-[var(--ab-accent-contrast)]">
                         <Icon className="size-4" />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -320,7 +320,9 @@ export default function LoginPage() {
               </span>
               <h2 className="text-2xl font-medium tracking-tight text-foreground">Bekreft med kode</h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Administratortilgang krever tofaktor. Skriv inn <span className="font-mono text-foreground">123456</span> for demoen.
+                {IS_MOCK
+                  ? <>Administratortilgang krever tofaktor. Skriv inn <span className="font-mono text-foreground">123456</span> for demoen.</>
+                  : "Skriv inn den 6-sifrede koden fra autentiseringsappen din."}
               </p>
 
               <form onSubmit={onSubmitTwoFactor} className="mt-8 space-y-4">
@@ -350,7 +352,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   disabled={submitting || code.length !== 6}
-                  className="h-11 w-full bg-[var(--ab-accent-9)] text-sm font-medium text-white shadow-lg shadow-[var(--ab-accent-9)]/25 hover:bg-[var(--ab-accent-10)] disabled:opacity-50"
+                  className="h-11 w-full bg-[var(--ab-accent-12)] text-sm font-semibold text-[var(--ab-accent-contrast)] shadow-lg shadow-black/20 hover:bg-[var(--ab-accent-9)] disabled:opacity-50"
                 >
                   {submitting ? "Bekrefter…" : "Bekreft og logg inn"}
                   {!submitting && <ArrowRight className="size-4" />}

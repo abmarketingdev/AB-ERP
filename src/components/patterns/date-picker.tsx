@@ -250,7 +250,7 @@ function MonthGrid({ selected, min, max, onPick, rangeFrom = null, rangeTo = nul
               className={[
                 "flex h-11 items-center justify-center rounded-md text-sm tabular-nums transition-colors sm:h-9",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35",
-                isSel ? "bg-[var(--ab-accent-9)] font-medium text-white"
+                isSel ? "bg-[var(--ab-accent-9)] font-medium text-[var(--ab-accent-contrast)]"
                   : inRange ? "bg-[var(--ab-accent-9)]/12 text-foreground"
                   : isSameMonth(d, month) ? "text-foreground hover:bg-muted" : "text-muted-foreground/60 hover:bg-muted",
                 !isSel && isSameDay(d, today) ? "ring-1 ring-inset ring-[var(--ab-accent-9)]/50" : "",
