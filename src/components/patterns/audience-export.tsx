@@ -21,6 +21,7 @@ import { errorMessage } from "@/lib/api/client";
  * a works council asks about by name.
  */
 const num = new Intl.NumberFormat("nb-NO");
+const PLATFORM_LABEL: Record<string, string> = { meta: "Meta", tiktok: "TikTok" };
 
 export function AudienceExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const run = useAudienceExport();
@@ -51,7 +52,8 @@ export function AudienceExportDialog({ open, onClose }: { open: boolean; onClose
         {result ? (
           <div className="flex flex-col gap-3 py-2">
             <p className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
-              {num.format(result.exported)} personer eksportert til {result.platform}.
+              {num.format(result.exported)} personer sendt til {PLATFORM_LABEL[result.platform.toLowerCase()] ?? result.platform}.
+              {" "}De blir målgruppen som annonseplattformen finner lignende personer ut fra.
             </p>
             <dl className="flex flex-col gap-1 text-sm">
               <Row label="Vurdert" value={num.format(result.considered)} />
@@ -60,8 +62,10 @@ export function AudienceExportDialog({ open, onClose }: { open: boolean; onClose
             </dl>
             <p className="flex items-start gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              Bare hashede e-postadresser forlater systemet — aldri navn, telefonnummer eller notater.
-              Eksempel: <code className="font-mono">{result.sample[0]?.hashedEmail ?? "—"}</code>
+              <span>
+                Bare hashet e-post og telefon (SHA-256) forlater systemet, aldri navn eller notater.
+                {result.sample[0]?.hashedEmail && <> Eksempel: <code className="break-all font-mono">{result.sample[0].hashedEmail}</code></>}
+              </span>
             </p>
           </div>
         ) : (
