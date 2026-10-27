@@ -28,6 +28,8 @@ function invalidate(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["recruitment"] });
   qc.invalidateQueries({ queryKey: qk.onboarding.all() });
   qc.invalidateQueries({ queryKey: qk.quality.audit() });
+  // «Mine intervjuer» shows the candidate's status (Send til godkjenning → Sendt).
+  qc.invalidateQueries({ queryKey: qk.interviews.all() });
 }
 
 export function useApprovalQueue(status?: "pending" | "approved" | "rejected" | "returned") {

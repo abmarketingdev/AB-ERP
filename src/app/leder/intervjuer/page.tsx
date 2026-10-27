@@ -19,6 +19,8 @@ import { useInterviews, useInterviewOutcome } from "@/lib/api/interviews";
 import { errorMessage } from "@/lib/api/client";
 import { INTERVIEW_STATUS_LABEL, outcomeSchema, type Interview } from "@/types/interview";
 import { PermissionGate } from "@/components/patterns/permission-gate";
+import { ApprovalSubmitDialog } from "@/components/patterns/approval-submit-dialog";
+import { useAccess } from "@/lib/use-access";
 
 /**
  * BOOK-08 / BOOK-09 — lederens egne intervjuer, og skjemaet etterpå.
@@ -52,6 +54,11 @@ function LederIntervjuerPage() {
   const upcoming = mine.filter((iv) => iv.status === "booket" && !started(iv)).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const done = mine.filter((iv) => iv.attended !== null).sort((a, b) => b.startsAt.localeCompare(a.startsAt)).slice(0, 20);
   const today = dayKey.format(new Date(now));
+  // GODK-01: the leader sends to Ole right after «Møtte». The dialog lives here, not in the
+  // row, because the row leaves «venter» (and unmounts) as soon as the outcome is saved.
+  const canSubmit = useAccess().can("approval.submit");
+  const [approvalFor, setApprovalFor] = React.useState<string | null>(null);
+  const onAttended = canSubmit ? setApprovalFor : undefined;
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -74,7 +81,7 @@ function LederIntervjuerPage() {
           <>
             {awaiting.length > 0 ? (
               <Section title="Venter på registrering">
-                {awaiting.map((iv) => <li key={iv.id}><InterviewRow iv={iv} awaiting /></li>)}
+                {awaiting.map((iv) => <li key={iv.id}><InterviewRow iv={iv} onAttended={onAttended} awaiting /></li>)}
               </Section>
             ) : (mine.some((iv) => iv.attended !== null) && (
               <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm" role="status">
@@ -102,6 +109,14 @@ function LederIntervjuerPage() {
                           <span className="text-xs tabular-nums text-muted-foreground">{fullFmt.format(new Date(iv.startsAt))}</span>
                         </div>
                         {iv.assessment && <p className="text-sm">{iv.assessment}</p>}
+                        {iv.attended && iv.candidateStatus === "intervjuet" && canSubmit && (
+                          <Button size="sm" className="mt-1 min-h-10 self-start" onClick={() => setApprovalFor(iv.candidateId)}>
+                            Send til godkjenning
+                          </Button>
+                        )}
+                        {iv.candidateStatus === "til-godkjenning" && (
+                          <p className="text-xs text-muted-foreground">Sendt til godkjenning hos Ole.</p>
+                        )}
                       </CardContent>
                     </Card>
                   </li>
@@ -111,6 +126,10 @@ function LederIntervjuerPage() {
           </>
         )}
       </QueryBoundary>
+      {approvalFor && (
+        <ApprovalSubmitDialog candidateId={approvalFor} open onOpenChange={(o) => { if (!o) setApprovalFor(null); }}
+          onSubmitted={() => setApprovalFor(null)} />
+      )}
     </div>
   );
 }
@@ -124,7 +143,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function InterviewRow({ iv, awaiting, today }: { iv: Interview; awaiting?: boolean; today?: boolean }) {
+function InterviewRow({ iv, awaiting, today, onAttended }: { iv: Interview; awaiting?: boolean; today?: boolean; onAttended?: (candidateId: string) => void }) {
   const [open, setOpen] = React.useState(false);
   // A new key per opening: the form starts empty every time, never with a half-answer from before.
   const [opening, setOpening] = React.useState(0);
@@ -151,12 +170,12 @@ function InterviewRow({ iv, awaiting, today }: { iv: Interview; awaiting?: boole
           <Button className="min-h-11 w-full sm:w-auto" onClick={() => { setOpening((n) => n + 1); setOpen(true); }}>Registrer oppmøte</Button>
         )}
       </CardContent>
-      {awaiting && <OutcomeSheet key={opening} iv={iv} open={open} onOpenChange={setOpen} />}
+      {awaiting && <OutcomeSheet key={opening} iv={iv} open={open} onOpenChange={setOpen} onAttended={onAttended} />}
     </Card>
   );
 }
 
-function OutcomeSheet({ iv, open, onOpenChange }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void }) {
+function OutcomeSheet({ iv, open, onOpenChange, onAttended }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void; onAttended?: (candidateId: string) => void }) {
   const outcome = useInterviewOutcome();
   const [attended, setAttended] = React.useState<boolean | null>(null);
   const [assessment, setAssessment] = React.useState("");
@@ -172,6 +191,7 @@ function OutcomeSheet({ iv, open, onOpenChange }: { iv: Interview; open: boolean
     try {
       await outcome.mutateAsync({ id: iv.id, ...parsed.data });
       onOpenChange(false);
+      if (parsed.data.attended) onAttended?.(iv.candidateId);
     } catch (e) {
       setError(errorMessage(e));
     }
