@@ -94,7 +94,10 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
 
   return (
     <Dialog open={Boolean(lead)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
+      {/* `sm:` is required: the base DialogContent sets sm:max-w-sm, and an unprefixed
+          max-w-* loses to it from the sm breakpoint up — the dialog then renders at the
+          narrow default and the lead cards scroll sideways. */}
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Slå sammen duplikater</DialogTitle>
           <DialogDescription>
@@ -117,18 +120,18 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
                   type="button"
                   onClick={() => setKeepId(l.id)}
                   aria-pressed={keep}
-                  className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors ${
+                  className={`flex w-full min-w-0 flex-col gap-1 rounded-lg border p-3 text-left transition-colors ${
                     keep ? "border-[var(--ab-accent-9)] bg-[var(--ab-accent-3)]/30" : "border-border hover:bg-muted/50"
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    {keep && <Check className="size-4 text-[var(--ab-accent-9)]" />}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {keep && <Check className="size-4 shrink-0 text-[var(--ab-accent-9)]" />}
                     <span className="font-medium">{l.name}</span>
                     <Badge variant="outline" className="gap-1.5"><ChannelMark channel={l.channel} />{l.channel}</Badge>
                     <Badge variant="outline">{LEAD_STATUS_LABEL[l.status]}</Badge>
                     {keep && <span className="ml-auto text-xs text-[var(--ab-accent-9)]">Beholdes</span>}
                   </div>
-                  <div className="text-xs tabular-nums text-muted-foreground">
+                  <div className="break-words text-xs tabular-nums text-muted-foreground">
                     {contactLine(l.phone, l.email)}
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -167,7 +170,7 @@ export function MergeDuplicatesDialog({ lead, onClose }: { lead: Lead | null; on
           <p role="alert" className="text-sm text-danger">{errorMessage(merge.error ?? dismiss.error)}</p>
         )}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="flex-wrap gap-2">
           <Button variant="ghost" onClick={onClose}>Avbryt</Button>
           <Button variant="outline" onClick={notDuplicate} disabled={dismiss.isPending || group.length < 2}>
             Ikke duplikat

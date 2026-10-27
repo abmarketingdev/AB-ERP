@@ -40,7 +40,7 @@ export function AudienceExportDialog({ open, onClose }: { open: boolean; onClose
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Eksporter målgruppe</DialogTitle>
           <DialogDescription>
