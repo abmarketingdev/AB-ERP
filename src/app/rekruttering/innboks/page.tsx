@@ -137,6 +137,8 @@ function SamleinnboksPage() {
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [assignTarget, setAssignTarget] = React.useState("");
   const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
+  const [lastDiscard, setLastDiscard] = React.useState<{ discarded: number; skipped: number } | null>(null);
+  const [lastAssign, setLastAssign] = React.useState<{ assigned: number; skipped: number } | null>(null);
   const kindByName = React.useMemo(
     () => Object.fromEntries((meta.data?.channels ?? []).map((c) => [c.name, c.kind])), [meta.data]);
 
@@ -182,6 +184,8 @@ function SamleinnboksPage() {
    * than a button that silently skips 28.
    */
   const selectedRows = rows.filter((l) => selected.has(l.id));
+  // The same «Ny» rule applies to Tildel (LEAD-09): a sent lead has a candidate behind
+  // it, and its owner is changed on the candidate so the person is never split in two.
   const sendable = selectedRows.filter((l) => l.status === "ny");
   const busy = send.isPending || assign.isPending || discard.isPending;
 
@@ -211,6 +215,8 @@ function SamleinnboksPage() {
   async function runSend() {
     const result = await send.mutateAsync({ ids: sendable.map((l) => l.id) });
     setLastSend(result);
+    setLastDiscard(null);
+    setLastAssign(null);
     setSelected(new Set());
   }
 
@@ -294,19 +300,31 @@ function SamleinnboksPage() {
                   {(meta.data?.recruiters ?? []).map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" variant="outline" className="gap-1.5" disabled={busy || !assignTarget}
-                onClick={async () => { await assign.mutateAsync({ ids: [...selected], assignTo: assignTarget }); setSelected(new Set()); }}>
-                <Users className="size-4" /> Tildel
+              <Button size="sm" variant="outline" className="gap-1.5" disabled={busy || !assignTarget || !sendable.length}
+                onClick={async () => {
+                  const result = await assign.mutateAsync({ ids: sendable.map((l) => l.id), assignTo: assignTarget });
+                  setLastAssign({ assigned: result.assigned, skipped: result.skipped + (selected.size - sendable.length) });
+                  setLastSend(null);
+                  setLastDiscard(null);
+                  setSelected(new Set());
+                }}>
+                <Users className="size-4" /> Tildel {sendable.length}
               </Button>
             </div>
             {/* Destructive, so it confirms in place (08-DESIGN-REVIEW: never confirm()). Not
                 deleted — a discarded lead stays under its filter — so no typed word. */}
             <ConfirmStep
               trigger={`Forkast ${selected.size}`}
-              consequence={`${selected.size === 1 ? "Leadet" : `${selected.size} leads`} merkes som forkastet og forsvinner fra arbeidslisten. Ingenting slettes.`}
+              consequence={`${selected.size === 1 ? "Leadet" : `${selected.size} leads`} merkes som forkastet og forsvinner fra innboksen (finnes igjen under status «Forkastet»). Bare leads med status «Ny» kan forkastes.`}
               confirmLabel="Forkast"
               pending={discard.isPending}
-              onConfirm={async () => { await discard.mutateAsync({ ids: [...selected] }); setSelected(new Set()); }}
+              onConfirm={async () => {
+                const result = await discard.mutateAsync({ ids: [...selected] });
+                setLastDiscard(result);
+                setLastSend(null);
+                setLastAssign(null);
+                setSelected(new Set());
+              }}
             />
             {sendable.length < selected.size && (
               <span className="text-xs text-muted-foreground">
@@ -324,6 +342,24 @@ function SamleinnboksPage() {
         <p role="status" className="text-sm text-muted-foreground">
           {lastSend.sent === 1 ? "1 lead sendt" : `${lastSend.sent} leads sendt`} til rekruttering
           {lastSend.skipped > 0 && ` · ${lastSend.skipped} hoppet over (allerede behandlet eller duplikat av en kandidat — slå sammen først)`}
+        </p>
+      )}
+
+      {/* Tildel: the row usually leaves my list (or keeps the same name when it was already
+          theirs), so this line is the only visible result of the click. */}
+      {lastAssign && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {lastAssign.assigned === 1 ? "1 lead tildelt" : `${lastAssign.assigned} leads tildelt`}
+          {lastAssign.skipped > 0 && ` · ${lastAssign.skipped} hoppet over (allerede tildelt denne personen, eller sendt videre — bytt rekrutterer på kandidaten i stedet)`}
+        </p>
+      )}
+
+      {/* A discarded lead leaves the list, so the line below is the only trace of the click.
+          The skipped count explains the rule: only «Ny» leads can be discarded here. */}
+      {lastDiscard && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {lastDiscard.discarded === 1 ? "1 lead forkastet" : `${lastDiscard.discarded} leads forkastet`}
+          {lastDiscard.skipped > 0 && ` · ${lastDiscard.skipped} hoppet over (allerede sendt videre — avvis kandidaten under Kandidater i stedet)`}
         </p>
       )}
 

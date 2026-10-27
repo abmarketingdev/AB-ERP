@@ -99,7 +99,7 @@ export function useAssignLeads() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { ids: string[]; assignTo: string }) =>
-      apiPost(`${API.recruitment}/leads/assign`, z.object({ assigned: z.number() }), input),
+      apiPost(`${API.recruitment}/leads/assign`, z.object({ assigned: z.number(), skipped: z.number().default(0) }), input),
     onSuccess: () => invalidateAfterLeadWrite(qc),
   });
 }
@@ -117,7 +117,7 @@ export function useDiscardLeads() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { ids: string[]; reason?: string }) =>
-      apiPost(`${API.recruitment}/leads/discard`, z.object({ discarded: z.number() }), input),
+      apiPost(`${API.recruitment}/leads/discard`, z.object({ discarded: z.number(), skipped: z.number().default(0) }), input),
     onSuccess: () => invalidateAfterLeadWrite(qc),
   });
 }

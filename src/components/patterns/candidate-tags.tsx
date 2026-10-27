@@ -6,9 +6,45 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/patterns/date-picker";
 import { Label } from "@/components/ui/label";
-import { useCandidateReasons, useSetCandidateTags } from "@/lib/api/recruitment";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAssignCandidate, useCandidateReasons, useSetCandidateTags } from "@/lib/api/recruitment";
+import { useLeadMeta } from "@/lib/api/leads";
+import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate } from "@/types/recruitment";
+
+/**
+ * LEAD-09 — hand the candidate to a colleague. Lives on the candidate, not in the
+ * inbox: a sent lead's owner is the candidate's owner, and changing it here keeps the
+ * whole person (inbox row, pipeline card, interviews) with one recruiter. Rendered only
+ * for users with `candidates.write`; everyone else sees the name.
+ */
+function OwnerPicker({ candidate }: { candidate: Candidate }) {
+  const meta = useLeadMeta();
+  const assign = useAssignCandidate();
+  const recruiters = meta.data?.recruiters ?? [];
+  const current = candidate.recruiterId ?? "";
+  // An owner outside the recruiter pool (an admin who sent the lead on) stays selectable
+  // as the current value, so the control never shows a blank for a real owner.
+  const options = current && !recruiters.some((r) => r.id === current)
+    ? [{ id: current, name: candidate.owner || "—" }, ...recruiters]
+    : recruiters;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className="text-muted-foreground">Rekrutterer:</span>
+      <Select value={current} disabled={assign.isPending || meta.isPending}
+        onValueChange={(to) => { if (to && to !== current) assign.mutate({ id: candidate.id, assignTo: to }); }}>
+        <SelectTrigger size="sm" className="h-8 w-[14rem]" aria-label="Bytt rekrutterer">
+          <SelectValue placeholder={candidate.owner || "Velg rekrutterer"} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {assign.isError && <span role="alert" className="text-xs text-danger">{errorMessage(assign.error)}</span>}
+    </span>
+  );
+}
 
 /**
  * KAND-01 — «Interesse for senere» is a tag, not a column: a candidate parked for a
@@ -19,6 +55,7 @@ import type { Candidate } from "@/types/recruitment";
  * field's UI label; «Rekrutterer» is the owner).
  */
 export function CandidateTags({ candidate }: { candidate: Candidate }) {
+  const canAssign = useAccess().can("candidates.write");
   const reasons = useCandidateReasons();
   const setTags = useSetCandidateTags();
   const [followUp, setFollowUp] = React.useState(candidate.followUpOn ?? "");
@@ -35,7 +72,9 @@ export function CandidateTags({ candidate }: { candidate: Candidate }) {
     <Card>
       <CardContent className="flex flex-col gap-3 py-4">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-          <span><span className="text-muted-foreground">Rekrutterer:</span> {candidate.owner || "—"}</span>
+          {canAssign
+            ? <OwnerPicker candidate={candidate} />
+            : <span><span className="text-muted-foreground">Rekrutterer:</span> {candidate.owner || "—"}</span>}
           <span><span className="text-muted-foreground">Rekruttert av:</span> {candidate.recruitedBy ?? "—"}</span>
           <span><span className="text-muted-foreground">Kanal:</span> {candidate.source}</span>
         </div>

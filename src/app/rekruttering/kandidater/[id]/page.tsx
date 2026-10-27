@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, ArrowRight, Check, Mail, Phone, FileText, ClipboardCheck, UserMinus, ShieldOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarPlus, Check, Mail, Phone, FileText, ClipboardCheck, UserMinus, ShieldOff } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Mascot } from "@/components/patterns/mascot";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
@@ -191,7 +191,12 @@ export default function CandidateDetail() {
   const [closing, setClosing] = React.useState(false);
   // GODK-01: the leader sends an interviewed candidate to Ole from here (and from the board's link).
   const [approvalOpen, setApprovalOpen] = React.useState(false);
-  const canSubmitApproval = useAccess().can("approval.submit");
+  const access = useAccess();
+  const canSubmitApproval = access.can("approval.submit");
+  // «Intervju booket» is only ever set by a real booking (requires: booking), so the next
+  // step from Kvalifisert is the booking page, with this candidate preselected. Leaders
+  // (no booking.write) do not get the button; the picker's hint still tells them where.
+  const canBook = access.can("booking.write");
   const [closeError, setCloseError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
 
@@ -242,6 +247,16 @@ export default function CandidateDetail() {
                             <Button size="sm" className="gap-1.5" onClick={() => setApprovalOpen(true)}>
                               <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
                             </Button>
+                          ) : c.stageId === "kvalifisert" && canBook ? (
+                            <>
+                              <Button size="sm" className="gap-1.5"
+                                onClick={() => router.push(`/rekruttering/intervjuer?kandidat=${c.id}`)}>
+                                <CalendarPlus className="size-4" aria-hidden /> Book intervju
+                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
+                                Flytt til neste steg <ArrowRight className="size-4" />
+                              </Button>
+                            </>
                           ) : (
                             <Button size="sm" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
                               Flytt til neste steg <ArrowRight className="size-4" />
