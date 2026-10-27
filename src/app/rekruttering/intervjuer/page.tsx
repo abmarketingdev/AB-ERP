@@ -10,6 +10,8 @@ import { PermissionGate } from "@/components/patterns/permission-gate";
 import { BookingForm } from "@/components/booking/booking-form";
 import { InterviewCard, InterviewRow } from "@/components/booking/interview-card";
 import { useInterviews } from "@/lib/api/interviews";
+import { useAccess } from "@/lib/use-access";
+import Link from "next/link";
 import type { Interview } from "@/types/interview";
 
 /**
@@ -28,6 +30,10 @@ function IntervjuerPage() {
   const params = useSearchParams();
   const preselected = params.get("kandidat") ?? undefined;
   const interviews = useInterviews();
+  // Leaders reach this page through interviews_own.read but cannot book (booking.write);
+  // showing them the form only produced «Kunne ikke hente lederne».
+  const access = useAccess();
+  const canBook = access.can("booking.write");
 
   const all = interviews.data ?? [];
   const [now] = React.useState(() => Date.now());
@@ -49,12 +55,19 @@ function IntervjuerPage() {
         lastUpdated={interviews.dataUpdatedAt ? new Date(interviews.dataUpdatedAt) : undefined}
       />
 
-      <Card>
-        <CardContent className="flex flex-col gap-5 py-5">
-          <h2 className="text-sm font-medium">Book nytt intervju</h2>
-          <BookingForm candidateId={preselected} />
-        </CardContent>
-      </Card>
+      {canBook ? (
+        <Card>
+          <CardContent className="flex flex-col gap-5 py-5">
+            <h2 className="text-sm font-medium">Book nytt intervju</h2>
+            <BookingForm candidateId={preselected} />
+          </CardContent>
+        </Card>
+      ) : access.isSuccess ? (
+        <p className="text-sm text-muted-foreground">
+          Intervjuer bookes av rekrutterer. Registrer oppmøte etter intervjuet under{" "}
+          <Link href="/leder/intervjuer" className="font-medium text-foreground underline underline-offset-4">Mine intervjuer</Link>.
+        </p>
+      ) : null}
 
       <QueryBoundary
         query={interviews}
