@@ -1,13 +1,9 @@
 "use client";
 
-import { showDate } from "@/lib/show-date";
 import * as React from "react";
-import Link from "next/link";
-import { Plus, ArrowRight, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,10 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useCandidates, useCreateCandidate, useStages } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
 import { newCandidateSchema, type NewCandidate } from "@/types/recruitment";
-import { STAGE_BADGE } from "@/lib/recruitment";
 import { CandidateBoard } from "@/components/patterns/candidate-board";
-import { Segmented } from "@/components/patterns/segmented";
-import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 
 /**
  * FR-R-01 / FR-R-04 / FR-R-09 — the candidate list.
@@ -43,9 +36,6 @@ export default function RekrutteringKandidater() {
   const [campaign, setCampaign] = React.useState("alle");
   const [owner, setOwner] = React.useState("alle");
   const [createOpen, setCreateOpen] = React.useState(false);
-  // FR-R-05 — the same filtered set, grouped by stage. In the URL so a board
-  // link stays a board link.
-  const [view, setView] = React.useState<"liste" | "tavle">("liste");
 
   const all = React.useMemo(() => candidates.data ?? [], [candidates.data]);
   const stageOptions = stages.data ?? [];
@@ -146,20 +136,6 @@ export default function RekrutteringKandidater() {
         </div>
       </div>
 
-      {/* FR-R-05 — same candidates, same filters, grouped by stage. */}
-      <div className="flex justify-end">
-        <Segmented
-          value={view}
-          onChange={setView}
-          ariaLabel="Visning"
-          layoutId="kandidat-view"
-          options={[
-            { value: "liste", label: "Liste" },
-            { value: "tavle", label: "Tavle" },
-          ]}
-        />
-      </div>
-
       <QueryBoundary
         query={stages}
         skeleton={<Skeleton className="h-40 rounded-lg" />}
@@ -174,38 +150,7 @@ export default function RekrutteringKandidater() {
             emptyTitle="Ingen kandidater matcher filtrene"
             emptyDescription="Prøv å justere eller nullstille filtrene."
           >
-            {() =>
-              view === "tavle" ? (
-                <CandidateBoard stages={stageList} candidates={filtered} />
-              ) : (
-              <div className="flex flex-col gap-2">
-                {filtered.map((c) => (
-                  <Link key={c.id} href={`/rekruttering/kandidater/${c.id}`}>
-                    <Card className="transition-colors hover:border-[var(--ab-accent-9)]/40">
-                      <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
-                          <p
-                            className="mt-0.5 truncate text-xs text-muted-foreground"
-                            title={[c.source, c.campaign, c.appliedDate && `Søkte ${showDate(c.appliedDate)}`].filter(Boolean).join(" · ")}
-                          >
-                            <ChannelMark channel={channelOf(c.source)} />
-                            {[c.source, c.campaign, c.appliedDate && `Søkte ${showDate(c.appliedDate)}`].filter(Boolean).join(" · ")}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {c.nextActivity?.overdue && <Badge className="bg-danger/10 text-danger">Forsinket</Badge>}
-                          <Badge className={STAGE_BADGE[c.stageId]}>{stageList.find((s) => s.id === c.stageId)?.label}</Badge>
-                          <span className="hidden text-xs text-muted-foreground sm:inline">{c.owner}</span>
-                          <ArrowRight className="size-4 text-muted-foreground" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-              )
-            }
+            {() => <CandidateBoard stages={stageList} candidates={filtered} />}
           </QueryBoundary>
         )}
       </QueryBoundary>

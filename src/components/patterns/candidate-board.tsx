@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, FileText, GripVertical, Lock } from "lucide-react";
+import { AlertTriangle, FileText, Lock } from "lucide-react";
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors,
   useDroppable, useDraggable, closestCorners,
@@ -113,6 +113,12 @@ export function CandidateBoard({
     setDragging(candidates.find((c) => c.id === e.active.id) ?? null);
   }
 
+  // A cancelled drag (Escape, a touch the browser takes back) must clear the in-flight
+  // state too, or every column keeps its «Kan ikke flytte» note until the next drag.
+  function onDragCancel() {
+    setDragging(null);
+  }
+
   function onDragEnd(e: DragEndEvent) {
     const candidate = dragging;
     setDragging(null);
@@ -149,7 +155,7 @@ export function CandidateBoard({
       <ShowOwner.Provider value={masterView}>
       <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
         {/*
          * `min-w-0` is what actually contains the scroll. A flex child's default
          * `min-width: auto` lets it grow to its content, so `overflow-x-auto`
@@ -289,30 +295,31 @@ function StageColumn({
 function DraggableCard({ candidate }: { candidate: Candidate }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: candidate.id });
 
+  /*
+   * The whole card is the drag handle (as on the client portal board). The
+   * PointerSensor's 6px activation distance keeps a plain click a click, so the
+   * link inside still opens the candidate; the keyboard sensor picks the card up
+   * with Space once the wrapper has focus. `touch-none` hands touch moves to
+   * dnd-kit instead of the page scroll, and the link is marked non-draggable so
+   * the browser's native ghost image never competes with the overlay.
+   */
   return (
-    <div ref={setNodeRef} className={isDragging ? "opacity-40" : undefined}>
-      <div className="relative">
-        {/*
-         * The grip is the drag handle, and the rest of the card stays a link.
-         * Making the whole card draggable swallowed the click that opens the
-         * candidate, which is still the path that captures the stage fields.
-         */}
-        <button
-          type="button"
-          {...listeners}
-          {...attributes}
-          aria-label={`Flytt ${candidate.name} til et annet steg`}
-          className="absolute right-1.5 top-1.5 z-10 cursor-grab rounded p-1 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
-        >
-          <GripVertical className="size-3.5" aria-hidden />
-        </button>
-        <Link
-          href={`/rekruttering/kandidater/${candidate.id}`}
-          className="group block rounded-lg border border-border px-3 py-2.5 transition-colors duration-[120ms] hover:border-[var(--ab-accent-9)]/45 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <CardFace candidate={candidate} />
-        </Link>
-      </div>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      aria-label={`Flytt ${candidate.name} til et annet steg`}
+      className={`touch-none rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        isDragging ? "cursor-grabbing opacity-40" : "cursor-grab"
+      }`}
+    >
+      <Link
+        href={`/rekruttering/kandidater/${candidate.id}`}
+        draggable={false}
+        className="block rounded-lg border border-border px-3 py-2.5 transition-colors duration-[120ms] hover:border-[var(--ab-accent-9)]/45 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <CardFace candidate={candidate} />
+      </Link>
     </div>
   );
 }
