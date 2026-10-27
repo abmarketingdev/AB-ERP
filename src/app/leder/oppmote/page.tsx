@@ -325,6 +325,10 @@ function OppmotePage() {
                   </tbody>
                 </table>
               </div>
+              {list.length > 0 && <p className="text-xs text-muted-foreground">Tallet i parentes er et 80 %-intervall: med lite historikk blir det bredere.</p>}
+              {list.some((f) => f.perPerson?.length) && (
+                <Beslutningsgrunnlag list={list} targets={targets} />
+              )}
               {idle.length > 0 && (
                 <details className="text-xs text-muted-foreground">
                   <summary className="cursor-pointer select-none">
@@ -333,7 +337,6 @@ function OppmotePage() {
                   <p className="mt-1.5 leading-relaxed">{idle.map((f) => f.team).join(" · ")}</p>
                 </details>
               )}
-              {list.length > 0 && <p className="text-xs text-muted-foreground">Tallet i parentes er et 80 %-intervall: med lite historikk blir det bredere.</p>}
             </CardContent>
           </Card>
           );
@@ -345,6 +348,82 @@ function OppmotePage() {
       {/* Keyed by the day, so each day opens with a clean form. */}
       {current && <DayDialog key={current.id} shift={current} onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+/**
+ * BEM-04 «grunnlag for beslutninger om coaching, kontrakter og rekruttering». The team
+ * total above is BEM-03's calculation; a decision is about a person or a hire, so this
+ * lists each person with what their own history says, and — once the leader has typed
+ * a target — how many more people the team would need.
+ *
+ * The thresholds are a first proposal, shown on screen so nobody mistakes them for a
+ * verdict: below MIN_DAYS registered days a person's rate is mostly the team's prior.
+ */
+const MIN_DAYS = 4;
+const COACHING_BELOW = 0.7;
+const CONTRACT_FROM = 0.9;
+
+type Person = NonNullable<Forecast["perPerson"]>[number];
+
+function suggestion(p: Person) {
+  const days = p.attended + p.lost;
+  if (days < MIN_DAYS) return { label: "For lite historikk", tone: "bg-muted text-muted-foreground", why: `${days} registrerte dager` };
+  if (p.rate < COACHING_BELOW) return { label: "Coaching", tone: "bg-danger/10 text-danger", why: `møter ${pctFmt.format(p.rate)} av planlagte dager` };
+  if (p.rate >= CONTRACT_FROM) return { label: "Vurder kontrakt", tone: "bg-success/10 text-success", why: "høyt og stabilt oppmøte" };
+  return { label: "Følg med", tone: "bg-warning/10 text-warning-on-tint", why: `møter ${pctFmt.format(p.rate)}` };
+}
+
+function Beslutningsgrunnlag({ list, targets }: { list: Forecast[]; targets: Record<string, string> }) {
+  return (
+    <section className="mt-2 flex flex-col gap-3 border-t border-border pt-4" aria-labelledby="bem04-h">
+      <div>
+        <h3 id="bem04-h" className="text-sm font-medium">Beslutningsgrunnlag: coaching, kontrakter og rekruttering</h3>
+        <p className="mt-1 max-w-prose text-xs text-muted-foreground">
+          Per person, fra eget registrert oppmøte de siste ukene. Forslag: under {pctFmt.format(COACHING_BELOW)} oppmøte → coaching,
+          fra {pctFmt.format(CONTRACT_FROM)} → vurder kontrakt. Under {MIN_DAYS} registrerte dager er tallet for usikkert til å bruke.
+        </p>
+      </div>
+      {list.filter((f) => f.perPerson?.length).map((f) => {
+        const people = [...(f.perPerson ?? [])].sort((a, b) => a.rate - b.rate);
+        const target = Number(targets[f.teamId]);
+        const perHead = people.filter((p) => p.planned > 0);
+        const avgPlanned = perHead.length ? perHead.reduce((n, p) => n + p.planned, 0) / perHead.length : 0;
+        const needDays = target > 0 && f.showRate > 0 && f.basisDays > 0 ? Math.ceil(target / f.showRate) : null;
+        const missing = needDays !== null ? Math.max(0, needDays - f.plannedDays) : null;
+        const hires = missing && avgPlanned ? Math.ceil(missing / avgPlanned) : 0;
+        return (
+          <div key={f.teamId} className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-muted-foreground">{f.team}</p>
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {people.map((p) => {
+                const sg = suggestion(p);
+                return (
+                  <li key={p.userId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2 text-sm">
+                    <span className="min-w-0 font-medium">{p.name}</span>
+                    <span className="flex flex-wrap items-center gap-3 text-xs tabular-nums text-muted-foreground">
+                      <span>{p.attended} møtt · {p.lost} borte</span>
+                      <span>{p.planned} planlagt neste 4 uker</span>
+                      <span className="w-14 text-right text-foreground">{p.attended + p.lost >= MIN_DAYS ? pctFmt.format(p.rate) : "—"}</span>
+                      <Badge className={sg.tone} title={sg.why}>{sg.label}</Badge>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Rekruttering: </span>
+              {needDays === null
+                ? "Skriv inn et mål i dagsverk over, så regnes det ut om teamet trenger flere folk."
+                : missing === 0
+                  ? `Målet på ${target} dagsverk nås med dagene som er planlagt. Ingen rekruttering nødvendig.`
+                  : `For ${target} dagsverk må ${needDays} dager planlegges, ${missing} flere enn nå. Det tilsvarer ca. ${hires} ${hires === 1 ? "ny person" : "nye personer"} med samme antall dager som teamet har i snitt.`}
+              {!f.reliable && f.basisDays > 0 && " (usikkert: lite historikk)"}
+            </p>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
