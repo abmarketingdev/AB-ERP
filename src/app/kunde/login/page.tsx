@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, useReducedMotion, AnimatePresence } from "motion/react";
 import { ArrowRight, KeyRound, RotateCcw } from "lucide-react";
 import { Mascot } from "@/components/patterns/mascot";
+import { IS_MOCK } from "@/lib/data-source";
 import { LoginTransition } from "@/components/patterns/login-transition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,9 +149,11 @@ export default function CustomerLoginPage() {
                 </Button>
               </form>
 
-              <button type="button" onClick={fillDemo} className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground">
-                Fyll ut demo-konto (Røde Kors)
-              </button>
+              {IS_MOCK && (
+                <button type="button" onClick={fillDemo} className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground">
+                  Fyll ut demo-konto (Røde Kors)
+                </button>
+              )}
             </motion.div>
           ) : (
             <motion.div

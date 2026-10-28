@@ -42,8 +42,11 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
   const [selectedLeader, setLeaderId] = React.useState("");
   const candidateId = fixedCandidate ?? selectedCandidate;
   // The first leader until the recruiter picks one — derived, so it is right as soon as the list arrives.
-  const leaderId = selectedLeader || leaders.data?.[0]?.id || "";
-  const [location, setLocation] = React.useState("AB Marketing, Karl Johans gate 12, Oslo");
+  const chosenForCandidate = (candidates.data ?? []).find((c) => c.id === candidateId)?.leaderId;
+  const leaderId = selectedLeader
+    || (chosenForCandidate && leaders.data?.some((l) => l.id === chosenForCandidate) ? chosenForCandidate : "")
+    || leaders.data?.[0]?.id || "";
+  const [location, setLocation] = React.useState("AB Marketing, Grenseveien 107, Oslo");
   const [reminder, setReminder] = React.useState(true);
   const [picked, setPicked] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);

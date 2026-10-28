@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAdTemplates, useAdMeta, useCreateAd, useWordingCheck } from "@/lib/api/ads";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { newAdSchema, type WordingCheck } from "@/types/ad";
-import { LEAD_CAMPAIGNS } from "@/mocks/leads";
+import { useLeadMeta } from "@/lib/api/leads";
 import { DatePicker } from "@/components/patterns/date-picker";
 
 /**
@@ -51,8 +51,11 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
   const defaultBoards = React.useMemo(() => boards.filter((b) => b.free).map((b) => b.key), [boards]);
 
   const [form, setForm] = React.useState({
-    title: "", jobType: "", location: "", campaign: LEAD_CAMPAIGNS[0], body: "", deadline: "",
+    title: "", jobType: "", location: "", campaign: "", body: "", deadline: "",
   });
+  // Campaigns are the real ones from Maps (the lead meta), never the demo list.
+  const campaignNames = (useLeadMeta().data?.campaigns ?? []).map((c) => c.name);
+  const campaign = form.campaign || campaignNames[0] || "";
   // null = untouched: follow the default (the free boards) even if meta arrives after mount.
   const [chosen, setChosen] = React.useState<string[] | null>(null);
   const platforms = chosen ?? defaultBoards;
@@ -162,10 +165,10 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
               </Select>
             </Field>
             <Field id="ad-camp" label="Kampanje" error={errors.campaign}>
-              <Select value={form.campaign} onValueChange={(v) => setForm((f) => ({ ...f, campaign: v }))}>
+              <Select value={campaign} onValueChange={(v) => setForm((f) => ({ ...f, campaign: v }))}>
                 <SelectTrigger id="ad-camp" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {LEAD_CAMPAIGNS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {campaignNames.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>

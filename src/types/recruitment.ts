@@ -134,6 +134,8 @@ export const candidateSchema = z.object({
   channelKey: z.string().optional(),
   /** «Rekrutterer» = owner; «Rekruttert av» = the promotor who brought them in (master Q4). */
   recruiterId: z.string().nullable().optional(),
+  /** Leader (salgssjef) chosen in the inbox — preselected when booking. */
+  leaderId: z.string().nullable().optional(),
   recruitedBy: z.string().nullable().optional(),
   recruitedById: z.string().nullable().optional(),
   rejectionReason: z.string().nullable().optional(),

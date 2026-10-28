@@ -77,6 +77,9 @@ export const leadSchema = z.object({
   /** Server ids behind the display names, for filters and assignment. */
   promoterId: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
+  /** The interview leader (salgssjef) chosen in the inbox; the default when booking. */
+  leader: z.string().nullable().optional(),
+  leaderId: z.string().nullable().optional(),
   mergedIntoId: z.string().nullable().optional(),
   campaign: z.string(),
   receivedAt: z.string(),
@@ -131,6 +134,8 @@ export const leadMetaSchema = z.object({
   campaigns: z.array(optionSchema),
   recruiters: z.array(optionSchema),
   promoters: z.array(optionSchema),
+  /** Interview leaders: every sales chief plus team leaders. */
+  leaders: z.array(optionSchema).default([]),
 });
 export type LeadMeta = z.infer<typeof leadMetaSchema>;
 

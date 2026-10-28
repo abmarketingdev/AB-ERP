@@ -15,7 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  useLeads, useLeadCounts, useLeadMeta, useSendLeads, useAssignLeads, useDiscardLeads, type LeadQuery,
+  useLeads, useLeadCounts, useLeadMeta, useSendLeads, useAssignLeads, useDiscardLeads, useSetLeadLeader,
+  type LeadQuery,
 } from "@/lib/api/leads";
 import { LEAD_STATUS_LABEL, type Lead, type LeadStatus } from "@/types/lead";
 import { MergeDuplicatesDialog } from "@/components/patterns/merge-duplicates-dialog";
@@ -136,6 +137,7 @@ function SamleinnboksPage() {
   // the first screen; search stays out, it is the filter people actually use there.
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [assignTarget, setAssignTarget] = React.useState("");
+  const [leaderTarget, setLeaderTarget] = React.useState("");
   const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
   const [lastDiscard, setLastDiscard] = React.useState<{ discarded: number; skipped: number } | null>(null);
   const [lastAssign, setLastAssign] = React.useState<{ assigned: number; skipped: number } | null>(null);
@@ -172,6 +174,7 @@ function SamleinnboksPage() {
   const counts = useLeadCounts();
   const send = useSendLeads();
   const assign = useAssignLeads();
+  const setLeader = useSetLeadLeader();
   const discard = useDiscardLeads();
 
   const rows = leads.data?.rows ?? [];
@@ -187,7 +190,7 @@ function SamleinnboksPage() {
   // The same «Ny» rule applies to Tildel (LEAD-09): a sent lead has a candidate behind
   // it, and its owner is changed on the candidate so the person is never split in two.
   const sendable = selectedRows.filter((l) => l.status === "ny");
-  const busy = send.isPending || assign.isPending || discard.isPending;
+  const busy = send.isPending || assign.isPending || discard.isPending || setLeader.isPending;
 
   const activeFilters =
     [channel, status, promoter, assignedTo].filter((v) => v !== ALL).length +
@@ -311,6 +314,25 @@ function SamleinnboksPage() {
                 <Users className="size-4" /> Tildel {sendable.length}
               </Button>
             </div>
+            {/* The leader (salgssjef) the candidate will meet — preselected when booking. */}
+            <div className="flex items-center gap-2">
+              <Select value={leaderTarget} onValueChange={setLeaderTarget}>
+                <SelectTrigger size="sm" className="w-[11rem]" aria-label="Velg leder"><SelectValue placeholder="Velg leder" /></SelectTrigger>
+                <SelectContent>
+                  {(meta.data?.leaders ?? []).map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" className="gap-1.5" disabled={busy || !leaderTarget}
+                onClick={async () => {
+                  const result = await setLeader.mutateAsync({ ids: [...selected], leaderId: leaderTarget });
+                  setLastAssign({ assigned: result.assigned, skipped: result.skipped });
+                  setLastSend(null);
+                  setLastDiscard(null);
+                  setSelected(new Set());
+                }}>
+                <Users className="size-4" /> Sett leder
+              </Button>
+            </div>
             {/* Destructive, so it confirms in place (08-DESIGN-REVIEW: never confirm()). Not
                 deleted — a discarded lead stays under its filter — so no typed word. */}
             <ConfirmStep
@@ -363,9 +385,9 @@ function SamleinnboksPage() {
         </p>
       )}
 
-      {(send.isError || assign.isError || discard.isError) && (
+      {(send.isError || assign.isError || discard.isError || setLeader.isError) && (
         <p role="alert" className="text-sm text-danger">
-          {errorMessage(send.error ?? assign.error ?? discard.error)}
+          {errorMessage(send.error ?? assign.error ?? discard.error ?? setLeader.error)}
         </p>
       )}
 
@@ -438,7 +460,10 @@ function SamleinnboksPage() {
                           {dateFmt.format(new Date(lead.receivedAt))}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{lead.promoter ?? "—"}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{lead.assignedTo ?? "Admin-kø"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lead.assignedTo ?? "Admin-kø"}
+                          {lead.leader && <span className="block text-xs">Leder: {lead.leader}</span>}
+                        </TableCell>
                         <TableCell>
                           <Badge className={STATUS_TONE[lead.status]}>{LEAD_STATUS_LABEL[lead.status]}</Badge>
                         </TableCell>
@@ -506,6 +531,7 @@ function LeadCards({ rows, selected, onToggle, onMerge }: {
               <span className="tabular-nums">{dateFmt.format(new Date(lead.receivedAt))}</span>
               <span>·</span>
               <span>{lead.assignedTo ?? "Admin-kø"}</span>
+              {lead.leader && <><span>·</span><span>Leder: {lead.leader}</span></>}
             </p>
           </div>
           {lead.duplicateOf.length > 0 && (

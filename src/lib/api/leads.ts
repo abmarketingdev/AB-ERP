@@ -104,6 +104,16 @@ export function useAssignLeads() {
   });
 }
 
+/** Choose the interview leader (salgssjef) for leads; `leaderId: null` clears it. */
+export function useSetLeadLeader() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { ids: string[]; leaderId: string | null }) =>
+      apiPost(`${API.recruitment}/leads/assign`, z.object({ assigned: z.number(), skipped: z.number().default(0) }), input),
+    onSuccess: () => invalidateAfterLeadWrite(qc),
+  });
+}
+
 export function useMergeLeads() {
   const qc = useQueryClient();
   return useMutation({

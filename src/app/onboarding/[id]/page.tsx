@@ -249,7 +249,7 @@ function Detail({ hire: h }: { hire: NewHire }) {
             <p className="mt-1 text-xs text-muted-foreground">
               {h.photo
                 ? `Lagt inn av ${h.photo.uploadedBy}, ${stampFmt.format(new Date(h.photo.uploadedAt))}`
-                : h.authUserId ? "Ole tar bildet og kobler det til personen." : "Kan tas når brukerkontoen er opprettet."}
+                : "Kan tas når som helst. Bildet kobles til personen i HR."}
             </p>
           </div>
           {/* `capture` opens the camera on a phone; on a desktop it is an ordinary file picker. */}
@@ -262,7 +262,7 @@ function Detail({ hire: h }: { hire: NewHire }) {
             }} />
           <Button size="sm" variant={h.photo ? "ghost" : "outline"} className="gap-1.5"
             // A finished onboarding keeps its photo up to date (ONB-06); only a cancelled or no-show case is locked.
-            disabled={photo.isPending || !h.authUserId || h.status === "no_show" || h.status === "cancelled"}
+            disabled={photo.isPending || h.status === "no_show" || h.status === "cancelled"}
             onClick={() => fileRef.current?.click()}>
             {photo.isPending
               ? <><Mascot state="thinking" motion="loop" size={20} label="Laster opp" /> Laster opp</>
