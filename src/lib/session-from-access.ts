@@ -33,7 +33,8 @@ export const VIEW_GATES: Record<string, string[]> = {
   "import.view": ["recman_import.admin"],
   "kpi.view": ["dashboard.read"],
   "privacy.view": ["privacy.admin"],
-  "admin.view": ["access.admin", "integrations.read", "audit.read", "privacy.admin", "tasks.compliance"],
+  "admin.view": ["access.admin", "access.read", "integrations.read", "integrations.admin", "audit.read",
+    "privacy.admin", "tasks.compliance"],
   // One gate per admin screen, so a person granted only the audit log is not offered
   // Tilganger and Integrasjoner pages that would refuse them.
   "access.view": ["access.read", "access.admin"],
@@ -41,6 +42,12 @@ export const VIEW_GATES: Record<string, string[]> = {
   "audit.view": ["audit.read"],
   "compliance.view": ["tasks.compliance"],
   "stand.view": ["stand.write"],
+  // «Mine intervjuer» sits in /leder (leader.view) and checks interviews.view: only the key
+  // both accept, or a recruiter (booking.read) is offered a page the section refuses.
+  "myinterviews.view": ["interviews_own.read"],
+  // «Mine oppgaver» (/leder) and «Vaktplan» (/promoter): only keys both the section and the page accept.
+  "mytasks.view": ["tasks.own"],
+  "myschedule.view": ["staffing.read_own"],
 };
 
 /** Every screen, with the gate that shows it, grouped in sections (order: Rekruttering ·
@@ -55,12 +62,12 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users", gate: "employees.view", section: "Rekruttering" },
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "bar-chart", gate: "recruitdash.view", section: "Rekruttering" },
   { id: "forside-leder", label: "Forside", href: "/leder", icon: "home", gate: "leader.view", section: "Ledere" },
-  { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "interviews.view", section: "Ledere" },
+  { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "myinterviews.view", section: "Ledere" },
   { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check", gate: "leader.view", section: "Ledere" },
-  { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list", gate: "tasks.view", section: "Ledere" },
+  { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list", gate: "mytasks.view", section: "Ledere" },
   { id: "forside-promoter", label: "Forside", href: "/promoter", icon: "home", gate: "promoter.view", section: "Min side" },
   { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "stand.view", section: "Min side" },
-  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "schedule.view", section: "Min side" },
+  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "myschedule.view", section: "Min side" },
   { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid", gate: "admin.view", section: "Administrasjon" },
   { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "access.view", section: "Administrasjon" },
   { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "compliance.view", section: "Administrasjon" },
