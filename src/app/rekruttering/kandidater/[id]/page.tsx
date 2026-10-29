@@ -122,6 +122,10 @@ function RetentionPanel({
 
 /** Steps a process can be ended from by hand (the server's LIVE_RECRUITER_STAGES). After
  *  «Til godkjenning» it ends through Ole's decision or onboarding instead. */
+/** Steps an interview can be booked from (the server's booking edges into «Intervju booket»). */
+const BOOKABLE_FROM = ["ny", "kontaktet", "kvalifisert"];
+/** The picker's own value for «book intervju»: not a stage, a hand-off to the booking page. */
+const BOOK = "__book";
 const CLOSABLE = ["ny", "kontaktet", "kvalifisert", "intervju-booket", "intervjuet"];
 
 function CandidateDetailPage() {
@@ -192,7 +196,7 @@ function CandidateDetailPage() {
                             <Button size="sm" className="gap-1.5" onClick={() => setApprovalOpen(true)}>
                               <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
                             </Button>
-                          ) : (["ny", "kontaktet", "kvalifisert"].includes(c.stageId) && canBook && (c.stageId === "kvalifisert" || !canMove)) ? (
+                          ) : (BOOKABLE_FROM.includes(c.stageId) && canBook) ? (
                             <>
                               <Button size="sm" className="gap-1.5"
                                 onClick={() => router.push(`/rekruttering/intervjuer?kandidat=${c.id}`)}>
@@ -318,6 +322,7 @@ function CandidateDetailPage() {
                     pending={advance.isPending}
                     error={failed}
                     onAdvance={advanceTo}
+                    bookHref={canBook && BOOKABLE_FROM.includes(c.stageId) ? `/rekruttering/intervjuer?kandidat=${c.id}` : null}
                   />
                   <AdvanceStageDialog
                     candidate={picked ? c : null}
@@ -424,6 +429,7 @@ function StagePickerDialog({
   pending,
   error,
   onAdvance,
+  bookHref,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -432,6 +438,8 @@ function StagePickerDialog({
   pending: boolean;
   error: string | null;
   onAdvance: (stageId: string) => void;
+  /** Where «Intervju booket — book intervju» goes, when this person may book from here. */
+  bookHref?: string | null;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -447,6 +455,7 @@ function StagePickerDialog({
           pending={pending}
           error={error}
           onAdvance={onAdvance}
+          bookHref={bookHref ?? null}
           onClose={() => onOpenChange(false)}
         />
       </DialogContent>
@@ -460,6 +469,7 @@ function AdvanceStageForm({
   pending,
   error,
   onAdvance,
+  bookHref,
   onClose,
 }: {
   stages: RecruitmentStage[];
@@ -467,8 +477,10 @@ function AdvanceStageForm({
   pending: boolean;
   error: string | null;
   onAdvance: (stageId: string) => void;
+  bookHref: string | null;
   onClose: () => void;
 }) {
+  const router = useRouter();
   /*
    * GODK-03 — only the moves the SERVER allows a recruiter (manualTargets). Booking
    * and approval are their own flows, named here instead of offered as options, so
@@ -479,7 +491,11 @@ function AdvanceStageForm({
   const allowed = current?.manualTargets
     ?? stages.filter((s, i) => i !== currentIdx && (i === currentIdx + 1 || TERMINAL_STAGE_IDS.includes(s.id))).map((s) => s.id);
   const options = stages.filter((s) => allowed.includes(s.id));
-  const [target, setTarget] = React.useState(options[0]?.id ?? "");
+  // Start on the next step FORWARD (it used to start on the first in the list, e.g. «Ny» from
+  // «Kontaktet» — backwards). Where no ordinary step is next, booking is.
+  const forward = options.find((s) => stages.findIndex((x) => x.id === s.id) > currentIdx
+    && !TERMINAL_STAGE_IDS.includes(s.id));
+  const [target, setTarget] = React.useState(forward?.id ?? (bookHref ? BOOK : options[0]?.id ?? ""));
 
   return (
     <>
@@ -495,12 +511,13 @@ function AdvanceStageForm({
               {options.map((s) => (
                 <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
               ))}
+              {bookHref && <SelectItem value={BOOK}>Intervju booket: book intervju</SelectItem>}
             </SelectContent>
           </Select>
         </div>
 
-        {currentStageId === "kvalifisert" && (
-          <p className="text-xs text-muted-foreground">«Intervju booket» settes når intervjuet bookes under Intervjuer.</p>
+        {target === BOOK && (
+          <p className="text-xs text-muted-foreground">Åpner bookingen med kandidaten valgt. Steget blir «Intervju booket» når intervjuet er booket.</p>
         )}
         {currentStageId === "intervjuet" && (
           <p className="text-xs text-muted-foreground">«Til godkjenning» sendes med godkjenningsskjemaet (leder fyller det ut).</p>
@@ -512,7 +529,8 @@ function AdvanceStageForm({
 
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>Avbryt</Button>
-        <Button disabled={!target || pending} className="gap-1.5" onClick={() => onAdvance(target)}>
+        <Button disabled={!target || pending} className="gap-1.5"
+          onClick={() => { if (target === BOOK && bookHref) { onClose(); router.push(bookHref); } else onAdvance(target); }}>
           <Check className="size-4" /> Fortsett
         </Button>
       </DialogFooter>
