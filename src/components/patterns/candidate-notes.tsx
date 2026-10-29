@@ -43,6 +43,10 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
   const addFile = useAddAttachment();
   // Writing a private note is its own permission; reading is decided per note by the server.
   const canWritePrivate = access.can("private_notes.write") || Boolean(session?.permissions.includes("privatenotes.view"));
+  // Without candidates.write (or a private-notes right) the notes are read-only, not a
+  // form that fails on «Legg til».
+  const canWrite = access.can("candidates.write");
+  const canNote = canWrite || access.can("private_notes.write");
 
   const [body, setBody] = React.useState("");
   const [isPrivate, setIsPrivate] = React.useState(false);
@@ -167,6 +171,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
             </ul>
           )}
 
+          {canNote && (
           <div className="flex flex-col gap-2 border-t border-border pt-4">
             <Label htmlFor="note-body" className="text-xs text-muted-foreground">Nytt notat</Label>
             <Textarea id="note-body" rows={2} value={body} onChange={(e) => setBody(e.target.value)} />
@@ -201,6 +206,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
               </fieldset>
             )}
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -211,7 +217,7 @@ export function CandidateNotes({ candidate }: { candidate: Candidate }) {
             <h2 className="flex items-center gap-2 text-sm font-medium">
               <Paperclip className="size-4 text-muted-foreground" aria-hidden /> Vedlegg
             </h2>
-            {!fileOpen && (
+            {!fileOpen && canWrite && (
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setFileOpen(true)}>
                 <Plus className="size-4" /> Legg til vedlegg
               </Button>

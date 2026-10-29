@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuditLog } from "@/lib/api/quality";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
-export default function AdminRevisjonslogg() {
+function AdminRevisjonsloggPage() {
   const now = new Date();
   const query = useAuditLog();
 
@@ -180,5 +181,15 @@ export default function AdminRevisjonslogg() {
         }}
       </QueryBoundary>
     </div>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function AdminRevisjonslogg() {
+  return (
+    <PermissionGate permission="audit.view">
+      <AdminRevisjonsloggPage />
+    </PermissionGate>
   );
 }

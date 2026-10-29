@@ -13,10 +13,13 @@ import { isAvailable } from "@/lib/modules";
  * anyone holding `leader.view` — today a team lead and a sales chief, at
  * different scopes.
  */
-const PERMISSION: Record<string, string> = {
+const PERMISSION: Record<string, string | string[]> = {
   promoter: "promoter.view",
   leader: "leader.view",
-  recruitment: "recruitment.view",
+  // A section admits anyone allowed ANY page in it; each page then checks its own gate.
+  // Gating all of /rekruttering on candidates meant that taking «Kandidater» away also
+  // blocked Intervjuer, Samleinnboks and Annonser, which the menu still offered.
+  recruitment: ["recruitment.view", "interviews.view", "leads.view", "ads.view"],
   approval: "approval.view",
   onboarding: "onboarding.view",
   employees: "employees.view",
@@ -31,7 +34,10 @@ export function RoleShell({
   role: keyof typeof PERMISSION;
   children: React.ReactNode;
 }) {
-  const { session, denied } = useSessionGuard(PERMISSION[role]);
+  const need = PERMISSION[role];
+  const needs = Array.isArray(need) ? need : [need];
+  const { session } = useSessionGuard(needs[0]);
+  const denied = !!session && !needs.some((p) => session.permissions.includes(p));
   const pathname = usePathname();
   const router = useRouter();
   // api mode: a screen whose module has no backend yet sends the user home instead of

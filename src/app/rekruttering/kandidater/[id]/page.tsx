@@ -35,6 +35,7 @@ import { CandidateNotes } from "@/components/patterns/candidate-notes";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 import { formatPhone } from "@/lib/format";
 import { showDate } from "@/lib/show-date";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * FR-R-10 — ending a candidate process.
@@ -179,7 +180,7 @@ function RetentionPanel({
   );
 }
 
-export default function CandidateDetail() {
+function CandidateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const stages = useStages();
@@ -197,6 +198,8 @@ export default function CandidateDetail() {
   // step from Kvalifisert is the booking page, with this candidate preselected. A sales
   // leader books his own candidates (booking.own); this page only shows him his own.
   const canBook = access.can("booking.write") || access.can("booking.own");
+  // Moving a candidate between steps and closing the process are candidates.write.
+  const canMove = access.can("candidates.write");
   const [closeError, setCloseError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
 
@@ -247,30 +250,34 @@ export default function CandidateDetail() {
                             <Button size="sm" className="gap-1.5" onClick={() => setApprovalOpen(true)}>
                               <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
                             </Button>
-                          ) : c.stageId === "kvalifisert" && canBook ? (
+                          ) : (["ny", "kontaktet", "kvalifisert"].includes(c.stageId) && canBook && (c.stageId === "kvalifisert" || !canMove)) ? (
                             <>
                               <Button size="sm" className="gap-1.5"
                                 onClick={() => router.push(`/rekruttering/intervjuer?kandidat=${c.id}`)}>
                                 <CalendarPlus className="size-4" aria-hidden /> Book intervju
                               </Button>
-                              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
-                                Flytt til neste steg <ArrowRight className="size-4" />
-                              </Button>
+                              {canMove && (
+                                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
+                                  Flytt til neste steg <ArrowRight className="size-4" />
+                                </Button>
+                              )}
                             </>
-                          ) : (
+                          ) : canMove ? (
                             <Button size="sm" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
                               Flytt til neste steg <ArrowRight className="size-4" />
                             </Button>
+                          ) : null}
+                          {canMove && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5"
+                              onClick={() => setClosing(true)}
+                            >
+                              <UserMinus className="size-3.5" aria-hidden />
+                              Avslutt prosessen
+                            </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5"
-                            onClick={() => setClosing(true)}
-                          >
-                            <UserMinus className="size-3.5" aria-hidden />
-                            Avslutt prosessen
-                          </Button>
                         </div>
                       ) : undefined
                     }
@@ -567,5 +574,15 @@ function AdvanceStageForm({
         </Button>
       </DialogFooter>
     </>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function CandidateDetail() {
+  return (
+    <PermissionGate permission="recruitment.view">
+      <CandidateDetailPage />
+    </PermissionGate>
   );
 }

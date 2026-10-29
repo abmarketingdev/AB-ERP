@@ -12,6 +12,7 @@ import { Mascot } from "@/components/patterns/mascot";
 import type { Integration } from "@/types/quality";
 import { IS_MOCK } from "@/lib/data-source";
 import { IntegrationAdmin } from "@/components/patterns/integration-admin";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * FR-A-10 — integration health.
@@ -54,7 +55,7 @@ const KIND_LABEL: Record<Integration["kind"], string> = {
   feed: "Løpende overføring",
 };
 
-export default function AdminIntegrasjoner() {
+function AdminIntegrasjonerPage() {
   // api mode: the real §4 framework (on/off, keys, test, alerts). Mock: the FR-A-10 demo view.
   return IS_MOCK ? <IntegrationHealthDemo /> : <IntegrationAdmin />;
 }
@@ -205,5 +206,15 @@ function Field({ label, value, tone }: { label: string; value: string; tone?: st
       </dt>
       <dd className={`mt-0.5 text-[12.5px] ${tone ?? "text-foreground"}`}>{value}</dd>
     </div>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function AdminIntegrasjoner() {
+  return (
+    <PermissionGate permission="integrations.view">
+      <AdminIntegrasjonerPage />
+    </PermissionGate>
   );
 }

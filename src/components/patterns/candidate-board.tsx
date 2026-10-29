@@ -51,6 +51,8 @@ const CONTRACT_STAGES = ["godkjent", "onboarding", "ansatt"];
 const BoardNow = React.createContext(0);
 /** Owner on the card only in the admin master view (KAND-04): on your own board it is you. */
 const ShowOwner = React.createContext(false);
+/** Dragging is moving the candidate (candidates.write); without it the card is just a link. */
+const CanMove = React.createContext(true);
 
 type DropDecision =
   | { kind: "allowed" }
@@ -93,7 +95,9 @@ export function CandidateBoard({
 }) {
   const reduced = useReducedMotion();
   const [now] = React.useState(() => Date.now());
-  const masterView = useAccess().can("candidates_master.read");
+  const access = useAccess();
+  const masterView = access.can("candidates_master.read");
+  const canMove = access.can("candidates.write");
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
   // A refused drop explains itself IN the column it was dropped on (master: «avvist drop
@@ -159,6 +163,7 @@ export function CandidateBoard({
     <>
       <BoardNow.Provider value={now}>
       <ShowOwner.Provider value={masterView}>
+      <CanMove.Provider value={canMove}>
       <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
@@ -201,6 +206,7 @@ export function CandidateBoard({
         stage={pending?.stage ?? null}
         onClose={() => setPending(null)}
       />
+      </CanMove.Provider>
       </ShowOwner.Provider>
       </BoardNow.Provider>
     </>
@@ -343,7 +349,8 @@ function LeadCard({ lead: l, onOpen }: { lead: Lead; onOpen: () => void }) {
 }
 
 function DraggableCard({ candidate }: { candidate: Candidate }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: candidate.id });
+  const canMove = React.useContext(CanMove);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: candidate.id, disabled: !canMove });
 
   /*
    * The whole card is the drag handle (as on the client portal board). The
@@ -358,9 +365,9 @@ function DraggableCard({ candidate }: { candidate: Candidate }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      aria-label={`Flytt ${candidate.name} til et annet steg`}
-      className={`touch-none rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        isDragging ? "cursor-grabbing opacity-40" : "cursor-grab"
+      aria-label={canMove ? `Flytt ${candidate.name} til et annet steg` : candidate.name}
+      className={`rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        !canMove ? "" : isDragging ? "touch-none cursor-grabbing opacity-40" : "touch-none cursor-grab"
       }`}
     >
       <Link

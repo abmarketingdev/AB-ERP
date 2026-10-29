@@ -19,6 +19,7 @@ import { IS_MOCK } from "@/lib/data-source";
 import { errorMessage } from "@/lib/api/client";
 import { newCandidateSchema, type NewCandidate } from "@/types/recruitment";
 import { CandidateBoard } from "@/components/patterns/candidate-board";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * FR-R-01 / FR-R-04 / FR-R-09 — the candidate list.
@@ -31,7 +32,7 @@ import { CandidateBoard } from "@/components/patterns/candidate-board";
  * been hired, so the route guard and the API both refuse without the
  * recruitment permission.
  */
-export default function RekrutteringKandidater() {
+function RekrutteringKandidaterPage() {
   const now = new Date();
   const stages = useStages();
   const candidates = useCandidates();
@@ -381,5 +382,15 @@ function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function RekrutteringKandidater() {
+  return (
+    <PermissionGate permission="recruitment.view">
+      <RekrutteringKandidaterPage />
+    </PermissionGate>
   );
 }

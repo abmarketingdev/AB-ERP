@@ -27,6 +27,8 @@ import { effectivePermissions, provenanceOf, type Provenance } from "@/lib/acces
 import { IS_MOCK } from "@/lib/data-source";
 import { mascotFor } from "@/lib/use-mascot";
 import type { Permission, UserAccess } from "@/types/quality";
+import { PermissionGate } from "@/components/patterns/permission-gate";
+import { useAccess } from "@/lib/use-access";
 
 /**
  * SRS §2.2 «Tilgang er modulbasert og settes per bruker … (hent inspirasjon fra Microsoft
@@ -75,7 +77,7 @@ type Pending = {
   run: (reason: string) => void;
 };
 
-export default function AdminTilganger() {
+function AdminTilgangerPage() {
   const users = useUserAccess();
   const catalogue = usePermissionCatalogue();
   const [q, setQ] = React.useState("");
@@ -196,6 +198,8 @@ function UserDetail({ user, catalogue }: { user: UserAccess; catalogue: Permissi
   const effective = new Set(effectivePermissions(user));
   const onError = (e: unknown) => setError(errorMessage(e));
   const ask = (p: Pending) => { setError(null); setPending(p); };
+  // access.read without access.admin: the whole panel is shown, every control disabled.
+  const canEdit = useAccess().can("access.admin");
 
   const [nextTemplate, setNextTemplate] = React.useState<string>(user.template ?? "");
   const exceptions = catalogue.filter((p) => {
@@ -205,6 +209,12 @@ function UserDetail({ user, catalogue }: { user: UserAccess; catalogue: Permissi
 
   return (
     <section aria-label={`Tilganger for ${user.name}`} className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5">
+      {!canEdit && (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[13px] text-muted-foreground">
+          Du kan se tilgangene, men ikke endre dem.
+        </p>
+      )}
+      <fieldset disabled={!canEdit} className="contents">
       {/* Who, and the template — the main action on this screen. */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
@@ -307,6 +317,7 @@ function UserDetail({ user, catalogue }: { user: UserAccess; catalogue: Permissi
           Alle endringer krever begrunnelse og står i revisjonsloggen. Handlinger merket med skjold krever tofaktor.
         </p>
       </div>
+      </fieldset>
     </section>
   );
 }
@@ -450,5 +461,15 @@ function ReasonPrompt({ title, body, pending, onCancel, onConfirm }: {
         <Button variant="ghost" className="min-h-11 sm:min-h-9" onClick={onCancel}>Avbryt</Button>
       </div>
     </motion.div>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function AdminTilganger() {
+  return (
+    <PermissionGate permission="access.view">
+      <AdminTilgangerPage />
+    </PermissionGate>
   );
 }

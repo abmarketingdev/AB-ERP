@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCandidates, useStages } from "@/lib/api/recruitment";
 import { STAGE_BADGE } from "@/lib/recruitment";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
-export default function RekrutteringForside() {
+function RekrutteringForsidePage() {
   const now = new Date();
   const stages = useStages();
   const candidates = useCandidates();
@@ -162,5 +163,15 @@ export default function RekrutteringForside() {
         </Link>
       </div>
     </div>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function RekrutteringForside() {
+  return (
+    <PermissionGate permission="recruitment.view">
+      <RekrutteringForsidePage />
+    </PermissionGate>
   );
 }

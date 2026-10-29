@@ -34,6 +34,13 @@ export const VIEW_GATES: Record<string, string[]> = {
   "kpi.view": ["dashboard.read"],
   "privacy.view": ["privacy.admin"],
   "admin.view": ["access.admin", "integrations.read", "audit.read", "privacy.admin", "tasks.compliance"],
+  // One gate per admin screen, so a person granted only the audit log is not offered
+  // Tilganger and Integrasjoner pages that would refuse them.
+  "access.view": ["access.read", "access.admin"],
+  "integrations.view": ["integrations.read", "integrations.admin"],
+  "audit.view": ["audit.read"],
+  "compliance.view": ["tasks.compliance"],
+  "stand.view": ["stand.write"],
 };
 
 /** Every screen, with the gate that shows it, grouped in sections (order: Rekruttering ·
@@ -48,17 +55,17 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users", gate: "employees.view", section: "Rekruttering" },
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "bar-chart", gate: "recruitdash.view", section: "Rekruttering" },
   { id: "forside-leder", label: "Forside", href: "/leder", icon: "home", gate: "leader.view", section: "Ledere" },
-  { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "leader.view", section: "Ledere" },
+  { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "interviews.view", section: "Ledere" },
   { id: "oppmote", label: "Oppmøte", href: "/leder/oppmote", icon: "calendar-check", gate: "leader.view", section: "Ledere" },
   { id: "oppgaver", label: "Mine oppgaver", href: "/leder/oppgaver", icon: "clipboard-list", gate: "tasks.view", section: "Ledere" },
   { id: "forside-promoter", label: "Forside", href: "/promoter", icon: "home", gate: "promoter.view", section: "Min side" },
-  { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "promoter.view", section: "Min side" },
-  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "promoter.view", section: "Min side" },
+  { id: "stand", label: "Registrer lead", href: "/promoter/stand", icon: "user-plus", gate: "stand.view", section: "Min side" },
+  { id: "vaktplan", label: "Vaktplan", href: "/promoter/vaktplan", icon: "calendar", gate: "schedule.view", section: "Min side" },
   { id: "oversikt", label: "Oversikt", href: "/admin", icon: "layout-grid", gate: "admin.view", section: "Administrasjon" },
-  { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "admin.view", section: "Administrasjon" },
-  { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "admin.view", section: "Administrasjon" },
-  { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "admin.view", section: "Administrasjon" },
-  { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "admin.view", section: "Administrasjon" },
+  { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "access.view", section: "Administrasjon" },
+  { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "compliance.view", section: "Administrasjon" },
+  { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "integrations.view", section: "Administrasjon" },
+  { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "audit.view", section: "Administrasjon" },
   { id: "personvern", label: "Personvern", href: "/admin/personvern", icon: "shield-check", gate: "privacy.view", section: "Administrasjon" },
 ];
 

@@ -16,6 +16,7 @@ import { errorMessage } from "@/lib/api/client";
 import { APP_LABEL, useEraseSubject, useExportSubject, usePrivacySubject, useRetentionRuns } from "@/lib/api/privacy";
 import { formatDate, formatNumber } from "@/lib/format";
 import { mascotFor } from "@/lib/use-mascot";
+import { PermissionGate } from "@/components/patterns/permission-gate";
 
 /**
  * IFK-02 — «Kandidaten kan be om innsyn og sletting, og admin kan gjennomføre det med ett
@@ -26,7 +27,7 @@ import { mascotFor } from "@/lib/use-mascot";
  * a reason, the word SLETT and 2FA. IFK-01's 3-year job is shown below, since the same
  * admin answers for both.
  */
-export default function AdminPersonvern() {
+function AdminPersonvernPage() {
   const [text, setText] = React.useState("");
   const [q, setQ] = React.useState<string | null>(null);
   const [inputError, setInputError] = React.useState<FieldError[]>([]);
@@ -200,5 +201,15 @@ function Field({ label, value }: { label: string; value: string }) {
       <dt className="text-[11px] text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-[13.5px] tabular-nums">{value}</dd>
     </div>
+  );
+}
+
+
+/** Its own gate: the section admits anyone with any page in it (role-shell). */
+export default function AdminPersonvern() {
+  return (
+    <PermissionGate permission="privacy.view">
+      <AdminPersonvernPage />
+    </PermissionGate>
   );
 }
