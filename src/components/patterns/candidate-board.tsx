@@ -341,6 +341,11 @@ function LeadCard({ lead: l, onOpen }: { lead: Lead; onOpen: () => void }) {
         <ChannelMark channel={l.channel} />
         <span className="truncate">{[l.channel, l.campaign].filter(Boolean).join(" · ")}</span>
       </p>
+      {l.previous && (
+        <p className={`mt-1.5 text-[11px] ${l.previous.active ? "text-danger" : "text-warning-on-tint"}`}>
+          {l.previous.active ? `Allerede kandidat (${l.previous.label})` : `Søkt før: ${l.previous.label.toLowerCase()}`}
+        </p>
+      )}
       <p className="mt-1.5 text-[11px] text-muted-foreground">
         {l.assignedTo ? `Tildelt ${l.assignedTo.split(" ")[0]} · ` : ""}Ny lead, ikke tatt
       </p>

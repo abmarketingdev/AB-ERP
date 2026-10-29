@@ -349,6 +349,14 @@ function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void 
           <DialogTitle>{lead.name}</DialogTitle>
           <DialogDescription>Ny lead, ikke tatt ennå. Tar du den, blir den din kandidat, og du er lederen intervjuet bookes med.</DialogDescription>
         </DialogHeader>
+        {lead.previous && (
+          <p className={`rounded-md border px-3 py-2 text-sm ${lead.previous.active
+            ? "border-danger/30 bg-danger/10 text-danger" : "border-warning/40 bg-warning/10 text-warning-on-tint"}`}>
+            {lead.previous.active
+              ? `Personen er allerede kandidat (${lead.previous.label}). En aktiv prosess kan ikke tas over herfra.`
+              : `Personen har søkt før (${lead.previous.label.toLowerCase()}${lead.previous.at ? `, ${leadDateFmt.format(new Date(lead.previous.at))}` : ""}). Tar du den, åpnes den samme kandidaten igjen i «Kvalifisert», med historikken fra forrige gang.`}
+          </p>
+        )}
         {failed && (
           <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{failed}</p>
         )}

@@ -102,6 +102,11 @@ export const leadSchema = z.object({
    * on the screen you are looking at.
    */
   duplicateOf: z.array(z.string()),
+  /** On the sales leader's board: the person was a candidate before (closed → taking it
+   *  reopens that candidate; active → someone else has them). */
+  previous: z.object({
+    status: z.string(), label: z.string(), at: z.string().nullable(), active: z.boolean(),
+  }).nullable().optional(),
 });
 export type Lead = z.infer<typeof leadSchema>;
 
