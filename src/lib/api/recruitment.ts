@@ -26,6 +26,20 @@ export function useNewCandidateMeta(enabled: boolean) {
   });
 }
 
+const transferTargetsSchema = z.array(z.object({
+  id: z.string(), name: z.string(), role: z.enum(["leder", "rekrutterer"]),
+}));
+
+/** Who a candidate can be handed to: sales leaders and recruiters (not oneself, not admins). */
+export function useTransferTargets(enabled: boolean) {
+  return useQuery({
+    queryKey: ["recruitment", "transfer-targets"] as const,
+    queryFn: () => apiGet(`${API.recruitment}/candidates/transfer-targets`, transferTargetsSchema),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useStages() {
   return useQuery({
     queryKey: qk.recruitment.stages(),

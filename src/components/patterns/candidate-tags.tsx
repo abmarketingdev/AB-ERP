@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/patterns/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAssignCandidate, useCandidateReasons, useSetCandidateTags } from "@/lib/api/recruitment";
-import { useLeadMeta } from "@/lib/api/leads";
+import { useAssignCandidate, useCandidateReasons, useSetCandidateTags, useTransferTargets } from "@/lib/api/recruitment";
 import { useAccess } from "@/lib/use-access";
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate } from "@/types/recruitment";
@@ -20,19 +19,21 @@ import type { Candidate } from "@/types/recruitment";
  * for users with `candidates.write`; everyone else sees the name.
  */
 function OwnerPicker({ candidate }: { candidate: Candidate }) {
-  const meta = useLeadMeta();
+  // Sales leaders and recruiters alike (client 2026-10-29): given to a sales leader, he becomes
+  // the interview leader too; given to a recruiter, the leader stays.
+  const targets = useTransferTargets(true);
   const assign = useAssignCandidate();
-  const recruiters = meta.data?.recruiters ?? [];
+  const people = (targets.data ?? []).map((t) => ({ id: t.id, name: `${t.name}${t.role === "leder" ? " (leder)" : ""}` }));
   const current = candidate.recruiterId ?? "";
-  // An owner outside the recruiter pool (an admin who sent the lead on) stays selectable
-  // as the current value, so the control never shows a blank for a real owner.
-  const options = current && !recruiters.some((r) => r.id === current)
-    ? [{ id: current, name: candidate.owner || "—" }, ...recruiters]
-    : recruiters;
+  // The current owner (oneself, or an admin who sent the lead on) is not in the list; keep
+  // it as the selected value so the control never shows a blank for a real owner.
+  const options = current && !people.some((r) => r.id === current)
+    ? [{ id: current, name: candidate.owner || "—" }, ...people]
+    : people;
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       <span className="text-muted-foreground">Rekrutterer:</span>
-      <Select value={current} disabled={assign.isPending || meta.isPending}
+      <Select value={current} disabled={assign.isPending || targets.isPending}
         onValueChange={(to) => { if (to && to !== current) assign.mutate({ id: candidate.id, assignTo: to }); }}>
         <SelectTrigger size="sm" className="h-8 w-[14rem]" aria-label="Bytt rekrutterer">
           <SelectValue placeholder={candidate.owner || "Velg rekrutterer"} />
@@ -55,10 +56,8 @@ function OwnerPicker({ candidate }: { candidate: Candidate }) {
  * field's UI label; «Rekrutterer» is the owner).
  */
 export function CandidateTags({ candidate }: { candidate: Candidate }) {
-  // Reassigning lists the recruiter pool from the inbox meta (leads.read): a sales leader can
-  // work his candidates (candidates.write) but sees the owner as a name, not an empty picker.
-  const access = useAccess();
-  const canAssign = access.can("candidates.write") && access.can("leads.read");
+  // Anyone who works candidates (recruiter, sales leader, admin) can hand one on.
+  const canAssign = useAccess().can("candidates.write");
   const reasons = useCandidateReasons();
   const setTags = useSetCandidateTags();
   const [followUp, setFollowUp] = React.useState(candidate.followUpOn ?? "");
