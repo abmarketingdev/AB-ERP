@@ -10,6 +10,22 @@ import {
   type NewCandidate,
 } from "@/types/recruitment";
 
+const newCandidateMetaSchema = z.object({
+  channels: z.array(z.object({ key: z.string(), name: z.string() })),
+  campaigns: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+
+/** «Ny kandidat» options from the API (active channels and campaigns), not from the board. */
+export function useNewCandidateMeta(enabled: boolean) {
+  return useQuery({
+    queryKey: ["recruitment", "new-candidate-meta"] as const,
+    queryFn: () => apiGet(`${API.recruitment}/candidates/new-meta`, newCandidateMetaSchema),
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
 export function useStages() {
   return useQuery({
     queryKey: qk.recruitment.stages(),

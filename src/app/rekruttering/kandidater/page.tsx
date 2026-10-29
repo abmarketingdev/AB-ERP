@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { useCandidates, useCreateCandidate, useStages } from "@/lib/api/recruitment";
+import { useCandidates, useCreateCandidate, useNewCandidateMeta, useStages } from "@/lib/api/recruitment";
+import { useHasPermission } from "@/lib/permissions";
+import { IS_MOCK } from "@/lib/data-source";
 import { errorMessage } from "@/lib/api/client";
 import { newCandidateSchema, type NewCandidate } from "@/types/recruitment";
 import { CandidateBoard } from "@/components/patterns/candidate-board";
@@ -42,6 +44,15 @@ export default function RekrutteringKandidater() {
   const sources = React.useMemo(() => Array.from(new Set(all.map((c) => c.source))), [all]);
   const campaigns = React.useMemo(() => Array.from(new Set(all.map((c) => c.campaign))), [all]);
   const owners = React.useMemo(() => Array.from(new Set(all.map((c) => c.owner))), [all]);
+  // A sales leader registers people too (candidates.create); a recruiter or admin has candidates.write.
+  const mayCreate = useHasPermission("candidates.create");
+  const mayWrite = useHasPermission("candidates.write");
+  const canCreate = IS_MOCK || mayCreate || mayWrite;
+  // The dialog's options come from the API: on an empty board the lists built from existing
+  // candidates were empty, and nobody could register the first one.
+  const meta = useNewCandidateMeta(createOpen && !IS_MOCK);
+  const createSources = meta.data?.channels.length ? meta.data.channels.map((c) => c.name) : sources;
+  const createCampaigns = meta.data?.campaigns.length ? meta.data.campaigns.map((c) => c.name) : campaigns;
 
   const filtered = all.filter((c) => {
     if (status !== "alle" && c.stageId !== status) return false;
@@ -61,11 +72,11 @@ export default function RekrutteringKandidater() {
         description={`${filtered.length} av ${all.length} kandidater`}
         source="Rekrutteringslogg"
         lastUpdated={now}
-        actions={
+        actions={canCreate ? (
           <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" /> Ny kandidat
           </Button>
-        }
+        ) : undefined}
       />
 
       <div className="flex flex-col gap-3">
@@ -155,7 +166,7 @@ export default function RekrutteringKandidater() {
         )}
       </QueryBoundary>
 
-      <NewCandidateDialog open={createOpen} onOpenChange={setCreateOpen} sources={sources} campaigns={campaigns} />
+      <NewCandidateDialog open={createOpen} onOpenChange={setCreateOpen} sources={createSources} campaigns={createCampaigns} />
     </div>
   );
 }
@@ -200,8 +211,17 @@ function NewCandidateForm({
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
-  const [source, setSource] = React.useState(sources[0] ?? "");
+  const preferred = (list: string[]) => list.find((s) => s.toLowerCase() === "manuell") ?? list[0] ?? "";
+  const [source, setSource] = React.useState(preferred(sources));
   const [campaign, setCampaign] = React.useState(campaigns[0] ?? "");
+  // The options can arrive after the dialog opened; fill the empty selects when they do.
+  React.useEffect(() => {
+    if (!source && sources.length) setSource(preferred(sources));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sources, source]);
+  React.useEffect(() => {
+    if (!campaign && campaigns.length) setCampaign(campaigns[0]);
+  }, [campaigns, campaign]);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [failed, setFailed] = React.useState<string | null>(null);
 
