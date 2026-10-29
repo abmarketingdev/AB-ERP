@@ -21,7 +21,6 @@ import {
   useAdvanceStage,
   useCandidate,
   useStages,
-  useCloseCandidate,
   useMinimiseCandidate,
 } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
@@ -36,65 +35,6 @@ import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 import { formatPhone } from "@/lib/format";
 import { showDate } from "@/lib/show-date";
 import { PermissionGate } from "@/components/patterns/permission-gate";
-
-/**
- * FR-R-10 — ending a candidate process.
- *
- * Access and retention are two clocks, and the screen keeps them apart because
- * conflating them is the usual mistake. Access stops the moment the process
- * ends. Retention runs on for an agreed period, because the company may need to
- * show why someone was not hired — and then the contact details actually get
- * deleted, which is a separate, recorded event rather than something that
- * quietly happens.
- *
- * The panel therefore states what is kept, what goes, on what basis and when.
- * "We keep it for a while" is not something a candidate can act on or challenge.
- */
-function CloseForm({
-  name,
-  pending,
-  error,
-  onCancel,
-  onConfirm,
-}: {
-  name: string;
-  pending: boolean;
-  error: string | null;
-  onCancel: () => void;
-  onConfirm: (reason: string) => void;
-}) {
-  const [reason, setReason] = React.useState("");
-  return (
-    <section className="rounded-xl border border-border bg-secondary/40 px-5 py-4">
-      <p className="text-[13.5px] text-foreground">Avslutte prosessen for {name}?</p>
-      <p className="mt-1 text-[12.5px] text-muted-foreground">
-        Tilgangen fjernes med én gang. Opplysningene beholdes i {RETENTION_MONTHS_UI} måneder for å
-        kunne dokumentere begrunnelsen, og slettes deretter.
-      </p>
-      <Textarea
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="Begrunnelse (påkrevd — vises i kandidatens historikk)"
-        aria-label="Begrunnelse"
-        className="mt-2.5 min-h-16 text-sm"
-        autoFocus
-      />
-      {error && (
-        <p className="mt-2 text-[12.5px] text-danger" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="mt-2.5 flex gap-2">
-        <Button size="sm" variant="destructive" disabled={!reason.trim() || pending} onClick={() => onConfirm(reason.trim())}>
-          {pending ? "Avslutter…" : "Avslutt prosessen"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onCancel}>
-          Avbryt
-        </Button>
-      </div>
-    </section>
-  );
-}
 
 const RETENTION_MONTHS_UI = 6;
 
@@ -180,13 +120,16 @@ function RetentionPanel({
   );
 }
 
+/** Steps a process can be ended from by hand (the server's LIVE_RECRUITER_STAGES). After
+ *  «Til godkjenning» it ends through Ole's decision or onboarding instead. */
+const CLOSABLE = ["ny", "kontaktet", "kvalifisert", "intervju-booket", "intervjuet"];
+
 function CandidateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const stages = useStages();
   const candidate = useCandidate(params.id);
   const advance = useAdvanceStage();
-  const closeCandidate = useCloseCandidate();
   const minimise = useMinimiseCandidate();
   const [advanceOpen, setAdvanceOpen] = React.useState(false);
   const [closing, setClosing] = React.useState(false);
@@ -200,7 +143,6 @@ function CandidateDetailPage() {
   const canBook = access.can("booking.write") || access.can("booking.own");
   // Moving a candidate between steps and closing the process are candidates.write.
   const canMove = access.can("candidates.write");
-  const [closeError, setCloseError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
 
   // The picker chooses the stage; the shared AdvanceStageDialog captures what that
@@ -267,7 +209,7 @@ function CandidateDetailPage() {
                               Flytt til neste steg <ArrowRight className="size-4" />
                             </Button>
                           ) : null}
-                          {canMove && (
+                          {canMove && CLOSABLE.includes(c.stageId) && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -285,22 +227,23 @@ function CandidateDetailPage() {
 
                   {/* FR-R-10 — closing the process, and what it does to the data. */}
                   {closing && !c.closure && (
-                    <CloseForm
-                      name={c.name}
-                      pending={closeCandidate.isPending}
-                      error={closeError}
-                      onCancel={() => setClosing(false)}
-                      onConfirm={(reason) => {
-                        setCloseError(null);
-                        closeCandidate.mutate(
-                          { id: c.id, reason },
-                          {
-                            onSuccess: () => setClosing(false),
-                            onError: (e: unknown) => setCloseError(errorMessage(e)),
-                          },
-                        );
-                      }}
-                    />
+                    <Card className="border-warning/40">
+                      <CardContent className="flex flex-col gap-3 py-4">
+                        <p className="text-sm font-medium">Avslutte prosessen for {c.name}?</p>
+                        <p className="text-[13px] text-muted-foreground">
+                          Velg hvordan den endte. Neste steg spør om årsak, og ved avslag kan kandidaten få beskjed.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { setClosing(false); advanceTo("avvist"); }}>
+                            Avvis kandidaten
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setClosing(false); advanceTo("trukket"); }}>
+                            Kandidaten trakk seg
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setClosing(false)}>Avbryt</Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
 
                   {c.closure && (
