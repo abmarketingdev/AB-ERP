@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
@@ -325,6 +326,10 @@ const leadDateFmt = new Intl.DateTimeFormat("nb-NO", { dateStyle: "medium", time
 /** A new lead opened from «Ny»: who it is, where it came from, and «Ta denne». */
 function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
   const take = useTakeLead();
+  const router = useRouter();
+  const bookOwn = useHasPermission("booking.own");
+  const bookAny = useHasPermission("booking.write");
+  const mayBook = bookOwn || bookAny;
   const [failed, setFailed] = React.useState<string | null>(null);
   React.useEffect(() => { setFailed(null); take.reset(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [lead?.id]);
   if (!lead) return null;
@@ -356,6 +361,17 @@ function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void 
         </dl>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Lukk</Button>
+          {mayBook && (
+            <Button variant="outline" disabled={take.isPending} onClick={() => {
+              setFailed(null);
+              take.mutate(lead.id, {
+                onSuccess: (r) => { onClose(); router.push(`/rekruttering/intervjuer?kandidat=${r.candidateId}`); },
+                onError: (err) => setFailed(errorMessage(err)),
+              });
+            }}>
+              Ta og book intervju
+            </Button>
+          )}
           <Button disabled={take.isPending} onClick={() => {
             setFailed(null);
             take.mutate(lead.id, { onSuccess: () => onClose(), onError: (err) => setFailed(errorMessage(err)) });

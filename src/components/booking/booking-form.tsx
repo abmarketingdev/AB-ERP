@@ -13,6 +13,7 @@ import { mascotFor } from "@/lib/use-mascot";
 import { WeekSlotPicker } from "./week-slot-picker";
 import { useBookInterview, useLeaders } from "@/lib/api/interviews";
 import { useCandidates } from "@/lib/api/recruitment";
+import { useAccess } from "@/lib/use-access";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import type { Interview } from "@/types/interview";
 
@@ -37,6 +38,9 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
   const candidates = useCandidates();
   const leaders = useLeaders();
   const book = useBookInterview();
+  // A sales leader (booking.own) books with himself: the server sends only him in the list.
+  const access = useAccess();
+  const leaderFixed = !access.can("booking.write") && access.can("booking.own");
 
   const [selectedCandidate, setCandidateId] = React.useState("");
   const [selectedLeader, setLeaderId] = React.useState("");
@@ -120,7 +124,7 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
         )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iv-leader">Leder</Label>
-          <Select value={leaderId} onValueChange={(v) => { setLeaderId(v); setPicked(null); }}>
+          <Select value={leaderId} disabled={leaderFixed} onValueChange={(v) => { setLeaderId(v); setPicked(null); }}>
             {/* Real leaders have long names and several teams; the trigger truncates instead of spilling over «Sted». */}
             <SelectTrigger id="iv-leader" className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder={leaders.isPending ? "Henter …" : "Velg leder"} /></SelectTrigger>
             <SelectContent>
@@ -130,6 +134,7 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
             </SelectContent>
           </Select>
           {leaders.isError && <p className="text-xs text-danger">Kunne ikke hente lederne. {errorMessage(leaders.error)}</p>}
+          {leaderFixed && !leaders.isError && <p className="text-xs text-muted-foreground">Du er lederen på intervjuet.</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iv-loc">Sted</Label>

@@ -194,9 +194,9 @@ export default function CandidateDetail() {
   const access = useAccess();
   const canSubmitApproval = access.can("approval.submit");
   // «Intervju booket» is only ever set by a real booking (requires: booking), so the next
-  // step from Kvalifisert is the booking page, with this candidate preselected. Leaders
-  // (no booking.write) do not get the button; the picker's hint still tells them where.
-  const canBook = access.can("booking.write");
+  // step from Kvalifisert is the booking page, with this candidate preselected. A sales
+  // leader books his own candidates (booking.own); this page only shows him his own.
+  const canBook = access.can("booking.write") || access.can("booking.own");
   const [closeError, setCloseError] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
 

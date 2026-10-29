@@ -30,10 +30,11 @@ function IntervjuerPage() {
   const params = useSearchParams();
   const preselected = params.get("kandidat") ?? undefined;
   const interviews = useInterviews();
-  // Leaders reach this page through interviews_own.read but cannot book (booking.write);
-  // showing them the form only produced «Kunne ikke hente lederne».
+  // A recruiter books for anyone (booking.write); a sales leader books his own candidates
+  // with himself as the leader (booking.own). Other leaders only record attendance.
   const access = useAccess();
-  const canBook = access.can("booking.write");
+  const ownOnly = !access.can("booking.write") && access.can("booking.own");
+  const canBook = access.can("booking.write") || ownOnly;
 
   const all = interviews.data ?? [];
   const [now] = React.useState(() => Date.now());
@@ -58,7 +59,14 @@ function IntervjuerPage() {
       {canBook ? (
         <Card>
           <CardContent className="flex flex-col gap-5 py-5">
-            <h2 className="text-sm font-medium">Book nytt intervju</h2>
+            <div>
+              <h2 className="text-sm font-medium">Book nytt intervju</h2>
+              {ownOnly && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Du booker for dine egne kandidater, med deg selv som leder. Kandidaten får bekreftelse på e-post med kalenderinvitasjon.
+                </p>
+              )}
+            </div>
             <BookingForm candidateId={preselected} />
           </CardContent>
         </Card>
