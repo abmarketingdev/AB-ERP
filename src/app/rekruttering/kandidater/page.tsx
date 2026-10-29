@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useCandidates, useCreateCandidate, useNewCandidateMeta, useStages } from "@/lib/api/recruitment";
 import { useHasPermission } from "@/lib/permissions";
+import { useBoardLeads, useTakeLead } from "@/lib/api/leads";
+import type { Lead } from "@/types/lead";
 import { IS_MOCK } from "@/lib/data-source";
 import { errorMessage } from "@/lib/api/client";
 import { newCandidateSchema, type NewCandidate } from "@/types/recruitment";
@@ -48,6 +50,12 @@ export default function RekrutteringKandidater() {
   const mayCreate = useHasPermission("candidates.create");
   const mayWrite = useHasPermission("candidates.write");
   const canCreate = IS_MOCK || mayCreate || mayWrite;
+  // Sales leaders: every new lead not yet sent on sits at the top of «Ny» until someone takes it.
+  const mayBoard = useHasPermission("leads.board");
+  const boardLeads = useBoardLeads(mayBoard && !IS_MOCK);
+  const [openLead, setOpenLead] = React.useState<Lead | null>(null);
+  const shownLeads = (boardLeads.data ?? []).filter((l) =>
+    !query.trim() || l.name.toLowerCase().includes(query.trim().toLowerCase()));
   // The dialog's options come from the API: on an empty board the lists built from existing
   // candidates were empty, and nobody could register the first one.
   const meta = useNewCandidateMeta(createOpen && !IS_MOCK);
@@ -157,16 +165,17 @@ export default function RekrutteringKandidater() {
           <QueryBoundary
             query={candidates}
             skeleton={<Skeleton className="h-40 rounded-lg" />}
-            isEmpty={() => filtered.length === 0}
+            isEmpty={() => filtered.length === 0 && shownLeads.length === 0}
             emptyTitle="Ingen kandidater matcher filtrene"
             emptyDescription="Prøv å justere eller nullstille filtrene."
           >
-            {() => <CandidateBoard stages={stageList} candidates={filtered} />}
+            {() => <CandidateBoard stages={stageList} candidates={filtered} newLeads={shownLeads} onOpenLead={setOpenLead} />}
           </QueryBoundary>
         )}
       </QueryBoundary>
 
       <NewCandidateDialog open={createOpen} onOpenChange={setCreateOpen} sources={createSources} campaigns={createCampaigns} />
+      <LeadDialog lead={openLead} onClose={() => setOpenLead(null)} />
     </div>
   );
 }
@@ -308,5 +317,53 @@ function NewCandidateForm({
         </Button>
       </DialogFooter>
     </>
+  );
+}
+
+const leadDateFmt = new Intl.DateTimeFormat("nb-NO", { dateStyle: "medium", timeStyle: "short" });
+
+/** A new lead opened from «Ny»: who it is, where it came from, and «Ta denne». */
+function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
+  const take = useTakeLead();
+  const [failed, setFailed] = React.useState<string | null>(null);
+  React.useEffect(() => { setFailed(null); take.reset(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [lead?.id]);
+  if (!lead) return null;
+  const rows: [string, React.ReactNode][] = [
+    ["Telefon", lead.phone ? <a className="underline-offset-2 hover:underline" href={`tel:${lead.phone}`}>{lead.phone}</a> : "—"],
+    ["E-post", lead.email ? <a className="underline-offset-2 hover:underline" href={`mailto:${lead.email}`}>{lead.email}</a> : "—"],
+    ["Kanal", lead.channel || "—"],
+    ["Kampanje", lead.campaign || "—"],
+    ["Mottatt", leadDateFmt.format(new Date(lead.receivedAt))],
+    ["Tildelt", lead.assignedTo ?? "Ingen ennå"],
+  ];
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{lead.name}</DialogTitle>
+          <DialogDescription>Ny lead, ikke tatt ennå. Tar du den, blir den din kandidat, og du er lederen intervjuet bookes med.</DialogDescription>
+        </DialogHeader>
+        {failed && (
+          <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{failed}</p>
+        )}
+        <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-sm">
+          {rows.map(([k, v]) => (
+            <React.Fragment key={k}>
+              <dt className="text-muted-foreground">{k}</dt>
+              <dd className="min-w-0 truncate">{v}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Lukk</Button>
+          <Button disabled={take.isPending} onClick={() => {
+            setFailed(null);
+            take.mutate(lead.id, { onSuccess: () => onClose(), onError: (err) => setFailed(errorMessage(err)) });
+          }}>
+            {take.isPending ? "Tar…" : "Ta denne"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { CONTRACT_LABEL, stageMoveRefusal } from "@/lib/recruitment";
 import { riseIn } from "@/lib/motion";
 import type { Candidate, RecruitmentStage } from "@/types/recruitment";
+import type { Lead } from "@/types/lead";
 import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
 import { ChannelMark } from "@/components/patterns/channel-mark";
 import { useAccess } from "@/lib/use-access";
@@ -81,9 +82,14 @@ export function decideDrop(stages: RecruitmentStage[], fromId: string, toId: str
 export function CandidateBoard({
   stages,
   candidates,
+  newLeads = [],
+  onOpenLead,
 }: {
   stages: RecruitmentStage[];
   candidates: Candidate[];
+  /** New leads not yet sent on, shown at the top of «Ny» (a sales leader's board). */
+  newLeads?: Lead[];
+  onOpenLead?: (lead: Lead) => void;
 }) {
   const reduced = useReducedMotion();
   const [now] = React.useState(() => Date.now());
@@ -174,6 +180,8 @@ export function CandidateBoard({
                 stages={stages}
                 refusal={refusal?.stageId === stage.id ? refusal : null}
                 onDismissRefusal={() => setRefusal(null)}
+                leads={stage.id === "ny" ? newLeads : []}
+                onOpenLead={onOpenLead}
               />
             ))}
           </ul>
@@ -200,8 +208,10 @@ export function CandidateBoard({
 }
 
 function StageColumn({
-  stage, index, items, reduced, draggingFrom, stages, refusal, onDismissRefusal,
+  stage, index, items, reduced, draggingFrom, stages, refusal, onDismissRefusal, leads = [], onOpenLead,
 }: {
+  leads?: Lead[];
+  onOpenLead?: (lead: Lead) => void;
   stage: RecruitmentStage;
   index: number;
   items: Candidate[];
@@ -240,7 +250,7 @@ function StageColumn({
             {stage.label}
           </p>
           <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-            {blocked ? <Lock className="size-3" aria-label={blocked} /> : items.length}
+            {blocked ? <Lock className="size-3" aria-label={blocked} /> : items.length + leads.length}
           </span>
         </div>
 
@@ -270,8 +280,22 @@ function StageColumn({
           </motion.div>
         )}
 
+        {/* New leads first: not candidates yet, so not draggable — open one and take it. */}
+        {leads.length > 0 && (
+          <div className="flex flex-col gap-2 p-2 pb-0">
+            <p className="px-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+              Nye leads · {leads.length}
+            </p>
+            <ul className="flex flex-col gap-2">
+              {leads.map((l) => (
+                <li key={l.id}><LeadCard lead={l} onOpen={() => onOpenLead?.(l)} /></li>
+              ))}
+            </ul>
+            {items.length > 0 && <div className="mt-1 border-t border-border" aria-hidden />}
+          </div>
+        )}
         {items.length === 0 ? (
-          <p className="px-3.5 py-6 text-center text-[12.5px] text-muted-foreground">
+          leads.length > 0 ? null : <p className="px-3.5 py-6 text-center text-[12.5px] text-muted-foreground">
             {isOver && !blocked ? "Slipp her" : "Ingen her nå"}
           </p>
         ) : (
@@ -289,6 +313,32 @@ function StageColumn({
         )}
       </div>
     </li>
+  );
+}
+
+/** A new lead on the board: dashed, so it reads as «not taken yet» next to the candidates. */
+function LeadCard({ lead: l, onOpen }: { lead: Lead; onOpen: () => void }) {
+  const now = React.useContext(BoardNow);
+  const days = now ? Math.floor((now - new Date(l.receivedAt).getTime()) / 86_400_000) : null;
+  return (
+    <button type="button" onClick={onOpen}
+      className="block w-full rounded-lg border border-dashed border-[var(--ab-accent-9)]/50 bg-[var(--ab-accent-3)]/15 px-3 py-2.5 text-left transition-colors duration-[120ms] hover:border-[var(--ab-accent-9)] hover:bg-[var(--ab-accent-3)]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div className="flex items-start justify-between gap-2">
+        <p className="truncate text-[13px] text-foreground">{l.name}</p>
+        {days !== null && (
+          <span className={`shrink-0 text-[11px] tabular-nums ${days >= 2 ? "text-warning-on-tint" : "text-muted-foreground"}`}>
+            {days <= 0 ? "i dag" : `${days} d`}
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground">
+        <ChannelMark channel={l.channel} />
+        <span className="truncate">{[l.channel, l.campaign].filter(Boolean).join(" · ")}</span>
+      </p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        {l.assignedTo ? `Tildelt ${l.assignedTo.split(" ")[0]} · ` : ""}Ny lead, ikke tatt
+      </p>
+    </button>
   );
 }
 

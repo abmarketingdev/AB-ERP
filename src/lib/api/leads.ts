@@ -86,6 +86,29 @@ function invalidateAfterLeadWrite(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: qk.quality.audit() });
 }
 
+/** «Ny» on a sales leader's board: every new lead not yet sent on. Polls, so a lead an
+ *  admin registers shows up without a reload. */
+export function useBoardLeads(enabled: boolean) {
+  return useQuery({
+    queryKey: [...qk.leads.all(), "board"] as const,
+    queryFn: () => apiGet(`${API.recruitment}/leads/board`, z.array(leadSchema)),
+    enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+/** «Ta denne»: the leader makes a new lead his own candidate (owner and leader). */
+export function useTakeLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiPost(`${API.recruitment}/leads/${id}/take`, z.object({ candidateId: z.string() }), {}),
+    onSuccess: () => invalidateAfterLeadWrite(qc),
+    // Taken by someone else meanwhile: refresh so the card disappears.
+    onError: () => qc.invalidateQueries({ queryKey: qk.leads.all() }),
+  });
+}
+
 export function useSendLeads() {
   const qc = useQueryClient();
   return useMutation({
