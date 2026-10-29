@@ -55,7 +55,10 @@ function OwnerPicker({ candidate }: { candidate: Candidate }) {
  * field's UI label; «Rekrutterer» is the owner).
  */
 export function CandidateTags({ candidate }: { candidate: Candidate }) {
-  const canAssign = useAccess().can("candidates.write");
+  // Reassigning lists the recruiter pool from the inbox meta (leads.read): a sales leader can
+  // work his candidates (candidates.write) but sees the owner as a name, not an empty picker.
+  const access = useAccess();
+  const canAssign = access.can("candidates.write") && access.can("leads.read");
   const reasons = useCandidateReasons();
   const setTags = useSetCandidateTags();
   const [followUp, setFollowUp] = React.useState(candidate.followUpOn ?? "");

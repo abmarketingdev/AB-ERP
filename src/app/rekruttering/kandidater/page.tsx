@@ -50,8 +50,8 @@ function RekrutteringKandidaterPage() {
   const owners = React.useMemo(() => Array.from(new Set(all.map((c) => c.owner))), [all]);
   // A sales leader registers people too (candidates.create); a recruiter or admin has candidates.write.
   const mayCreate = useHasPermission("candidates.create");
-  const mayWrite = useHasPermission("candidates.write");
-  const canCreate = IS_MOCK || mayCreate || mayWrite;
+  // «Ny kandidat» is its own switch (candidates.create), as on the server.
+  const canCreate = IS_MOCK || mayCreate;
   // Sales leaders: every new lead not yet sent on sits at the top of «Ny» until someone takes it.
   const mayBoard = useHasPermission("leads.board");
   const boardLeads = useBoardLeads(mayBoard && !IS_MOCK);
