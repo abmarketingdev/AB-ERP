@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { CalendarCheck, Mail, MessageSquare } from "lucide-react";
+import { CalendarCheck, CalendarDays, Mail, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Mascot } from "@/components/patterns/mascot";
 import { mascotFor } from "@/lib/use-mascot";
 import { WeekSlotPicker } from "./week-slot-picker";
+import { CalendarWeek } from "./calendar-week";
 import { useBookInterview, useLeaders } from "@/lib/api/interviews";
 import { useCandidates } from "@/lib/api/recruitment";
 import { useAccess } from "@/lib/use-access";
@@ -45,11 +46,14 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
   const [selectedCandidate, setCandidateId] = React.useState("");
   const [selectedLeader, setLeaderId] = React.useState("");
   const candidateId = fixedCandidate ?? selectedCandidate;
-  // The first leader until the recruiter picks one — derived, so it is right as soon as the list arrives.
+  // The candidate's own leader is preselected (c955bbf); otherwise nobody is — the person booking
+  // chooses the leader (client 2026-11-02: nothing is assigned automatically). A sales leader
+  // booking for himself gets himself: the server sends only him in the list.
   const chosenForCandidate = (candidates.data ?? []).find((c) => c.id === candidateId)?.leaderId;
   const leaderId = selectedLeader
     || (chosenForCandidate && leaders.data?.some((l) => l.id === chosenForCandidate) ? chosenForCandidate : "")
-    || leaders.data?.[0]?.id || "";
+    || (leaderFixed ? leaders.data?.[0]?.id ?? "" : "");
+  const [showCalendar, setShowCalendar] = React.useState(false);
   const [location, setLocation] = React.useState("AB Marketing, Grenseveien 107, Oslo");
   const [reminder, setReminder] = React.useState(true);
   const [picked, setPicked] = React.useState<string | null>(null);
@@ -146,7 +150,21 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
         <p className="text-sm text-muted-foreground" role="status">Velg kandidat for å bekrefte tidspunktet.</p>
       )}
       {leaderId ? (
-        <WeekSlotPicker leaderId={leaderId} leaderName={leader?.name} value={picked} onChange={setPicked} />
+        <div className="flex flex-col gap-3">
+          <WeekSlotPicker leaderId={leaderId} leaderName={leader?.name} value={picked} onChange={setPicked} />
+          <div>
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5 px-2" aria-expanded={showCalendar}
+              onClick={() => setShowCalendar((v) => !v)}>
+              <CalendarDays className="size-4" aria-hidden />
+              {showCalendar ? "Skjul kalenderen" : `Vis ${leader?.name ? `${leader.name}s` : "lederens"} kalender`}
+            </Button>
+          </div>
+          {showCalendar && (
+            <div className="rounded-lg border border-border p-3">
+              <CalendarWeek leaderId={leaderId} leaderName={leader?.name} compact />
+            </div>
+          )}
+        </div>
       ) : (
         <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
           Velg en leder for å se ledige tider.

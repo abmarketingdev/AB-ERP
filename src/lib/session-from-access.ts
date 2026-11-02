@@ -45,6 +45,9 @@ export const VIEW_GATES: Record<string, string[]> = {
   // «Mine intervjuer» sits in /leder (leader.view) and checks interviews.view: only the key
   // both accept, or a recruiter (booking.read) is offered a page the section refuses.
   "myinterviews.view": ["interviews_own.read"],
+  // «Min kalender» lives in /rekruttering, whose section admits interviews.view — so the
+  // same keys, or the menu would offer a page the section refuses.
+  "mycalendar.view": ["interviews_own.read", "booking.read"],
   // «Mine oppgaver» (/leder) and «Vaktplan» (/promoter): only keys both the section and the page accept.
   "mytasks.view": ["tasks.own"],
   "myschedule.view": ["staffing.read_own"],
@@ -56,6 +59,7 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox", gate: "leads.view", section: "Rekruttering" },
   { id: "kandidater", label: "Kandidater", href: "/rekruttering/kandidater", icon: "users", gate: "recruitment.view", section: "Rekruttering" },
   { id: "intervjuer", label: "Intervjuer", href: "/rekruttering/intervjuer", icon: "calendar", gate: "interviews.view", section: "Rekruttering" },
+  { id: "min-kalender", label: "Min kalender", href: "/rekruttering/kalender", icon: "calendar-days", gate: "mycalendar.view", section: "Rekruttering" },
   { id: "annonser", label: "Annonser", href: "/rekruttering/annonser", icon: "megaphone", gate: "ads.view", section: "Rekruttering" },
   { id: "godkjenning", label: "Godkjenning", href: "/godkjenning", icon: "shield-check", gate: "approval.view", section: "Rekruttering" },
   { id: "onboarding", label: "Onboarding", href: "/onboarding", icon: "clipboard-list", gate: "onboarding.view", section: "Rekruttering" },

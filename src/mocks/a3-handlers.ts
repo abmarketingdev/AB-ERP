@@ -400,6 +400,37 @@ export const a3Handlers = [
     return HttpResponse.json({ source: "kalender", stale, computedAt: new Date().toISOString(),
       calendarSyncedAt: new Date(Date.now() - (stale ? 47 : 4) * 60_000).toISOString(), slots: slotsFor(leader, from, days) });
   }),
+  // Google Calendar sync (2026-11-02): own week with titles, anyone else's as busy blocks.
+  http.get(`${R}/interviews/calendar/`, async ({ request }) => {
+    await latency();
+    const p = new URL(request.url).searchParams;
+    const leader = p.get("leader") || DEMO_LEADER.id;
+    const own = leader === DEMO_LEADER.id;
+    const from = p.get("from") || iso(new Date()).slice(0, 10);
+    const days = Math.min(Number(p.get("days") ?? 7), 31);
+    const start = new Date(`${from}T00:00:00.000Z`);
+    const blocks: [number, number][] = [];
+    for (let d = 0; d < days; d++) {
+      const day = new Date(start.getTime() + d * 86_400_000);
+      if (day.getUTCDay() !== 0 && day.getUTCDay() !== 6) blocks.push(...busyBlocks(leader, day));
+    }
+    const titles = ["Teammøte", "Lunsj", "Oppfølgingssamtale", "Feltdag med teamet"];
+    const end = start.getTime() + days * 86_400_000;
+    return HttpResponse.json({
+      leader, own, from, days, stale: false, backend: "google", connected: true,
+      syncedAt: new Date(Date.now() - 3 * 60_000).toISOString(), requestedAt: null, error: "",
+      busy: blocks.map(([s, e]) => ({ startsAt: new Date(s).toISOString(), endsAt: new Date(e).toISOString() })),
+      events: own ? blocks.map(([s, e], i) => ({ id: `ev-${i}`, startsAt: new Date(s).toISOString(),
+        endsAt: new Date(e).toISOString(), allDay: false, title: titles[i % titles.length], location: "", busy: true })) : [],
+      interviews: db.interviews.filter((iv) => iv.leader.id === leader && iv.status === "booket"
+        && new Date(iv.startsAt).getTime() < end && new Date(iv.endsAt).getTime() > start.getTime())
+        .map((iv) => ({ id: iv.id, startsAt: iv.startsAt, endsAt: iv.endsAt, title: `Intervju: ${iv.candidateName}`, location: iv.location })),
+    });
+  }),
+  http.post(`${R}/interviews/calendar/sync/`, async () => {
+    await latency();
+    return HttpResponse.json({ backend: "google", connected: true, syncedAt: new Date().toISOString(), requestedAt: new Date().toISOString(), error: "" }, { status: 202 });
+  }),
   http.post(`${R}/interviews/`, async ({ request }) => {
     await latency();
     const b = (await request.json()) as { candidateId: string; leaderId: string; startsAt: string; location: string; reminderEnabled: boolean };

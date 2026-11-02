@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAssignCandidate, useCandidateReasons, useSetCandidateTags, useTransferTargets } from "@/lib/api/recruitment";
 import { useAccess } from "@/lib/use-access";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { CalendarWeek } from "@/components/booking/calendar-week";
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate } from "@/types/recruitment";
 
@@ -23,18 +25,27 @@ function OwnerPicker({ candidate }: { candidate: Candidate }) {
   // the interview leader too; given to a recruiter, the leader stays.
   const targets = useTransferTargets(true);
   const assign = useAssignCandidate();
-  const people = (targets.data ?? []).map((t) => ({ id: t.id, name: `${t.name}${t.role === "leder" ? " (leder)" : ""}` }));
+  const people = (targets.data ?? []).map((t) => ({ id: t.id, name: `${t.name}${t.role === "leder" ? " (leder)" : ""}`, role: t.role, plain: t.name }));
   const current = candidate.recruiterId ?? "";
   // The current owner (oneself, or an admin who sent the lead on) is not in the list; keep
   // it as the selected value so the control never shows a blank for a real owner.
   const options = current && !people.some((r) => r.id === current)
-    ? [{ id: current, name: candidate.owner || "—" }, ...people]
+    ? [{ id: current, name: candidate.owner || "—", role: "rekrutterer" as const, plain: candidate.owner || "—" }, ...people]
     : people;
+  // Handing to a sales leader (client 2026-11-02): first show that leader's week, so the
+  // person handing over can see whether the leader has room. Nothing is booked here — the
+  // interview time is picked by a person afterwards («Book intervju»).
+  const [leaderTarget, setLeaderTarget] = React.useState<{ id: string; name: string } | null>(null);
+  function choose(to: string) {
+    if (!to || to === current) return;
+    const t = options.find((o) => o.id === to);
+    if (t?.role === "leder") setLeaderTarget({ id: t.id, name: t.plain });
+    else assign.mutate({ id: candidate.id, assignTo: to });
+  }
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
       <span className="text-muted-foreground">Rekrutterer:</span>
-      <Select value={current} disabled={assign.isPending || targets.isPending}
-        onValueChange={(to) => { if (to && to !== current) assign.mutate({ id: candidate.id, assignTo: to }); }}>
+      <Select value={current} disabled={assign.isPending || targets.isPending} onValueChange={choose}>
         <SelectTrigger size="sm" className="h-8 w-[14rem]" aria-label="Bytt rekrutterer">
           <SelectValue placeholder={candidate.owner || "Velg rekrutterer"} />
         </SelectTrigger>
@@ -43,6 +54,26 @@ function OwnerPicker({ candidate }: { candidate: Candidate }) {
         </SelectContent>
       </Select>
       {assign.isError && <span role="alert" className="text-xs text-danger">{errorMessage(assign.error)}</span>}
+      <ResponsiveSheet
+        wide
+        open={!!leaderTarget}
+        onOpenChange={(o) => { if (!o) setLeaderTarget(null); }}
+        title={leaderTarget ? `Overfør ${candidate.name} til ${leaderTarget.name}` : ""}
+        description={leaderTarget ? `${leaderTarget.name} blir rekrutterer og leder på intervjuet. Intervjutiden velges etterpå med «Book intervju».` : undefined}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setLeaderTarget(null)}>Avbryt</Button>
+            <Button disabled={assign.isPending} onClick={() => {
+              if (!leaderTarget) return;
+              assign.mutate({ id: candidate.id, assignTo: leaderTarget.id }, { onSuccess: () => setLeaderTarget(null) });
+            }}>
+              {assign.isPending ? "Overfører …" : "Overfør"}
+            </Button>
+          </>
+        }
+      >
+        {leaderTarget && <CalendarWeek leaderId={leaderTarget.id} leaderName={leaderTarget.name} compact />}
+      </ResponsiveSheet>
     </span>
   );
 }

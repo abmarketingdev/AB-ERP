@@ -25,7 +25,10 @@ export function ResponsiveSheet({
   description,
   footer,
   children,
+  wide,
 }: {
+  /** Desktop dialog wide enough for a week calendar. */
+  wide?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -56,7 +59,7 @@ export function ResponsiveSheet({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={wide ? "max-h-[90dvh] overflow-y-auto sm:max-w-4xl" : "sm:max-w-lg"}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

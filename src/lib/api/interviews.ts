@@ -3,7 +3,8 @@ import { z } from "zod";
 import { apiGet, apiPatch, apiPost, API } from "./client";
 import { qk } from "./keys";
 import {
-  interviewListSchema, interviewSchema, leaderListSchema, publicInterviewSchema, slotsResponseSchema,
+  calendarStatusSchema, calendarWeekSchema, interviewListSchema, interviewSchema, leaderListSchema,
+  publicInterviewSchema, slotsResponseSchema,
 } from "@/types/interview";
 
 /**
@@ -35,6 +36,28 @@ export function useSlots(leaderId: string, from: string, days = 7) {
     queryFn: () => apiGet(`${IV}/slots/`, slotsResponseSchema, { leader: leaderId, from, days }),
     enabled: Boolean(leaderId),
     refetchInterval: (q) => (q.state.data?.stale ? 5000 : false),
+  });
+}
+
+/** A person's calendar week. `leaderId` empty = my own. Polls while the sync is stale. */
+export function useCalendarWeek(leaderId: string, from: string, days = 7, enabled = true) {
+  return useQuery({
+    queryKey: qk.interviews.calendar(leaderId || "me", from, days),
+    queryFn: () => apiGet(`${IV}/calendar/`, calendarWeekSchema, { ...(leaderId ? { leader: leaderId } : {}), from, days }),
+    enabled,
+    refetchInterval: (q) => (q.state.data?.stale ? 5000 : 5 * 60_000),
+  });
+}
+/** «Synk nå»: asks the calendar worker for a fresh read; the week refetches while stale. */
+export function useSyncCalendar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { leaderId?: string }) =>
+      apiPost(`${IV}/calendar/sync/`, calendarStatusSchema, v.leaderId ? { leader: v.leaderId } : {}),
+    onSuccess: () => {
+      // give the worker a moment, then pull the week and the slots again
+      setTimeout(() => qc.invalidateQueries({ queryKey: qk.interviews.all() }), 4000);
+    },
   });
 }
 

@@ -125,6 +125,35 @@ export const slotsResponseSchema = z.object({
 });
 export type SlotsResponse = z.infer<typeof slotsResponseSchema>;
 
+/** A person's week as the calendar sync sees it (Google, 2026-11-02). Titles only for
+ *  your own calendar; someone else's is «busy» blocks + the interviews you may see. */
+export const calendarWeekSchema = z.object({
+  leader: z.string(),
+  own: z.boolean(),
+  from: z.string(),
+  days: z.number(),
+  stale: z.boolean(),
+  backend: z.string(),
+  connected: z.boolean(),
+  syncedAt: z.string().nullable(),
+  requestedAt: z.string().nullable(),
+  error: z.string(),
+  busy: z.array(z.object({ startsAt: z.string(), endsAt: z.string() })),
+  events: z.array(z.object({
+    id: z.string(), startsAt: z.string(), endsAt: z.string(), allDay: z.boolean(),
+    title: z.string(), location: z.string(), busy: z.boolean(),
+  })),
+  interviews: z.array(z.object({
+    id: z.string().nullable(), startsAt: z.string(), endsAt: z.string(), title: z.string(), location: z.string(),
+  })),
+}).loose();
+export type CalendarWeek = z.infer<typeof calendarWeekSchema>;
+
+export const calendarStatusSchema = z.object({
+  backend: z.string(), connected: z.boolean(), syncedAt: z.string().nullable(),
+  requestedAt: z.string().nullable(), error: z.string(),
+}).loose();
+
 export const bookInterviewSchema = z.object({
   candidateId: z.string().min(1, "Velg kandidat"),
   leaderId: z.string().min(1, "Velg leder"),

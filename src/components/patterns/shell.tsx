@@ -27,7 +27,7 @@ import {
   ShieldCheck,
   UserPlus,
   Megaphone,
-  CalendarCheck,
+  CalendarCheck, CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -67,6 +67,7 @@ const ICONS: Record<string, LucideIcon> = {
   "user-plus": UserPlus,
   megaphone: Megaphone,
   "calendar-check": CalendarCheck,
+  "calendar-days": CalendarDays,
 };
 
 interface ShellProps {

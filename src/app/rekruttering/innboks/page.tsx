@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, ArrowRight, Users, Copy, X, Share2 } from "lucide-react";
+import { Search, ArrowRight, Users, Copy, X, Share2, CalendarDays } from "lucide-react";
+import { ResponsiveSheet } from "@/components/patterns/responsive-sheet";
+import { CalendarWeek } from "@/components/booking/calendar-week";
 import { PageHeader } from "@/components/patterns/page-header";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -132,12 +134,14 @@ function SamleinnboksPage() {
   const [mergeFor, setMergeFor] = React.useState<Lead | null>(null);
   const [audienceOpen, setAudienceOpen] = React.useState(false);
   const meta = useLeadMeta();
+  const leaderNameOf = (id: string) => meta.data?.leaders?.find((l) => l.id === id)?.name;
   const phone = usePhone();
   // IFK-08 — on a phone the filters fold away behind one button so the first lead is on
   // the first screen; search stays out, it is the filter people actually use there.
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [assignTarget, setAssignTarget] = React.useState("");
   const [leaderTarget, setLeaderTarget] = React.useState("");
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
   const [lastDiscard, setLastDiscard] = React.useState<{ discarded: number; skipped: number } | null>(null);
   const [lastAssign, setLastAssign] = React.useState<{ assigned: number; skipped: number } | null>(null);
@@ -332,7 +336,17 @@ function SamleinnboksPage() {
                 }}>
                 <Users className="size-4" /> Sett leder
               </Button>
+              {/* Client 2026-11-02: see the leader's week before choosing him (busy blocks only). */}
+              <Button size="sm" variant="ghost" className="gap-1.5" disabled={!leaderTarget}
+                onClick={() => setCalendarOpen(true)}>
+                <CalendarDays className="size-4" /> Se kalender
+              </Button>
             </div>
+            <ResponsiveSheet wide open={calendarOpen && !!leaderTarget} onOpenChange={setCalendarOpen}
+              title={`${leaderNameOf(leaderTarget) ? `${leaderNameOf(leaderTarget)}s` : "Lederens"} kalender`}
+              description="Bare når lederen er opptatt vises, ikke hva avtalene gjelder. Intervjutiden velges senere med «Book intervju».">
+              {leaderTarget && <CalendarWeek leaderId={leaderTarget} leaderName={leaderNameOf(leaderTarget)} compact />}
+            </ResponsiveSheet>
             {/* Destructive, so it confirms in place (08-DESIGN-REVIEW: never confirm()). Not
                 deleted — a discarded lead stays under its filter — so no typed word. */}
             <ConfirmStep
