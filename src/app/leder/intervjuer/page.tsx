@@ -91,7 +91,7 @@ function LederIntervjuerPage() {
             ))}
             {upcoming.length > 0 && (
               <Section title="Kommende">
-                {upcoming.map((iv) => <li key={iv.id}><InterviewRow iv={iv} today={dayKey.format(new Date(iv.startsAt)) === today} /></li>)}
+                {upcoming.map((iv) => <li key={iv.id}><InterviewRow iv={iv} onAttended={onAttended} today={dayKey.format(new Date(iv.startsAt)) === today} /></li>)}
               </Section>
             )}
             {done.length > 0 && (
@@ -107,6 +107,9 @@ function LederIntervjuerPage() {
                           </Badge>
                           {iv.rating ? <span className="text-xs text-muted-foreground">{iv.rating}/5</span> : null}
                           <span className="text-xs tabular-nums text-muted-foreground">{fullFmt.format(new Date(iv.startsAt))}</span>
+                          {iv.outcomeAt && (
+                            <span className="text-xs tabular-nums text-muted-foreground">· registrert {fullFmt.format(new Date(iv.outcomeAt))}</span>
+                          )}
                         </div>
                         {iv.assessment && <p className="text-sm">{iv.assessment}</p>}
                         {iv.attended && iv.candidateStatus === "intervjuet" && canSubmit && (
@@ -166,18 +169,25 @@ function InterviewRow({ iv, awaiting, today, onAttended }: { iv: Interview; awai
             )}
           </p>
         </div>
-        {awaiting && (
+        {awaiting ? (
           <Button className="min-h-11 w-full sm:w-auto" onClick={() => { setOpening((n) => n + 1); setOpen(true); }}>Registrer oppmøte</Button>
+        ) : (
+          // The interview may be held before (or after) the booked slot. The time logged is
+          // when this is registered (outcomeAt), not the booked time.
+          <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => { setOpening((n) => n + 1); setOpen(true); }}>
+            Intervjuet er gjennomført
+          </Button>
         )}
       </CardContent>
-      {awaiting && <OutcomeSheet key={opening} iv={iv} open={open} onOpenChange={setOpen} onAttended={onAttended} />}
+      <OutcomeSheet key={opening} iv={iv} open={open} onOpenChange={setOpen} onAttended={onAttended} early={!awaiting} />
     </Card>
   );
 }
 
-function OutcomeSheet({ iv, open, onOpenChange, onAttended }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void; onAttended?: (candidateId: string) => void }) {
+function OutcomeSheet({ iv, open, onOpenChange, onAttended, early }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void; onAttended?: (candidateId: string) => void; early?: boolean }) {
   const outcome = useInterviewOutcome();
-  const [attended, setAttended] = React.useState<boolean | null>(null);
+  // Opened from «Intervjuet er gjennomført»: the leader has just said it was held.
+  const [attended, setAttended] = React.useState<boolean | null>(early ? true : null);
   const [assessment, setAssessment] = React.useState("");
   const [rating, setRating] = React.useState<number | null>(null);
   const [recommend, setRecommend] = React.useState<boolean | null>(null);
@@ -202,7 +212,9 @@ function OutcomeSheet({ iv, open, onOpenChange, onAttended }: { iv: Interview; o
       open={open}
       onOpenChange={onOpenChange}
       title={`Oppmøte: ${iv.candidateName}`}
-      description={fullFmt.format(new Date(iv.startsAt))}
+      description={early
+        ? `Booket ${fullFmt.format(new Date(iv.startsAt))} · registreres nå som gjennomført`
+        : fullFmt.format(new Date(iv.startsAt))}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Avbryt</Button>
