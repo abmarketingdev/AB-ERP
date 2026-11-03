@@ -35,7 +35,7 @@ export const MOCK_USERS: Record<string, Session> = {
     userId: "u-leader",
     name: "Ola Nordmann",
     role: "Team lead",
-    permissions: ["leader.view", "schedule.view", "tasks.view", "interviews.view"],
+    permissions: ["leader.view", "schedule.view", "tasks.view", "interviews.view", "mycalendar.view"],
     scope: { kind: "team", teamIds: ["t1"], label: "Team Vest" },
     navigation: [
       { id: "forside", label: "Forside", href: "/leder", icon: "home" },
@@ -152,7 +152,7 @@ export const MOCK_USERS: Record<string, Session> = {
     // kandidater". Admin holds every module permission rather than bypassing
     // the check, so the admin session is governed by the same mechanism as
     // everyone else's and /admin/tilganger can show it.
-    permissions: ["admin.view", "kpi.view", "import.view", "recruitment.view", "approval.view", "leader.view", "saleschief.view", "promoter.view", "leads.view", "ads.view", "interviews.view", "onboarding.view", "employees.view", "privatenotes.view", "schedule.view", "tasks.view", "recruitdash.view"],
+    permissions: ["admin.view", "kpi.view", "import.view", "recruitment.view", "approval.view", "leader.view", "saleschief.view", "promoter.view", "leads.view", "ads.view", "interviews.view", "mycalendar.view", "onboarding.view", "employees.view", "privatenotes.view", "schedule.view", "tasks.view", "recruitdash.view"],
     scope: { kind: "org", teamIds: ["t1", "t2", "t3", "t4"], label: "Alle team" },
     navigation: [
       { id: "innboks", label: "Samleinnboks", href: "/rekruttering/innboks", icon: "inbox" , section: "Rekruttering" },

@@ -21,7 +21,7 @@ export default function MinKalender() {
           source="Google Kalender"
         />
         <Card>
-          <CardContent className="pt-6">
+          <CardContent>
             <CalendarWeek />
           </CardContent>
         </Card>
