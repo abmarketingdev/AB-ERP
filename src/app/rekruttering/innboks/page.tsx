@@ -236,7 +236,7 @@ function SamleinnboksPage() {
             ? `${numFmt.format(counts.data.byStatus.ny ?? 0)} nye av ${numFmt.format(counts.data.total)} leads · ${numFmt.format(counts.data.duplicates)} mulige duplikater`
             : "Alle leads samles her før de sendes videre til rekruttering"
         }
-        source="Meta, TikTok, Finn, Nav, Indeed, nettside og stand"
+        source="Meta, TikTok, Nav, Indeed, nettside og stand"
         lastUpdated={new Date()}
         actions={
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAudienceOpen(true)}>
@@ -414,7 +414,7 @@ function SamleinnboksPage() {
         emptyDescription={
           activeFilters
             ? "Prøv å fjerne et filter, eller utvid datoperioden."
-            : "Alt er sendt videre. Nye leads fra Meta, TikTok, Finn, Nav, Indeed, nettsiden og stand dukker opp her automatisk."
+            : "Alt er sendt videre. Nye leads fra Meta, TikTok, Nav, Indeed, nettsiden og stand dukker opp her automatisk."
         }
         // A1's mascot events: tomt fordi alt er gjort = allClear; tomt søk = empty.
         emptyPose={activeFilters ? "cloudwatching" : "hammock"}

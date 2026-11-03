@@ -83,7 +83,7 @@ function AnnonserPage() {
       <PageHeader
         title="Annonser"
         description={`${live.length} aktive annonser · ${numFmt.format(applicants)} søkere totalt`}
-        source="Nav, Indeed, Finn og andre jobbplattformer"
+        source="Nav, Indeed og andre jobbplattformer"
         lastUpdated={ads.dataUpdatedAt ? new Date(ads.dataUpdatedAt) : undefined}
         actions={
           <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
@@ -97,7 +97,7 @@ function AnnonserPage() {
         skeleton={<div className="flex flex-col gap-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}</div>}
         isEmpty={(d) => d.length === 0}
         emptyTitle="Ingen annonser ennå"
-        emptyDescription="Lag én annonse og publiser den til Nav, Indeed og Finn på én gang."
+        emptyDescription="Lag én annonse og publiser den til Nav og Indeed på én gang."
         className="flex flex-col gap-4"
       >
         {(list) => {
