@@ -11,6 +11,7 @@ import { useCalendarWeek, useSyncCalendar } from "@/lib/api/interviews";
 import { errorMessage } from "@/lib/api/client";
 import type { CalendarWeek as Week } from "@/types/interview";
 import { todayOslo } from "./week-slot-picker";
+import { CalendarConnectNotice, isUnreachable, otherCalendarProblem } from "./calendar-connect";
 
 /**
  * A person's calendar from the Google Calendar sync (2026-11-02), drawn the way Google
@@ -174,8 +175,8 @@ export function CalendarWeek({ leaderId, leaderName, compact }: {
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {data && <SyncBadge week={data} whose={whose} />}
-          {data && data.backend !== "ics" && (
+          {data && <SyncBadge week={data} whose={whose} name={leaderName} />}
+          {data && data.backend !== "ics" && !(isUnreachable(data) && data.reason !== "not_in_workspace") && (
             <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full" disabled={sync.isPending}
               onClick={() => sync.mutate({ leaderId: leaderId || undefined })}>
               <RefreshCw className={`size-3.5 ${sync.isPending || data.stale ? "animate-spin" : ""}`} aria-hidden />
@@ -199,6 +200,8 @@ export function CalendarWeek({ leaderId, leaderName, compact }: {
           )}
         </div>
       </div>
+
+      {data && <CalendarConnectNotice week={data} />}
 
       {data && !data.own && (
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -518,7 +521,15 @@ function Legend({ own }: { own: boolean }) {
   );
 }
 
-function SyncBadge({ week, whose }: { week: Week; whose: string }) {
+function SyncBadge({ week, whose, name }: { week: Week; whose: string; name?: string }) {
+  if (isUnreachable(week)) {
+    const line = week.own ? "Kalender ikke koblet" : `Kalender ikke koblet · ${otherCalendarProblem(week.reason, name)}`;
+    return (
+      <Badge variant="outline" className="h-7 max-w-full gap-1 rounded-full border-warning/40 text-warning-on-tint" role="status">
+        <CloudOff className="size-3 shrink-0" aria-hidden /><span className="truncate">{line}</span>
+      </Badge>
+    );
+  }
   if (week.backend === "ics") {
     return <Badge variant="outline" className="h-7 gap-1 rounded-full text-muted-foreground"><CalendarClock className="size-3" aria-hidden />Ingen kalenderkobling · erklærte tider</Badge>;
   }

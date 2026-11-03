@@ -41,6 +41,7 @@ import { ThemeSwitcher } from "./theme-switcher";
 import { useT } from "@/lib/i18n";
 import { PreviewBanner } from "./preview-banner";
 import { EnvironmentBanner } from "./environment-banner";
+import { CalendarConnectBanner } from "@/components/booking/calendar-connect";
 import { Button } from "@/components/ui/button";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -129,6 +130,7 @@ export function Shell({ session, children }: ShellProps) {
         </a>
         <PreviewBanner />
         <EnvironmentBanner />
+        <CalendarConnectBanner />
         <div className="flex flex-1 flex-col md:flex-row">
         {/* Desktop sidebar */}
         <aside className="relative hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">

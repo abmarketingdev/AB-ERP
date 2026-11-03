@@ -138,6 +138,10 @@ export const calendarWeekSchema = z.object({
   syncedAt: z.string().nullable(),
   requestedAt: z.string().nullable(),
   error: z.string(),
+  /** Why the calendar cannot be reached: no_email | outside_workspace | not_in_workspace | "". */
+  reason: z.string().default(""),
+  /** The person's own address — only on their own calendar. */
+  email: z.string().default(""),
   busy: z.array(z.object({ startsAt: z.string(), endsAt: z.string() })),
   events: z.array(z.object({
     id: z.string(), startsAt: z.string(), endsAt: z.string(), allDay: z.boolean(),
@@ -152,6 +156,7 @@ export type CalendarWeek = z.infer<typeof calendarWeekSchema>;
 export const calendarStatusSchema = z.object({
   backend: z.string(), connected: z.boolean(), syncedAt: z.string().nullable(),
   requestedAt: z.string().nullable(), error: z.string(),
+  reason: z.string().default(""), email: z.string().default(""),
 }).loose();
 
 export const bookInterviewSchema = z.object({
