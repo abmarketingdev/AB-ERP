@@ -78,8 +78,8 @@ export function useBookInterview() {
 export function useRebookInterview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; startsAt: string; location?: string }) =>
-      apiPost(`${IV}/${v.id}/rebook/`, interviewSchema, { startsAt: v.startsAt, location: v.location }),
+    mutationFn: (v: { id: string; startsAt: string; location?: string; leaderId?: string }) =>
+      apiPost(`${IV}/${v.id}/rebook/`, interviewSchema, { startsAt: v.startsAt, location: v.location, leaderId: v.leaderId }),
     onSuccess: () => invalidateInterviews(qc),
   });
 }

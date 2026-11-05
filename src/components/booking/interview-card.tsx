@@ -10,7 +10,9 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WeekSlotPicker } from "./week-slot-picker";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
-import { useCancelInterview, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
+import { useCancelInterview, useLeaders, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
+import { useHasPermission } from "@/lib/permissions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { errorMessage } from "@/lib/api/client";
 import {
   CALENDAR_STATE_LABEL, INTERVIEW_STATUS_LABEL, MESSAGE_STATUS_LABEL,
@@ -206,27 +208,61 @@ function RebookDialog({ iv, open, onOpenChange }: { iv: Interview; open: boolean
 
 function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
   const rebook = useRebookInterview();
+  // Any recruiter may hand the interview to any sales leader (client 2026-11-06); a sales
+  // leader booking for himself (booking.own) keeps it on his own calendar.
+  const canMove = useHasPermission("booking.write");
+  const leaders = useLeaders();
+  const [leaderId, setLeaderId] = React.useState(iv.leader.id);
+  const leader = leaders.data?.find((l) => l.id === leaderId) ?? (leaderId === iv.leader.id ? iv.leader : null);
+  const changed = leaderId !== iv.leader.id;
   const [picked, setPicked] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const label = !picked ? (changed ? "Velg tid hos ny leder" : "Velg en ny tid")
+    : changed ? `Gi til ${leader?.name ?? "ny leder"} · ${fullFmt.format(new Date(picked))}`
+    : `Flytt til ${fullFmt.format(new Date(picked))}`;
   return (
     <>
       <DialogHeader>
         <DialogTitle>Ombook intervjuet med {iv.candidateName}</DialogTitle>
         <DialogDescription>
-          Nå: {fullFmt.format(new Date(iv.startsAt))} hos {iv.leader.name}. Kalenderhendelsen flyttes, og begge får ny SMS.
+          Nå: {fullFmt.format(new Date(iv.startsAt))} hos {iv.leader.name}.{" "}
+          {changed
+            ? "Intervjuet fjernes fra kalenderen til den gamle lederen og legges i den nyes. Begge ledere varsles; kandidaten får bare SMS hvis tiden endres."
+            : "Kalenderhendelsen flyttes, og begge får ny SMS."}
         </DialogDescription>
       </DialogHeader>
-      <WeekSlotPicker leaderId={iv.leader.id} leaderName={iv.leader.name} value={picked} onChange={setPicked} />
+      {canMove && (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex min-w-64 flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Leder</span>
+            <Select value={leaderId} onValueChange={(v) => { setLeaderId(v); setPicked(null); setError(null); }}>
+              <SelectTrigger aria-label="Velg leder"><SelectValue placeholder="Velg leder" /></SelectTrigger>
+              <SelectContent>
+                {!leaders.data?.some((l) => l.id === iv.leader.id) && <SelectItem value={iv.leader.id}>{iv.leader.name}</SelectItem>}
+                {(leaders.data ?? []).map((l) => (
+                  <SelectItem key={l.id} value={l.id}>{l.name}{l.id === iv.leader.id ? " (nå)" : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {changed && (
+            <Button variant="outline" size="sm" className="h-9" onClick={() => setPicked(iv.startsAt)}>
+              Behold samme tid ({fullFmt.format(new Date(iv.startsAt))})
+            </Button>
+          )}
+        </div>
+      )}
+      <WeekSlotPicker key={leaderId} leaderId={leaderId} leaderName={leader?.name ?? ""} value={picked} onChange={setPicked} />
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <DialogFooter>
         <Button variant="ghost" onClick={onDone}>Avbryt</Button>
         <Button disabled={!picked || rebook.isPending} onClick={async () => {
           if (!picked) return;
           setError(null);
-          try { await rebook.mutateAsync({ id: iv.id, startsAt: picked }); onDone(); }
+          try { await rebook.mutateAsync({ id: iv.id, startsAt: picked, leaderId: changed ? leaderId : undefined }); onDone(); }
           catch (e) { setError(errorMessage(e)); setPicked(null); }
         }}>
-          {rebook.isPending ? "Flytter …" : picked ? `Flytt til ${fullFmt.format(new Date(picked))}` : "Velg en ny tid"}
+          {rebook.isPending ? "Flytter …" : label}
         </Button>
       </DialogFooter>
     </>
