@@ -120,7 +120,6 @@ export const newAdSchema = z.object({
   title: z.string().min(4, "Skriv en tittel"),
   jobType: z.string().min(1, "Velg stillingstype"),
   location: z.string().min(1, "Velg sted"),
-  campaign: z.string().min(1, "Velg kampanje"),
   body: z.string().min(20, "Annonseteksten er for kort"),
   deadline: z.string().optional(),
   platforms: z.array(z.string()).min(1, "Velg minst én plattform"),

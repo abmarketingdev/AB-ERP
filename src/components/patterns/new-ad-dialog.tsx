@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAdTemplates, useAdMeta, useCreateAd, useWordingCheck } from "@/lib/api/ads";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { newAdSchema, type WordingCheck } from "@/types/ad";
-import { useLeadMeta } from "@/lib/api/leads";
 import { DatePicker } from "@/components/patterns/date-picker";
 
 /**
@@ -51,11 +50,10 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
   const defaultBoards = React.useMemo(() => boards.filter((b) => b.free).map((b) => b.key), [boards]);
 
   const [form, setForm] = React.useState({
-    title: "", jobType: "", location: "", campaign: "", body: "", deadline: "",
+    title: "", jobType: "", location: "", body: "", deadline: "",
   });
   // Campaigns are the real ones from Maps (the lead meta), never the demo list.
-  const campaignNames = (useLeadMeta().data?.campaigns ?? []).map((c) => c.name);
-  const campaign = form.campaign || campaignNames[0] || "";
+  // No campaign on an ad (client 2026-11-06), as on leads and candidates.
   // null = untouched: follow the default (the free boards) even if meta arrives after mount.
   const [chosen, setChosen] = React.useState<string[] | null>(null);
   const platforms = chosen ?? defaultBoards;
@@ -147,7 +145,7 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
             <Input id="ad-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3 [&>*]:min-w-0">
+          <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
             <Field id="ad-jobtype" label="Stillingstype" error={errors.jobType}>
               <Select value={form.jobType} onValueChange={(v) => pick("jobType", v)}>
                 <SelectTrigger id="ad-jobtype" className="w-full"><SelectValue placeholder="Velg" /></SelectTrigger>
@@ -161,14 +159,6 @@ function NewAdForm({ onClose }: { onClose: () => void }) {
                 <SelectTrigger id="ad-loc" className="w-full"><SelectValue placeholder="Velg" /></SelectTrigger>
                 <SelectContent>
                   {(meta.data?.locations ?? []).map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field id="ad-camp" label="Kampanje" error={errors.campaign}>
-              <Select value={campaign} onValueChange={(v) => setForm((f) => ({ ...f, campaign: v }))}>
-                <SelectTrigger id="ad-camp" className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {campaignNames.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>
