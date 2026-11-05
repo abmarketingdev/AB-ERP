@@ -153,7 +153,6 @@ export const newCandidateSchema = z.object({
   phone: z.string().min(6, "Skriv inn et telefonnummer"),
   email: z.string().email("Ugyldig e-postadresse"),
   source: z.string().min(1, "Velg en kilde"),
-  campaign: z.string().min(1, "Velg en kampanje"),
 });
 export type NewCandidate = z.infer<typeof newCandidateSchema>;
 

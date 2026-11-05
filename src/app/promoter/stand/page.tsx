@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCreateStandLead, useStandMeta } from "@/lib/api/leads";
+import { useCreateStandLead } from "@/lib/api/leads";
 import { errorMessage } from "@/lib/api/client";
 import { standLeadSchema } from "@/types/lead";
 import { useSession } from "@/lib/permissions";
@@ -20,11 +19,9 @@ import { FormErrorSummary, type FieldError } from "@/components/patterns/form-er
 
 /** Field → input id, so the error summary can link to (and focus) the field. */
 const FIELD_IDS: Record<string, string> = {
-  name: "st-name", phone: "st-phone", email: "st-email", campaign: "st-campaign", consentContact: "st-consent",
+  name: "st-name", phone: "st-phone", email: "st-email", consentContact: "st-consent",
 };
 import { isRetryable, newClientId, useStandQueue, type QueuedLead } from "@/lib/stand-queue";
-
-const LAST_CAMPAIGN = "ab-erp:stand-campaign";
 
 /**
  * LEAD-05 — "Promotør skal kunne registrere leads fra stand i et mobilskjema,
@@ -46,8 +43,6 @@ const LAST_CAMPAIGN = "ab-erp:stand-campaign";
 export default function StandSkjema() {
   const session = useSession();
   const create = useCreateStandLead();
-  const meta = useStandMeta();
-  const campaigns = React.useMemo(() => meta.data?.campaigns ?? [], [meta.data]);
   const send = React.useCallback((item: QueuedLead) => create.mutateAsync({ ...item.payload, clientId: item.clientId }),
                                  [create]);
   const queue = useStandQueue(send);
@@ -56,26 +51,15 @@ export default function StandSkjema() {
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     name: "", phone: "", email: "",
-    campaign: "",
     consentContact: false, consentAdAudience: false, note: "",
   });
-
-  // The last campaign is pre-selected: a promotor stands at one stand all day.
-  // Derived, not set in an effect: an untouched form shows the remembered campaign.
-  const [remembered] = React.useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    try { return localStorage.getItem(LAST_CAMPAIGN); } catch { return null; }
-  });
-  const campaign = form.campaign
-    || (campaigns.find((c) => c.id === remembered) ?? campaigns[0])?.id
-    || "";
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function reset() {
-    setForm({ name: "", phone: "", email: "", campaign, consentContact: false, consentAdAudience: false, note: "" });
+    setForm({ name: "", phone: "", email: "", consentContact: false, consentAdAudience: false, note: "" });
     setErrors({});
     setSubmitError(null);
     setDone(null);
@@ -84,7 +68,8 @@ export default function StandSkjema() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    const data = { ...form, campaign };
+    // No campaign (client 2026-11-05): a stand lead is not tied to a campaign.
+    const data = { ...form };
     const parsed = standLeadSchema.safeParse(data);
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -93,7 +78,6 @@ export default function StandSkjema() {
       return;
     }
     setErrors({});
-    try { localStorage.setItem(LAST_CAMPAIGN, campaign); } catch { /* storage blocked */ }
     const item: QueuedLead = { clientId: newClientId(), payload: data, queuedAt: new Date().toISOString() };
     try {
       const lead = await send(item);
@@ -179,18 +163,6 @@ export default function StandSkjema() {
             <Field label="E-post" id="st-email" error={errors.email} hint="Kan stå tomt">
               <Input id="st-email" aria-invalid={Boolean(errors.email)} className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
                 value={form.email} onChange={(e) => set("email", e.target.value)} />
-            </Field>
-
-            <Field label="Kampanje" id="st-campaign" error={errors.campaign} required>
-              <Select value={campaign} onValueChange={(v) => set("campaign", v)}
-                disabled={meta.isLoading || campaigns.length === 0}>
-                <SelectTrigger id="st-campaign" className="h-11 text-base">
-                  <SelectValue placeholder={meta.isLoading ? "Henter kampanjer…" : meta.isError ? "Kunne ikke hente kampanjer" : "Velg kampanje"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {campaigns.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
             </Field>
 
             <Field label="Notat" id="st-note" hint="Valgfritt — hva ble sagt">

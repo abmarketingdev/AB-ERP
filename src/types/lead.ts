@@ -173,7 +173,6 @@ export const standLeadSchema = z.object({
   name: z.string().min(2, "Skriv inn navn"),
   phone: z.string().min(6, "Skriv inn telefonnummer"),
   email: z.string().email("Ugyldig e-postadresse").or(z.literal("")),
-  campaign: z.string().min(1, "Velg kampanje"),
   consentContact: z.literal(true, { message: "Samtykke er påkrevd" }),
   consentAdAudience: z.boolean(),
   note: z.string().optional(),

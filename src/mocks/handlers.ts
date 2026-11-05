@@ -588,7 +588,7 @@ export const handlers = [
       phone: body.phone,
       email: body.email,
       channel: "Stand",
-      campaign: body.campaign,
+      campaign: "",
       receivedAt: now,
       promoter: "Kari Nordmann",   // the server takes this from the token
       assignedTo: null,
@@ -799,7 +799,7 @@ export const handlers = [
       phone: body.phone,
       email: body.email,
       source: body.source,
-      campaign: body.campaign,
+      campaign: "",
       appliedDate: nowStamp(),
       owner: "Fredrik Amundsen",
       stageId: db.stages[0].id,

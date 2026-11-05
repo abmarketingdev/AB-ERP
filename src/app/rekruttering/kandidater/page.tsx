@@ -62,7 +62,6 @@ function RekrutteringKandidaterPage() {
   // candidates were empty, and nobody could register the first one.
   const meta = useNewCandidateMeta(createOpen && !IS_MOCK);
   const createSources = meta.data?.channels.length ? meta.data.channels.map((c) => c.name) : sources;
-  const createCampaigns = meta.data?.campaigns.length ? meta.data.campaigns.map((c) => c.name) : campaigns;
 
   const filtered = all.filter((c) => {
     if (status !== "alle" && c.stageId !== status) return false;
@@ -176,7 +175,7 @@ function RekrutteringKandidaterPage() {
         )}
       </QueryBoundary>
 
-      <NewCandidateDialog open={createOpen} onOpenChange={setCreateOpen} sources={createSources} campaigns={createCampaigns} />
+      <NewCandidateDialog open={createOpen} onOpenChange={setCreateOpen} sources={createSources} />
       <LeadDialog lead={openLead} onClose={() => setOpenLead(null)} />
     </div>
   );
@@ -188,12 +187,10 @@ function NewCandidateDialog({
   open,
   onOpenChange,
   sources,
-  campaigns,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sources: string[];
-  campaigns: string[];
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -203,7 +200,7 @@ function NewCandidateDialog({
           <DialogDescription>Navn, kontakt, kilde og dato registreres. Eier settes til deg.</DialogDescription>
         </DialogHeader>
         {/* Mounted only while open, so the form starts blank on every opening. */}
-        <NewCandidateForm sources={sources} campaigns={campaigns} onClose={() => onOpenChange(false)} />
+        <NewCandidateForm sources={sources} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
@@ -211,11 +208,9 @@ function NewCandidateDialog({
 
 function NewCandidateForm({
   sources,
-  campaigns,
   onClose,
 }: {
   sources: string[];
-  campaigns: string[];
   onClose: () => void;
 }) {
   const create = useCreateCandidate();
@@ -224,15 +219,11 @@ function NewCandidateForm({
   const [email, setEmail] = React.useState("");
   const preferred = (list: string[]) => list.find((s) => s.toLowerCase() === "manuell") ?? list[0] ?? "";
   const [source, setSource] = React.useState(preferred(sources));
-  const [campaign, setCampaign] = React.useState(campaigns[0] ?? "");
-  // The options can arrive after the dialog opened; fill the empty selects when they do.
+  // The options can arrive after the dialog opened; fill the empty select when they do.
   React.useEffect(() => {
     if (!source && sources.length) setSource(preferred(sources));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sources, source]);
-  React.useEffect(() => {
-    if (!campaign && campaigns.length) setCampaign(campaigns[0]);
-  }, [campaigns, campaign]);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [failed, setFailed] = React.useState<string | null>(null);
 
@@ -243,7 +234,6 @@ function NewCandidateForm({
       phone: phone.trim(),
       email: email.trim(),
       source,
-      campaign,
     });
     if (!parsed.success) {
       const next: FieldErrors = {};
@@ -284,6 +274,7 @@ function NewCandidateForm({
             {errors.email && <p className="text-xs text-danger">{errors.email}</p>}
           </div>
         </div>
+        {/* No campaign here (client 2026-11-05): a lead is not tied to a campaign. */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Kilde</Label>
@@ -296,18 +287,6 @@ function NewCandidateForm({
               </SelectContent>
             </Select>
             {errors.source && <p className="text-xs text-danger">{errors.source}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Kampanje</Label>
-            <Select value={campaign} onValueChange={setCampaign}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {campaigns.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.campaign && <p className="text-xs text-danger">{errors.campaign}</p>}
           </div>
         </div>
       </div>
