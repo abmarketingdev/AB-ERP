@@ -51,7 +51,7 @@ export default function StandSkjema() {
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     name: "", phone: "", email: "",
-    consentContact: false, consentAdAudience: false, note: "",
+    consentContact: false, note: "",
   });
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -59,7 +59,7 @@ export default function StandSkjema() {
   }
 
   function reset() {
-    setForm({ name: "", phone: "", email: "", consentContact: false, consentAdAudience: false, note: "" });
+    setForm({ name: "", phone: "", email: "", consentContact: false, note: "" });
     setErrors({});
     setSubmitError(null);
     setDone(null);
@@ -68,8 +68,9 @@ export default function StandSkjema() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    // No campaign (client 2026-11-05): a stand lead is not tied to a campaign.
-    const data = { ...form };
+    // No campaign (client 2026-11-05): a stand lead is not tied to a campaign. One consent
+    // box — the privacy policy — so ad-audience consent is never claimed at a stand.
+    const data = { ...form, consentAdAudience: false };
     const parsed = standLeadSchema.safeParse(data);
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -180,19 +181,22 @@ export default function StandSkjema() {
         */}
         <Card>
           <CardContent className="flex flex-col gap-4 py-5">
-            <p className="text-sm font-medium">Samtykke</p>
+            {/* One box (client 2026-11-05): the privacy policy, linked. The link is its own
+                element so a tap on the words opens the policy without toggling the box. */}
             <label className="flex min-h-11 items-start gap-3 text-[15px]">
               <Checkbox id="st-consent" className="mt-0.5 size-5" checked={form.consentContact} aria-required="true"
+                aria-invalid={Boolean(errors.consentContact)}
                 onCheckedChange={(v) => set("consentContact", Boolean(v))} />
-              <span>Jeg samtykker til å bli kontaktet om stilling hos AB Marketing. <span className="text-danger" aria-hidden>*</span></span>
+              <span>
+                Jeg har lest og godtar{" "}
+                <a href="https://abmarketing.no/personvern" target="_blank" rel="noopener noreferrer"
+                   className="font-medium underline underline-offset-4" onClick={(e) => e.stopPropagation()}>
+                  personvernerklæringen
+                </a>
+                . <span className="text-danger" aria-hidden>*</span>
+              </span>
             </label>
             {errors.consentContact && <p className="text-sm text-danger">{errors.consentContact}</p>}
-
-            <label className="flex min-h-11 items-start gap-3 text-[15px]">
-              <Checkbox className="mt-0.5 size-5" checked={form.consentAdAudience}
-                onCheckedChange={(v) => set("consentAdAudience", Boolean(v))} />
-              <span>Jeg samtykker også til at opplysningene brukes til å finne lignende kandidater i annonser.</span>
-            </label>
           </CardContent>
         </Card>
 
