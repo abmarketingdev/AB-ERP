@@ -96,13 +96,14 @@ function RekrutteringKandidaterPage() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Søk etter kandidat"
             placeholder="Søk etter navn…"
-            className="pl-9"
+            className="pl-9 max-sm:h-10"
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        {/* Phone: two filters per row, full cell width, instead of four ragged rows. */}
+        <div className="flex flex-wrap gap-2 max-sm:grid max-sm:grid-cols-2">
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-44 max-sm:w-full"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="alle">Alle statuser</SelectItem>
               {stageOptions.map((s) => (
@@ -111,7 +112,7 @@ function RekrutteringKandidaterPage() {
             </SelectContent>
           </Select>
           <Select value={owner} onValueChange={setOwner}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Eier" /></SelectTrigger>
+            <SelectTrigger className="w-44 max-sm:w-full"><SelectValue placeholder="Eier" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="alle">Alle eiere</SelectItem>
               {owners.map((o) => (
@@ -120,7 +121,7 @@ function RekrutteringKandidaterPage() {
             </SelectContent>
           </Select>
           <Select value={source} onValueChange={setSource}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Kilde" /></SelectTrigger>
+            <SelectTrigger className="w-48 max-sm:w-full"><SelectValue placeholder="Kilde" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="alle">Alle kilder</SelectItem>
               {sources.map((s) => (
@@ -129,7 +130,7 @@ function RekrutteringKandidaterPage() {
             </SelectContent>
           </Select>
           <Select value={campaign} onValueChange={setCampaign}>
-            <SelectTrigger className="w-52"><SelectValue placeholder="Kampanje" /></SelectTrigger>
+            <SelectTrigger className="w-52 max-sm:w-full"><SelectValue placeholder="Kampanje" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="alle">Alle kampanjer</SelectItem>
               {campaigns.map((c) => (

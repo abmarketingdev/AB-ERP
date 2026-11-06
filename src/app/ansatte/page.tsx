@@ -60,7 +60,7 @@ export default function Ansatte() {
       <div className="flex flex-col gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} className="pl-9"
+          <Input value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 max-sm:h-10"
             placeholder="Søk på navn eller e-post" aria-label="Søk i ansattregisteret" />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">

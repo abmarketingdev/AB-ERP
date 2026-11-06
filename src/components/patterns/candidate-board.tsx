@@ -172,7 +172,8 @@ export function CandidateBoard({
          * `min-width: auto` lets it grow to its content, so `overflow-x-auto`
          * alone stretched the page instead of scrolling inside the board.
          */}
-        <div className="w-full min-w-0 overflow-x-auto pb-2">
+        {/* Phone: one column per swipe, the next one peeking in at the edge. */}
+        <div className="w-full min-w-0 overflow-x-auto pb-2 max-sm:snap-x max-sm:snap-mandatory">
           <ul className="flex min-w-max gap-3">
             {stages.map((stage, si) => (
               <StageColumn
@@ -238,7 +239,7 @@ function StageColumn({
   const blocked = decision !== null && decision.kind !== "allowed" ? decision.message : null;
 
   return (
-    <li className="w-[260px] shrink-0" data-board-column={stage.id}>
+    <li className="w-[260px] shrink-0 max-sm:w-[calc(100vw-4.5rem)] max-sm:snap-start" data-board-column={stage.id}>
       <div
         ref={setNodeRef}
         className={`flex h-full flex-col rounded-xl border transition-colors duration-[120ms] ${

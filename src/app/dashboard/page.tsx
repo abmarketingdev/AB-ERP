@@ -205,7 +205,7 @@ function Content({ d, groupBy, onGroupBy }: { d: RecruitmentDashboard; groupBy: 
   const t = d.timing;
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 max-sm:grid-cols-2 max-sm:gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="Leads mottatt" value={num.format(d.basis.leads)} />
         <Stat label="Ansatt" value={num.format(hired)} hint={d.basis.leads ? `${pct1.format(hired / d.basis.leads)} av leads` : "ingen leads"} />
         <Stat label="Ikke møtt til intervju" value={ivN ? pct.format(ivBad / ivN) : "—"} hint={`${ivBad} av ${ivN}`} />
