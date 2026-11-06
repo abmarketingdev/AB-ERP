@@ -158,7 +158,7 @@ export function CalendarWeek({ leaderId, leaderName, compact }: {
       {/* Toolbar, Google-style: I dag · ‹ › · title …… status · Synk nå · Dag/Uke */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Button size="sm" variant="outline" className="h-9 rounded-full px-4" onClick={goToday}
+          <Button size="sm" variant="outline" className="h-9 rounded-full px-4 max-sm:px-3" onClick={goToday}
             disabled={view === "day" ? anchor === now.day : week === mondayOf(now.day)}>
             I dag
           </Button>
@@ -170,7 +170,7 @@ export function CalendarWeek({ leaderId, leaderName, compact }: {
             onClick={() => step(1)}>
             <ChevronRight className="size-5" />
           </Button>
-          <h2 className={`truncate pl-1 font-normal tracking-tight text-foreground ${compact ? "text-base" : "text-[22px]"}`} aria-live="polite">
+          <h2 className={`truncate pl-1 font-normal tracking-tight text-foreground ${compact ? "text-base" : "text-[22px] max-sm:text-[17px]"}`} aria-live="polite">
             {title}
           </h2>
         </div>
