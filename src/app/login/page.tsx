@@ -183,7 +183,8 @@ export default function LoginPage() {
           <div className="absolute top-0 right-0 h-320 w-60 [translate:5%_-50%] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(255,255,255,0.04)_0,rgba(255,255,255,0.01)_80%,transparent_100%)]" />
         </div>
 
-        <Button variant="ghost" className="absolute top-7 left-5 text-foreground" asChild>
+        {/* Hidden on phones (client 2026-11-06): there is no «home» to go back to from the app. */}
+        <Button variant="ghost" className="absolute top-7 left-5 text-foreground max-sm:hidden" asChild>
           <Link href="/">
             <ChevronLeft className="me-2 size-4" />
             Hjem
