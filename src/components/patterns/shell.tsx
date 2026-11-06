@@ -28,8 +28,10 @@ import {
   UserPlus,
   Megaphone,
   CalendarCheck, CalendarDays,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { AnimatePresence, motion } from "motion/react";
 import type { Session } from "@/lib/permissions";
 import { SessionProvider } from "@/lib/permissions";
@@ -105,6 +107,15 @@ export function Shell({ session, children }: ShellProps) {
     clearSessionKey();
     router.replace("/login");
   }
+
+  // Phone: the bottom bar has room for five tabs. With more pages than that (an
+  // admin has ~20), four tabs + «Meny», which opens every page — before this, everything
+  // past the fifth entry was unreachable on a phone (client 2026-11-06).
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  React.useEffect(() => { setMenuOpen(false); }, [pathname]);
+  const needsMenu = session.navigation.length > 5;
+  const tabs = needsMenu ? session.navigation.slice(0, 4) : session.navigation.slice(0, 5);
+  const activeInMenu = needsMenu && !tabs.some((item) => pathname === item.href);
 
   return (
     <SessionProvider session={session}>
@@ -221,15 +232,67 @@ export function Shell({ session, children }: ShellProps) {
         </aside>
 
         {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b border-sidebar-border bg-sidebar px-4 py-3 text-sidebar-foreground md:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 py-3 text-sidebar-foreground backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <Mascot state={mascotState} size={28} interactive />
             <span className="text-sm font-medium">AB ERP</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={logout} aria-label={t("Logg ut")} className="hover:bg-danger/10 hover:text-danger">
-            <LogOut className="size-4" />
-          </Button>
+          {needsMenu ? (
+            <Button variant="ghost" size="icon" onClick={() => setMenuOpen(true)} aria-label={t("Meny")} className="size-10">
+              <Menu className="size-5" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" onClick={logout} aria-label={t("Logg ut")} className="hover:bg-danger/10 hover:text-danger">
+              <LogOut className="size-4" />
+            </Button>
+          )}
         </header>
+
+        {/* Phone menu: every page this person has, grouped like the desktop sidebar. */}
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetContent side="left" className="flex w-[86vw] max-w-sm flex-col gap-0 p-0 md:hidden">
+            <div className="flex items-center gap-2.5 border-b border-sidebar-border px-5 py-4">
+              <Mascot state="idle" size={28} />
+              <SheetTitle className="text-sm font-medium">AB ERP</SheetTitle>
+            </div>
+            <nav aria-label={t("Hovedmeny")} className="flex-1 overflow-y-auto px-2 py-2">
+              {session.navigation.map((item, i) => {
+                const heading =
+                  item.section && item.section !== session.navigation[i - 1]?.section ? item.section : null;
+                const active = pathname === item.href;
+                const Icon = item.icon ? ICONS[item.icon] : undefined;
+                return (
+                  <React.Fragment key={item.id}>
+                    {heading && (
+                      <p className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80 ${i > 0 ? "pt-4" : "pt-1"}`}>
+                        {t(heading)}
+                      </p>
+                    )}
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMenuOpen(false)}
+                      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-[15px] transition-colors ${
+                        active ? "bg-[var(--ab-accent-9)]/12 font-medium text-foreground" : "text-muted-foreground active:bg-white/[0.05]"
+                      }`}
+                    >
+                      {Icon && <Icon className={`size-[18px] shrink-0 ${active ? "text-[var(--ab-accent-10)]" : ""}`} />}
+                      <span className="truncate">{t(item.label)}</span>
+                    </Link>
+                  </React.Fragment>
+                );
+              })}
+            </nav>
+            <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+              <ThemeSwitcher />
+              <LanguageSwitcher />
+              <Button variant="ghost" className="min-h-11 w-full justify-start gap-2 text-muted-foreground hover:bg-danger/10 hover:text-danger" onClick={logout}>
+                <LogOut className="size-4" />
+                {t("Logg ut")}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/*
           `min-w-0` matters more than it looks. `main` is a flex row item beside
@@ -242,7 +305,7 @@ export function Shell({ session, children }: ShellProps) {
         <main
           id="hovedinnhold"
           tabIndex={-1}
-          className="flex min-w-0 flex-1 flex-col gap-6 px-4 pb-20 pt-4 outline-none sm:px-6 md:px-8 md:pb-8 md:pt-6"
+          className="flex min-w-0 flex-1 flex-col gap-6 px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 outline-none sm:px-6 md:px-8 md:pb-8 md:pt-6"
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -261,9 +324,9 @@ export function Shell({ session, children }: ShellProps) {
         {/* Mobile bottom tab bar */}
         <nav
           aria-label={t("Hovedmeny")}
-          className="fixed inset-x-0 bottom-0 z-10 flex border-t border-border bg-background/95 backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-10 flex border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
         >
-          {session.navigation.slice(0, 5).map((item) => {
+          {tabs.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon ? ICONS[item.icon] : undefined;
             return (
@@ -290,6 +353,19 @@ export function Shell({ session, children }: ShellProps) {
               </Link>
             );
           })}
+          {needsMenu && (
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label={t("Meny")}
+              aria-expanded={menuOpen}
+              className="relative flex flex-1 flex-col items-center gap-0.5 px-1 py-2 text-center text-[10px] font-medium leading-tight"
+            >
+              {activeInMenu && <span className="absolute top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />}
+              <span className={`mt-2 ${activeInMenu ? "text-primary" : "text-muted-foreground"}`}><Menu className="size-[18px]" /></span>
+              <span className={`line-clamp-1 ${activeInMenu ? "text-primary" : "text-muted-foreground"}`}>{t("Meny")}</span>
+            </button>
+          )}
         </nav>
         </div>
       </div>
