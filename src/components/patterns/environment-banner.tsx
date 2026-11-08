@@ -10,13 +10,17 @@ import { useAccess } from "@/lib/use-access";
  * approving a candidate on test would look like proof that «tofaktor for godkjenner»
  * works — it does not. (Mock mode has its own marker, MockBadge in the root layout.)
  */
+const SHOW_PAUSE_BANNER = false;
+
 export function EnvironmentBanner() {
   return IS_MOCK ? null : <StepUpBanner />;
 }
 
 function StepUpBanner() {
   const { stepUpDisabled } = useAccess();
-  if (!stepUpDisabled) return null;
+  // Hidden on order 09.11.2026 while the step-up is paused in production: the client
+  // does not want the warning shown. Flip SHOW_PAUSE_BANNER back to true to restore it.
+  if (!SHOW_PAUSE_BANNER || !stepUpDisabled) return null;
   return (
     <div role="alert" className="flex items-center justify-center gap-2 bg-warning px-4 py-1.5 text-[13px] font-medium text-warning-foreground">
       <ShieldOff className="size-4" aria-hidden />
