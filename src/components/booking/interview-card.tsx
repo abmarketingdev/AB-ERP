@@ -12,7 +12,7 @@ import { WeekSlotPicker } from "./week-slot-picker";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
 import { useCancelInterview, useLeaders, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
 import { useHasPermission } from "@/lib/permissions";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LeaderPicker } from "./leader-picker";
 import { errorMessage } from "@/lib/api/client";
 import {
   CALENDAR_STATE_LABEL, INTERVIEW_STATUS_LABEL, MESSAGE_STATUS_LABEL,
@@ -235,15 +235,15 @@ function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex min-w-64 flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">Leder</span>
-            <Select value={leaderId} onValueChange={(v) => { setLeaderId(v); setPicked(null); setError(null); }}>
-              <SelectTrigger aria-label="Velg leder"><SelectValue placeholder="Velg leder" /></SelectTrigger>
-              <SelectContent>
-                {!leaders.data?.some((l) => l.id === iv.leader.id) && <SelectItem value={iv.leader.id}>{iv.leader.name}</SelectItem>}
-                {(leaders.data ?? []).map((l) => (
-                  <SelectItem key={l.id} value={l.id}>{l.name}{l.id === iv.leader.id ? " (nå)" : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LeaderPicker
+              ariaLabel="Velg leder"
+              value={leaderId}
+              onChange={(v) => { setLeaderId(v); setPicked(null); setError(null); }}
+              leaders={[
+                ...(leaders.data?.some((l) => l.id === iv.leader.id) ? [] : [{ id: iv.leader.id, name: iv.leader.name, suffix: " (nå)" }]),
+                ...(leaders.data ?? []).map((l) => ({ id: l.id, name: l.name, suffix: l.id === iv.leader.id ? " (nå)" : "" })),
+              ]}
+            />
           </div>
           {changed && (
             <Button variant="outline" size="sm" className="h-9" onClick={() => setPicked(iv.startsAt)}>

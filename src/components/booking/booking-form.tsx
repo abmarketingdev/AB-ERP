@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LeaderPicker } from "./leader-picker";
 import { Mascot } from "@/components/patterns/mascot";
 import { mascotFor } from "@/lib/use-mascot";
 import { WeekSlotPicker } from "./week-slot-picker";
@@ -128,15 +129,15 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
         )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="iv-leader">Leder</Label>
-          <Select value={leaderId} disabled={leaderFixed} onValueChange={(v) => { setLeaderId(v); setPicked(null); }}>
-            {/* Real leaders have long names and several teams; the trigger truncates instead of spilling over «Sted». */}
-            <SelectTrigger id="iv-leader" className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder={leaders.isPending ? "Henter …" : "Velg leder"} /></SelectTrigger>
-            <SelectContent>
-              {(leaders.data ?? []).map((l) => (
-                <SelectItem key={l.id} value={l.id}>{l.name}{l.teams.length ? ` · ${l.teams.join(", ")}` : ""}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Searchable (client 2026-11-08): the list opens as before, typing narrows it. */}
+          <LeaderPicker
+            id="iv-leader"
+            leaders={leaders.data ?? []}
+            value={leaderId}
+            disabled={leaderFixed}
+            placeholder={leaders.isPending ? "Henter …" : "Velg leder"}
+            onChange={(v) => { setLeaderId(v); setPicked(null); }}
+          />
           {leaders.isError && <p className="text-xs text-danger">Kunne ikke hente lederne. {errorMessage(leaders.error)}</p>}
           {leaderFixed && !leaders.isError && <p className="text-xs text-muted-foreground">Du er lederen på intervjuet.</p>}
         </div>
