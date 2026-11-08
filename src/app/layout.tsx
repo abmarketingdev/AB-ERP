@@ -36,7 +36,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AB Marketing ERP",
+  title: "AB Rekruttering",
   description: "Promoter, leder, rekruttering og kundeportal for AB Marketing",
 };
 

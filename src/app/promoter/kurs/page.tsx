@@ -236,7 +236,7 @@ export default function PromoterKurs() {
               )}
 
               <p className="font-mono text-[10.5px] text-muted-foreground">
-                {who} · læringsplattformen eier innholdet og fullføringen · AB ERP viser kun status ·
+                {who} · læringsplattformen eier innholdet og fullføringen · AB Rekruttering viser kun status ·
                 rekkefølgen er et forslag, ingen kurs er låst
               </p>
             </>

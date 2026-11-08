@@ -150,7 +150,7 @@ export default function LoginPage() {
           <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--ab-accent-9)]/15">
             <Mascot state="idle" size={22} />
           </span>
-          <span className="text-sm font-medium tracking-wide text-foreground">AB ERP</span>
+          <span className="text-sm font-medium tracking-wide text-foreground">AB Rekruttering</span>
         </div>
 
         <div className="relative z-10 mt-auto max-w-sm">
@@ -193,7 +193,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 mx-auto mb-6 flex items-center gap-2 lg:hidden">
           <Mascot state={mascotState} size={32} interactive />
-          <span className="text-base font-medium text-foreground">AB ERP</span>
+          <span className="text-base font-medium text-foreground">AB Rekruttering</span>
         </div>
 
         <AnimatePresence mode="wait">

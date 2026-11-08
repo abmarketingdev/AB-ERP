@@ -150,7 +150,7 @@ export function Shell({ session, children }: ShellProps) {
               <Mascot state={mascotState} size={22} interactive />
             </span>
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-[13px] font-medium text-sidebar-foreground">AB ERP</p>
+              <p className="truncate text-[13px] font-medium text-sidebar-foreground">AB Rekruttering</p>
               <p className="truncate font-mono text-[11px] text-muted-foreground">{t(session.role)}</p>
             </div>
           </div>
@@ -235,7 +235,7 @@ export function Shell({ session, children }: ShellProps) {
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 py-3 text-sidebar-foreground backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <Mascot state={mascotState} size={28} interactive />
-            <span className="text-sm font-medium">AB ERP</span>
+            <span className="text-sm font-medium">AB Rekruttering</span>
           </div>
           {needsMenu ? (
             <Button variant="ghost" size="icon" onClick={() => setMenuOpen(true)} aria-label={t("Meny")} className="size-10">
@@ -253,7 +253,7 @@ export function Shell({ session, children }: ShellProps) {
           <SheetContent side="left" className="flex w-[86vw] max-w-sm flex-col gap-0 p-0 md:hidden">
             <div className="flex items-center gap-2.5 border-b border-sidebar-border px-5 py-4">
               <Mascot state="idle" size={28} />
-              <SheetTitle className="text-sm font-medium">AB ERP</SheetTitle>
+              <SheetTitle className="text-sm font-medium">AB Rekruttering</SheetTitle>
             </div>
             <nav aria-label={t("Hovedmeny")} className="flex-1 overflow-y-auto px-2 py-2">
               {session.navigation.map((item, i) => {
