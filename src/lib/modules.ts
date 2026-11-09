@@ -31,7 +31,8 @@ export const MODULES: Module[] = [
   { id: "promoter-forside", label: "Promotør: forside, mål og resultater",
     routes: ["=/promoter", "/promoter/mal", "/promoter/resultater", "/promoter/ukeplan",
       "/promoter/nyheter", "/promoter/kurs"], backend: false },
-  { id: "kunde", label: "Kundeportal", routes: ["/kunde", "/admin/kunder", "/admin/forhandsvis"], backend: false },
+  // Kundeportalen (K1-B): kundekontoer i hr-service, admin via recruitment (customers.admin).
+  { id: "kunde", label: "Kundeportal", routes: ["/kunde", "/admin/kunder", "/admin/forhandsvis"], backend: true },
   { id: "admin-oversikt", label: "Administrasjon: kunder, kampanjer, avdelinger (FR-A-01)", routes: ["=/admin"], backend: false },
   { id: "kpi", label: "KPI-ordbok og korrigeringer", routes: ["/admin/kpi-ordbok", "/admin/korrigeringer"], backend: false },
 ];

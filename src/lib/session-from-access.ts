@@ -38,6 +38,8 @@ export const VIEW_GATES: Record<string, string[]> = {
   // One gate per admin screen, so a person granted only the audit log is not offered
   // Tilganger and Integrasjoner pages that would refuse them.
   "access.view": ["access.read", "access.admin"],
+  // Kundeportalen (K1-B): kundekontoer, avtaler og forhåndsvisning.
+  "customers.view": ["customers.admin"],
   "integrations.view": ["integrations.read", "integrations.admin"],
   "audit.view": ["audit.read"],
   "compliance.view": ["tasks.compliance"],
@@ -76,6 +78,8 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "tilganger", label: "Brukere og tilganger", href: "/admin/tilganger", icon: "lock", gate: "access.view", section: "Administrasjon" },
   { id: "etterlevelse", label: "Etterlevelse", href: "/admin/oppgaver", icon: "clipboard-list", gate: "compliance.view", section: "Administrasjon" },
   { id: "integrasjoner", label: "Integrasjoner", href: "/admin/integrasjoner", icon: "activity", gate: "integrations.view", section: "Administrasjon" },
+  { id: "kunder", label: "Kunder", href: "/admin/kunder", icon: "building", gate: "customers.view", section: "Administrasjon" },
+  { id: "forhandsvis", label: "Forhåndsvis som kunde", href: "/admin/forhandsvis", icon: "eye", gate: "customers.view", section: "Administrasjon" },
   { id: "revisjonslogg", label: "Revisjonslogg", href: "/admin/revisjonslogg", icon: "history", gate: "audit.view", section: "Administrasjon" },
   { id: "personvern", label: "Personvern", href: "/admin/personvern", icon: "shield-check", gate: "privacy.view", section: "Administrasjon" },
 ];

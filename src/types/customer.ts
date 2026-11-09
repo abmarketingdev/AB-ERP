@@ -48,8 +48,15 @@ export const reportFilterSchema = z.object({
 export type ReportFilter = z.infer<typeof reportFilterSchema>;
 
 /** The options the *contract* permits, so the portal never offers more. */
+/** Kampanjevalg: demoen sender navn, den ekte rapporten {value: id, label: navn}. */
+export const campaignOptionSchema = z.union([z.string(), z.object({ value: z.string(), label: z.string() })]);
+export type CampaignOption = z.infer<typeof campaignOptionSchema>;
+export function campaignOption(c: CampaignOption): { value: string; label: string } {
+  return typeof c === "string" ? { value: c, label: c } : c;
+}
+
 export const reportOptionsSchema = z.object({
-  campaigns: z.array(z.string()),
+  campaigns: z.array(campaignOptionSchema),
   granularities: z.array(granularitySchema),
   periods: z.array(z.object({ value: z.string(), label: z.string() })),
   locations: z.array(z.string()),
@@ -59,7 +66,8 @@ export type ReportOptions = z.infer<typeof reportOptionsSchema>;
 
 /** One headline figure, already resolved against the agreement. */
 export const reportFigureSchema = z.object({
-  key: customerFigureSchema,
+  /** «donorsProvisional» er ikke et eget avtaletall: det følger med «donorsAcquired». */
+  key: z.union([customerFigureSchema, z.literal("donorsProvisional")]),
   label: z.string(),
   /** Preformatted on the server side of the boundary so units never drift. */
   display: z.string().nullable(),
@@ -103,5 +111,9 @@ export const campaignReportSchema = z.object({
   fieldwork: fieldworkSchema.nullable(),
   correction: z.object({ date: z.string(), note: z.string() }).optional(),
   reportDate: z.string(),
+  /** Ekte rapport: når tallene sist endret seg (siste import). Demoen har det ikke. */
+  dataUpdatedAt: z.string().nullable().optional(),
+  /** Ekte rapport: kundens organisasjon (til «avtalen mellom … og AB Marketing»). */
+  organisation: z.string().optional(),
 });
 export type CampaignReport = z.infer<typeof campaignReportSchema>;
