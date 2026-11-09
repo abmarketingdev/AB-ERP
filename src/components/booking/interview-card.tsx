@@ -291,23 +291,44 @@ function CancelStep({ iv }: { iv: Interview }) {
 
 /** R6 «Kommer ikke» (client 09.11): the candidate has said they will not come. One confirmed
  *  click: the interview is cancelled as by the candidate and the candidate leaves the process. */
-export function KommerIkkeStep({ iv, onDone }: { iv: Pick<Interview, "id" | "candidateName">; onDone?: () => void }) {
+export function KommerIkkeStep({ iv, onDone, size = "default" }: {
+  iv: Pick<Interview, "id" | "candidateName">; onDone?: () => void; size?: "sm" | "default";
+}) {
+  // A centred modal like the rest of the ERP's confirmations — never an inline panel, which
+  // pushed the candidate page header apart (Hassan 10.11).
   const kommerIkke = useKommerIkke();
+  const [open, setOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   return (
-    <div className="flex flex-col gap-1">
-      <ConfirmStep
-        trigger="Kommer ikke"
-        consequence={`Bruk dette når ${iv.candidateName} har gitt beskjed om å ikke komme. Intervjuet avlyses (lederen varsles, hendelsen fjernes fra kalenderen), kandidaten får bekreftelse på avbestillingen og settes til «Kommer ikke», ut av prosessen.`}
-        confirmLabel="Kandidaten kommer ikke"
-        pending={kommerIkke.isPending}
-        onConfirm={() => kommerIkke.mutate({ id: iv.id }, {
-          onSuccess: () => onDone?.(),
-          onError: (e) => setError(errorMessage(e)),
-        })}
-      />
-      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-    </div>
+    <>
+      <Button size={size} variant="outline" className="border-danger/40 text-danger hover:bg-danger/10"
+        onClick={() => { setError(null); setOpen(true); }}>
+        Kommer ikke
+      </Button>
+      <Dialog open={open} onOpenChange={(o) => { if (!kommerIkke.isPending) setOpen(o); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kommer ikke?</DialogTitle>
+            <DialogDescription>
+              Bruk dette når {iv.candidateName} har gitt beskjed om å ikke komme. Intervjuet avlyses (lederen varsles,
+              hendelsen fjernes fra kalenderen), kandidaten får bekreftelse på avbestillingen og settes til
+              «Kommer ikke», ut av prosessen.
+            </DialogDescription>
+          </DialogHeader>
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+          <DialogFooter>
+            <Button variant="ghost" disabled={kommerIkke.isPending} onClick={() => setOpen(false)}>Avbryt</Button>
+            <Button variant="destructive" disabled={kommerIkke.isPending}
+              onClick={() => kommerIkke.mutate({ id: iv.id }, {
+                onSuccess: () => { setOpen(false); onDone?.(); },
+                onError: (e) => setError(errorMessage(e)),
+              })}>
+              {kommerIkke.isPending ? "Lagrer …" : "Kandidaten kommer ikke"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

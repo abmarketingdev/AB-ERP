@@ -96,5 +96,5 @@ export function CandidateKommerIkke({ candidateId, candidateName }: { candidateI
   const canBook = useCanBook();
   const booked = useBookedInterview(candidateId, canBook);
   if (!canBook || !booked.interview) return null;
-  return <KommerIkkeStep iv={{ id: booked.interview.id, candidateName }} />;
+  return <KommerIkkeStep iv={{ id: booked.interview.id, candidateName }} size="sm" />;
 }
