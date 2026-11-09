@@ -127,6 +127,8 @@ const BOOKABLE_FROM = ["ny", "kontaktet", "kvalifisert"];
 /** The picker's own value for «book intervju»: not a stage, a hand-off to the booking page. */
 const BOOK = "__book";
 const CLOSABLE = ["ny", "kontaktet", "kvalifisert", "intervju-booket", "intervjuet"];
+/** R4b: steps that may go to «Til godkjenning» without an interview (server APPROVAL_FROM minus Intervjuet). */
+const EARLY_APPROVAL = ["ny", "kontaktet", "kvalifisert"];
 
 function CandidateDetailPage() {
   const params = useParams<{ id: string }>();
@@ -213,6 +215,12 @@ function CandidateDetailPage() {
                               Flytt til neste steg <ArrowRight className="size-4" />
                             </Button>
                           ) : null}
+                          {/* R4b (client 09.11): straight to approval from Ny/Kontaktet/Kvalifisert, no interview needed. */}
+                          {EARLY_APPROVAL.includes(c.stageId) && canSubmitApproval && (
+                            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setApprovalOpen(true)}>
+                              <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
+                            </Button>
+                          )}
                           {canMove && CLOSABLE.includes(c.stageId) && (
                             <Button
                               size="sm"
@@ -519,8 +527,8 @@ function AdvanceStageForm({
         {target === BOOK && (
           <p className="text-xs text-muted-foreground">Åpner bookingen med kandidaten valgt. Steget blir «Intervju booket» når intervjuet er booket.</p>
         )}
-        {currentStageId === "intervjuet" && (
-          <p className="text-xs text-muted-foreground">«Til godkjenning» sendes med godkjenningsskjemaet (leder fyller det ut).</p>
+        {["intervjuet", ...EARLY_APPROVAL].includes(currentStageId) && (
+          <p className="text-xs text-muted-foreground">«Til godkjenning» sendes med godkjenningsskjemaet («Send til godkjenning»).</p>
         )}
         {options.length === 0 && (
           <p className="text-sm text-muted-foreground">Ingen flytting er tilgjengelig herfra — neste steg skjer i booking, godkjenning eller onboarding.</p>

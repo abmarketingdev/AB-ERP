@@ -27,7 +27,7 @@ import {
   ShieldCheck,
   UserPlus,
   Megaphone,
-  CalendarCheck, CalendarDays,
+  CalendarCheck, CalendarDays, Award,
   Menu,
   type LucideIcon,
 } from "lucide-react";
@@ -71,6 +71,7 @@ const ICONS: Record<string, LucideIcon> = {
   megaphone: Megaphone,
   "calendar-check": CalendarCheck,
   "calendar-days": CalendarDays,
+  award: Award,
 };
 
 interface ShellProps {

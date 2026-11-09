@@ -15,6 +15,7 @@ import { useCandidates, useCreateCandidate, useNewCandidateMeta, useStages } fro
 import { useHasPermission } from "@/lib/permissions";
 import { useBoardLeads, useTakeLead } from "@/lib/api/leads";
 import type { Lead } from "@/types/lead";
+import { MANUAL_SOURCES } from "@/lib/lead-sources";
 import { IS_MOCK } from "@/lib/data-source";
 import { errorMessage } from "@/lib/api/client";
 import { newCandidateSchema, type NewCandidate } from "@/types/recruitment";
@@ -61,7 +62,8 @@ function RekrutteringKandidaterPage() {
   // The dialog's options come from the API: on an empty board the lists built from existing
   // candidates were empty, and nobody could register the first one.
   const meta = useNewCandidateMeta(createOpen && !IS_MOCK);
-  const createSources = meta.data?.channels.length ? meta.data.channels.map((c) => c.name) : sources;
+  // R1 (client 09.11): «Ny kandidat» offers the 7 manual sources, «Stand» preselected.
+  const createSources = (meta.data?.sources?.length ? meta.data.sources : MANUAL_SOURCES).map((c) => c.name);
 
   const filtered = all.filter((c) => {
     if (status !== "alle" && c.stageId !== status) return false;
@@ -218,7 +220,7 @@ function NewCandidateForm({
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
-  const preferred = (list: string[]) => list.find((s) => s.toLowerCase() === "manuell") ?? list[0] ?? "";
+  const preferred = (list: string[]) => list.find((s) => s.toLowerCase() === "stand") ?? list[0] ?? "";
   const [source, setSource] = React.useState(preferred(sources));
   // The options can arrive after the dialog opened; fill the empty select when they do.
   React.useEffect(() => {

@@ -65,6 +65,15 @@ function skippedReason(rows: Lead[]): string {
   return `Bare leads med status «Ny» kan sendes. ${parts.join(" · ")}.`;
 }
 
+/**
+ * R3 (client 09.11): nothing is handed out automatically any more — a lead nobody
+ * registered for themselves waits here until someone picks the recruiter with «Tildel».
+ * A visible pill (not grey text) so the queue is easy to spot in the list.
+ */
+function Unassigned() {
+  return <Badge className="bg-warning/10 text-warning-on-tint">Ikke tildelt</Badge>;
+}
+
 const STATUS_TONE: Record<LeadStatus, string> = {
   ny: "bg-[var(--ab-accent-3)] text-[var(--ab-accent-12)]",
   sendt: "bg-success/10 text-success",
@@ -233,7 +242,9 @@ function SamleinnboksPage() {
         title="Samleinnboks"
         description={
           counts.data
-            ? `${numFmt.format(counts.data.byStatus.ny ?? 0)} nye av ${numFmt.format(counts.data.total)} leads · ${numFmt.format(counts.data.duplicates)} mulige duplikater`
+            ? `${numFmt.format(counts.data.byStatus.ny ?? 0)} nye av ${numFmt.format(counts.data.total)} leads`
+              + (counts.data.unassigned ? ` · ${numFmt.format(counts.data.unassigned)} ikke tildelt` : "")
+              + ` · ${numFmt.format(counts.data.duplicates)} mulige duplikater`
             : "Alle leads samles her før de sendes videre til rekruttering"
         }
         source="Meta, TikTok, Nav, Indeed, nettside og stand"
@@ -271,7 +282,7 @@ function SamleinnboksPage() {
           <FilterSelect label="Rekruttert av" value={promoter} onChange={setPromoter}
             options={(meta.data?.promoters ?? []).map((p) => ({ value: p.id, label: p.name }))} />
           <FilterSelect label="Tildelt" value={assignedTo} onChange={setAssignedTo}
-            options={[{ value: "__none__", label: "Admin-kø (ikke tildelt)" },
+            options={[{ value: "__none__", label: "Ikke tildelt" },
                       ...(meta.data?.recruiters ?? []).map((r) => ({ value: r.id, label: r.name }))]} />
           {/* One period, one field (A1's DateRangePicker, compact for a filter bar). */}
           <div className="flex flex-col gap-1.5">
@@ -475,7 +486,7 @@ function SamleinnboksPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{lead.promoter ?? "—"}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {lead.assignedTo ?? "Admin-kø"}
+                          {lead.assignedTo ?? <Unassigned />}
                           {lead.leader && <span className="block text-xs">Leder: {lead.leader}</span>}
                         </TableCell>
                         <TableCell>
@@ -544,7 +555,7 @@ function LeadCards({ rows, selected, onToggle, onMerge }: {
               <span>·</span>
               <span className="tabular-nums">{dateFmt.format(new Date(lead.receivedAt))}</span>
               <span>·</span>
-              <span>{lead.assignedTo ?? "Admin-kø"}</span>
+              {lead.assignedTo ? <span>{lead.assignedTo}</span> : <Unassigned />}
               {lead.leader && <><span>·</span><span>Leder: {lead.leader}</span></>}
             </p>
           </div>

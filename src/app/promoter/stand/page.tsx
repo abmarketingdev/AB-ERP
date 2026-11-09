@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useCreateStandLead } from "@/lib/api/leads";
+import { useCreateStandLead, useStandMeta } from "@/lib/api/leads";
+import { MANUAL_SOURCES } from "@/lib/lead-sources";
+import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/api/client";
 import { standLeadSchema } from "@/types/lead";
 import { useSession } from "@/lib/permissions";
@@ -43,6 +45,10 @@ import { isRetryable, newClientId, useStandQueue, type QueuedLead } from "@/lib/
 export default function StandSkjema() {
   const session = useSession();
   const create = useCreateStandLead();
+  // R1 (client 09.11): where the person heard of us; «Stand» unless the promoter picks another.
+  const meta = useStandMeta();
+  const sources = meta.data?.sources?.length ? meta.data.sources : MANUAL_SOURCES;
+  const defaultSource = meta.data?.defaultSource ?? "stand";
   const send = React.useCallback((item: QueuedLead) => create.mutateAsync({ ...item.payload, clientId: item.clientId }),
                                  [create]);
   const queue = useStandQueue(send);
@@ -51,7 +57,7 @@ export default function StandSkjema() {
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({
     name: "", phone: "", email: "",
-    consentContact: false, note: "",
+    consentContact: false, note: "", source: "stand",
   });
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -59,7 +65,7 @@ export default function StandSkjema() {
   }
 
   function reset() {
-    setForm({ name: "", phone: "", email: "", consentContact: false, note: "" });
+    setForm({ name: "", phone: "", email: "", consentContact: false, note: "", source: defaultSource });
     setErrors({});
     setSubmitError(null);
     setDone(null);
@@ -165,6 +171,26 @@ export default function StandSkjema() {
               <Input id="st-email" aria-invalid={Boolean(errors.email)} className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
                 value={form.email} onChange={(e) => set("email", e.target.value)} />
             </Field>
+
+            <div className="flex flex-col gap-1.5">
+              <span id="st-source-label" className="text-sm font-medium">Kilde</span>
+              <div role="radiogroup" aria-labelledby="st-source-label" className="flex flex-wrap gap-2">
+                {sources.map((s) => {
+                  const on = form.source === s.key;
+                  return (
+                    <button key={s.key} type="button" role="radio" aria-checked={on}
+                      onClick={() => set("source", s.key)}
+                      className={cn(
+                        "h-11 rounded-full border px-4 text-[15px] transition-colors",
+                        on ? "border-primary bg-primary text-primary-foreground"
+                           : "border-border bg-background hover:bg-muted",
+                      )}>
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <Field label="Notat" id="st-note" hint="Valgfritt — hva ble sagt">
               <Textarea id="st-note" rows={2} className="text-base"

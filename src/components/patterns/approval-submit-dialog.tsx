@@ -90,7 +90,24 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
   const [email, setEmail] = React.useState(base.prefill.email ?? "");
   const [kinds, setKinds] = React.useState<string[]>(["ansettelse", "prosjekt"]);
   const [startDate, setStartDate] = React.useState("");
-  const [teamId, setTeamId] = React.useState(base.teams.length === 1 ? base.teams[0].id : "");
+  // R5 (client 09.11): «Salgssjef» first, then only that chief's teams. A chief sending their
+  // own candidate starts on themselves; one team in the list is picked for you.
+  const NO_CHIEF = "__none__";
+  const chiefs = base.salesChiefs;
+  const chiefKey = (id: string | null | undefined) => (id === null ? NO_CHIEF : id ?? "");
+  const [chief, setChief] = React.useState(chiefKey(base.defaultSalesChief ?? (chiefs.length === 1 ? chiefs[0].id : undefined)));
+  const teamsFor = (key: string) => {
+    if (!chiefs.length) return base.teams;
+    const group = chiefs.find((c) => chiefKey(c.id) === key);
+    return group ? base.teams.filter((t) => group.teams.includes(t.id)) : [];
+  };
+  const teams = teamsFor(chief);
+  const [teamId, setTeamId] = React.useState(teams.length === 1 ? teams[0].id : "");
+  function pickChief(key: string) {
+    setChief(key);
+    const next = teamsFor(key);
+    setTeamId(next.length === 1 ? next[0].id : "");
+  }
   const [level, setLevel] = React.useState("junior");
   const [showLeader, setShowLeader] = React.useState(false);
   const [days, setDays] = React.useState<number[]>([]);
@@ -114,6 +131,7 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
     setFormError(null);
     const parsed = approvalSubmitSchema.safeParse({
       candidateId, email, contractKinds: kinds, startDate, teamId, campaignId, positionLevel: level,
+      ...(chiefs.length && chief ? { salesChiefId: chief === NO_CHIEF ? null : chief } : {}),
       workDays: [...days].sort((a, b) => a - b), positionPercentage: percentage, isStudent: student ?? undefined, note,
     });
     if (!parsed.success) {
@@ -162,11 +180,24 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
           {fieldError("campaignId")}
         </div>
 
+        {chiefs.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="salesChiefId">Salgssjef <span aria-hidden className="text-danger">*</span></Label>
+            <Select value={chief} onValueChange={pickChief}>
+              <SelectTrigger id="salesChiefId" className="w-full" {...aria("salesChiefId")}><SelectValue placeholder="Velg salgssjef" /></SelectTrigger>
+              <SelectContent>{chiefs.map((c) => <SelectItem key={chiefKey(c.id)} value={chiefKey(c.id)}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+            {fieldError("salesChiefId")}
+          </div>
+        )}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="teamId">Team <span aria-hidden className="text-danger">*</span></Label>
-          <Select value={teamId} onValueChange={setTeamId}>
-            <SelectTrigger id="teamId" className="w-full" {...aria("teamId")}><SelectValue placeholder="Velg team" /></SelectTrigger>
-            <SelectContent>{base.teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+          <Select value={teamId} onValueChange={setTeamId} disabled={chiefs.length > 0 && !chief}>
+            <SelectTrigger id="teamId" className="w-full" {...aria("teamId")}>
+              <SelectValue placeholder={chiefs.length > 0 && !chief ? "Velg salgssjef først" : "Velg team"} />
+            </SelectTrigger>
+            <SelectContent>{teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
           </Select>
           {fieldError("teamId")}
         </div>

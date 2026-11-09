@@ -26,6 +26,8 @@ export const recruitmentStageSchema = z.object({
   manualTargets: z.array(z.string()).optional(),
   requires: z.string().nullable().optional(),
   locked: z.boolean().optional(),
+  /** R4b (client 09.11): the stages a candidate may be sent to approval from (no interview needed). */
+  approvalFrom: z.array(z.string()).optional(),
 });
 export type RecruitmentStage = z.infer<typeof recruitmentStageSchema>;
 

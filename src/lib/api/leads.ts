@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiGet, apiPost, API } from "./client";
+import { leadSourceSchema, MANUAL_SOURCES } from "@/lib/lead-sources";
 import { qk } from "./keys";
 import { leadListSchema, leadMetaSchema, leadSchema, type Lead } from "@/types/lead";
 
@@ -9,6 +10,7 @@ const countsSchema = z.object({
   byStatus: z.record(z.string(), z.number()),
   byChannel: z.record(z.string(), z.number()),
   duplicates: z.number(),
+  unassigned: z.number().optional(),     // R3: «Ikke tildelt» (new server only)
 });
 
 export type LeadQuery = {
@@ -174,7 +176,10 @@ export function useStandMeta() {
   return useQuery({
     queryKey: [...qk.leads.all(), "stand-meta"] as const,
     queryFn: () => apiGet(`${API.recruitment}/leads/stand/meta`,
-                          z.object({ campaigns: z.array(z.object({ id: z.string(), name: z.string() })) })),
+                          z.object({ campaigns: z.array(z.object({ id: z.string(), name: z.string() })),
+                                     // R1: the source picker (older servers send none → the fixed 7)
+                                     sources: z.array(leadSourceSchema).default(MANUAL_SOURCES),
+                                     defaultSource: z.string().default("stand") })),
     staleTime: 10 * 60_000,
   });
 }

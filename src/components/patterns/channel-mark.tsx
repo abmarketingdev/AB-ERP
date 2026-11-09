@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Infinity as InfinityIcon, Music2, Tag, Landmark, Search, Globe, Tent, UserPlus, HelpCircle } from "lucide-react";
+import { Infinity as InfinityIcon, Music2, Tag, Landmark, Search, Globe, Tent, UserPlus, HelpCircle, ThumbsUp, Camera, Briefcase, Users } from "lucide-react";
 import { CHANNEL_KIND, type LeadChannel } from "@/types/lead";
 
 /**
@@ -42,6 +42,11 @@ const MARKS: Record<string, { Icon: typeof Globe; title: string }> = {
   Nettside: { Icon: Globe, title: "Egen nettside" },
   Stand: { Icon: Tent, title: "Stand" },
   Henvisning: { Icon: UserPlus, title: "Henvist av ansatt" },
+  // R1 (client 09.11): sources picked by hand when a lead is registered.
+  Facebook: { Icon: ThumbsUp, title: "Facebook" },
+  Instagram: { Icon: Camera, title: "Instagram" },
+  LinkedIn: { Icon: Briefcase, title: "LinkedIn" },
+  "Gjennom en venn": { Icon: Users, title: "Gjennom en venn" },
 };
 
 const FALLBACK = { Icon: HelpCircle, title: "Ukjent kanal" };
@@ -54,6 +59,10 @@ const FALLBACK = { Icon: HelpCircle, title: "Ukjent kanal" };
 export function channelOf(raw?: string | null): string {
   if (!raw) return "Ukjent";
   const s = raw.toLowerCase();
+  if (s.includes("facebook")) return "Facebook";
+  if (s.includes("instagram")) return "Instagram";
+  if (s.includes("linkedin")) return "LinkedIn";
+  if (s.includes("venn")) return "Gjennom en venn";
   for (const c of ["meta", "tiktok", "finn", "nav", "indeed", "stand", "nettside"]) {
     if (s.includes(c)) return c === "tiktok" ? "TikTok" : c.charAt(0).toUpperCase() + c.slice(1);
   }

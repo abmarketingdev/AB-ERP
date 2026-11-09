@@ -14,6 +14,7 @@ import { riseIn } from "@/lib/motion";
 import type { Candidate, RecruitmentStage } from "@/types/recruitment";
 import type { Lead } from "@/types/lead";
 import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
+import { ApprovalSubmitDialog } from "@/components/patterns/approval-submit-dialog";
 import { ChannelMark } from "@/components/patterns/channel-mark";
 import { useAccess } from "@/lib/use-access";
 
@@ -53,6 +54,8 @@ const BoardNow = React.createContext(0);
 const ShowOwner = React.createContext(false);
 /** Dragging is moving the candidate (candidates.write); without it the card is just a link. */
 const CanMove = React.createContext(true);
+/** R4b: a drop on «Til godkjenning» opens the approval form for whoever may send (approval.submit). */
+const CanSubmitApproval = React.createContext(false);
 
 type DropDecision =
   | { kind: "allowed" }
@@ -72,11 +75,13 @@ export function decideDrop(stages: RecruitmentStage[], fromId: string, toId: str
   if (to.requires === "booking") {
     return { kind: "requires", requires: "booking", message: "«Intervju booket» settes ved å booke intervjuet." };
   }
-  if (to.requires === "approval" && fromId === "intervjuet") {
+  // R4b (client 09.11): Ny, Kontaktet, Kvalifisert and Intervjuet can all go to approval;
+  // the drop opens the approval form (an older server only names Intervjuet).
+  if (to.requires === "approval" && (to.approvalFrom ?? ["intervjuet"]).includes(fromId)) {
     return { kind: "requires", requires: "approval", message: "Send til godkjenning med godkjenningsskjemaet." };
   }
   if (to.locked || to.requires === "approval") {
-    return { kind: "refused", message: `Kortet ble ikke flyttet: «${to.label}» settes først når Ole har godkjent kandidaten. Kandidaten må være intervjuet og sendt til godkjenning.` };
+    return { kind: "refused", message: `Kortet ble ikke flyttet: «${to.label}» settes først når Ole har godkjent kandidaten. Kandidaten må sendes til godkjenning først.` };
   }
   return { kind: "refused", message: `Kan ikke flytte fra «${from.label}» til «${to.label}».` };
 }
@@ -98,6 +103,8 @@ export function CandidateBoard({
   const access = useAccess();
   const masterView = access.can("candidates_master.read");
   const canMove = access.can("candidates.write");
+  const canSubmitApproval = access.can("approval.submit");
+  const [approvalFor, setApprovalFor] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState<Candidate | null>(null);
   const [pending, setPending] = React.useState<{ candidate: Candidate; stage: RecruitmentStage } | null>(null);
   // A refused drop explains itself IN the column it was dropped on (master: «avvist drop
@@ -144,6 +151,10 @@ export function CandidateBoard({
      * points at that flow.
      */
     const decision = decideDrop(stages, candidate.stageId, toId);
+    if (decision.kind === "requires" && decision.requires === "approval" && canSubmitApproval) {
+      setApprovalFor(candidate.id);
+      return;
+    }
     if (decision.kind === "requires") {
       setRefusal(decision.requires === "booking"
         ? { stageId: toId, message: decision.message, href: `/rekruttering/intervjuer?kandidat=${candidate.id}`, cta: "Book intervju" }
@@ -164,6 +175,7 @@ export function CandidateBoard({
       <BoardNow.Provider value={now}>
       <ShowOwner.Provider value={masterView}>
       <CanMove.Provider value={canMove}>
+      <CanSubmitApproval.Provider value={canSubmitApproval}>
       <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
@@ -207,6 +219,10 @@ export function CandidateBoard({
         stage={pending?.stage ?? null}
         onClose={() => setPending(null)}
       />
+      {approvalFor && (
+        <ApprovalSubmitDialog candidateId={approvalFor} open onOpenChange={(o) => { if (!o) setApprovalFor(null); }} />
+      )}
+      </CanSubmitApproval.Provider>
       </CanMove.Provider>
       </ShowOwner.Provider>
       </BoardNow.Provider>
@@ -236,7 +252,9 @@ function StageColumn({
   const decision = draggingFrom !== null && draggingFrom !== stage.id
     ? decideDrop(stages, draggingFrom, stage.id)
     : null;
-  const blocked = decision !== null && decision.kind !== "allowed" ? decision.message : null;
+  const opensApproval = React.useContext(CanSubmitApproval);
+  const formDrop = decision?.kind === "requires" && decision.requires === "approval" && opensApproval;
+  const blocked = decision !== null && decision.kind !== "allowed" && !formDrop ? decision.message : null;
 
   return (
     <li className="w-[260px] shrink-0 max-sm:w-[calc(100vw-4.5rem)] max-sm:snap-start" data-board-column={stage.id}>

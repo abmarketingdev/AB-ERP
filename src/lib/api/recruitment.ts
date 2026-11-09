@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiGet, apiPost, API } from "./client";
 import { qk } from "./keys";
+import { leadSourceSchema, MANUAL_SOURCES } from "@/lib/lead-sources";
 import {
   candidateListSchema,
   candidateReasonsSchema,
@@ -13,6 +14,9 @@ import {
 const newCandidateMetaSchema = z.object({
   channels: z.array(z.object({ key: z.string(), name: z.string() })),
   campaigns: z.array(z.object({ id: z.string(), name: z.string() })),
+  // R1 (client 09.11): the 7 manual sources, «Stand» first and preselected.
+  sources: z.array(leadSourceSchema).default(MANUAL_SOURCES),
+  defaultSource: z.string().default("stand"),
 });
 
 /** «Ny kandidat» options from the API (active channels and campaigns), not from the board. */
