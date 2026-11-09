@@ -103,7 +103,7 @@ function noShowsBy(
   const map = new Map<string, NoShowRow>();
   const ensure = (key: string) => {
     if (!map.has(key)) {
-      map.set(key, { key, interviewsHeldOrMissed: 0, interviewNoShows: 0, firstDayExpected: 0, firstDayNoShows: 0,
+      map.set(key, { key, interviewsHeldOrMissed: 0, interviewNoShows: 0, firstDayExpected: 0, firstDayNoShows: 0, interviewKommerIkke: 0,
         interviewRate: null, firstDayRate: null, rate: null, n: 0, alarm: false });
     }
     return map.get(key)!;

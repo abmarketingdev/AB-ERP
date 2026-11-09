@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, FileText, Lock } from "lucide-react";
+import { AlertTriangle, CalendarPlus, FileText, Lock, RotateCcw } from "lucide-react";
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor, useSensor, useSensors,
   useDroppable, useDraggable, closestCorners,
@@ -17,6 +17,7 @@ import { AdvanceStageDialog } from "@/components/patterns/advance-stage-dialog";
 import { ApprovalSubmitDialog } from "@/components/patterns/approval-submit-dialog";
 import { ChannelMark } from "@/components/patterns/channel-mark";
 import { useAccess } from "@/lib/use-access";
+import { CandidateBookingDialog, bookingModeFor, useCanBook, type BookingMode } from "@/components/booking/candidate-booking";
 
 /**
  * KAND-02 — "Kandidater følges på en kanbantavle med dra og slipp mellom
@@ -56,6 +57,8 @@ const ShowOwner = React.createContext(false);
 const CanMove = React.createContext(true);
 /** R4b: a drop on «Til godkjenning» opens the approval form for whoever may send (approval.submit). */
 const CanSubmitApproval = React.createContext(false);
+/** R2: «Book intervju» / «Ombook» on the card — one dialog for the whole board. */
+const OpenBooking = React.createContext<((c: Candidate, mode: BookingMode) => void) | null>(null);
 
 type DropDecision =
   | { kind: "allowed" }
@@ -111,6 +114,9 @@ export function CandidateBoard({
   // må forklare seg på stedet») and stays until «Lukk» or the next drag: one that faded
   // on its own read as «the card moved, then vanished». A live region reads it aloud.
   const [refusal, setRefusal] = React.useState<{ stageId: string; message: string; href?: string; cta?: string } | null>(null);
+  const canBook = useCanBook();
+  const [booking, setBooking] = React.useState<{ candidate: Candidate; mode: BookingMode } | null>(null);
+  const openBooking = React.useCallback((candidate: Candidate, mode: BookingMode) => setBooking({ candidate, mode }), []);
 
   const sensors = useSensors(
     // A small distance threshold keeps a click on the card a click, not a drag.
@@ -176,6 +182,7 @@ export function CandidateBoard({
       <ShowOwner.Provider value={masterView}>
       <CanMove.Provider value={canMove}>
       <CanSubmitApproval.Provider value={canSubmitApproval}>
+      <OpenBooking.Provider value={canBook ? openBooking : null}>
       <p role="status" aria-live="polite" className="sr-only">{refusal?.message ?? ""}</p>
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
@@ -222,6 +229,11 @@ export function CandidateBoard({
       {approvalFor && (
         <ApprovalSubmitDialog candidateId={approvalFor} open onOpenChange={(o) => { if (!o) setApprovalFor(null); }} />
       )}
+      {booking && (
+        <CandidateBookingDialog candidateId={booking.candidate.id} mode={booking.mode} open
+          onOpenChange={(o) => { if (!o) setBooking(null); }} />
+      )}
+      </OpenBooking.Provider>
       </CanSubmitApproval.Provider>
       </CanMove.Provider>
       </ShowOwner.Provider>
@@ -384,23 +396,43 @@ function DraggableCard({ candidate }: { candidate: Candidate }) {
    * dnd-kit instead of the page scroll, and the link is marked non-draggable so
    * the browser's native ghost image never competes with the overlay.
    */
+  const openBooking = React.useContext(OpenBooking);
+  const mode = openBooking ? bookingModeFor(candidate.stageId) : null;
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
       aria-label={canMove ? `Flytt ${candidate.name} til et annet steg` : candidate.name}
-      className={`rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`rounded-lg border border-border transition-colors duration-[120ms] hover:border-[var(--ab-accent-9)]/45 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         !canMove ? "" : isDragging ? "touch-none cursor-grabbing opacity-40" : "touch-none cursor-grab"
       }`}
     >
       <Link
         href={`/rekruttering/kandidater/${candidate.id}`}
         draggable={false}
-        className="block rounded-lg border border-border px-3 py-2.5 transition-colors duration-[120ms] hover:border-[var(--ab-accent-9)]/45 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block rounded-lg px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <CardFace candidate={candidate} />
       </Link>
+      {mode && openBooking && (
+        // R2: the booking quick action. Its own events never reach the drag handle around it
+        // (a press or Space here books, it does not pick the card up).
+        <div className="-mt-1 px-2 pb-2">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); openBooking(candidate, mode); }}
+            aria-label={mode === "book" ? `Book intervju med ${candidate.name}` : `Ombook intervjuet med ${candidate.name}`}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium text-[var(--ab-accent-11)] transition-colors hover:bg-[var(--ab-accent-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {mode === "book"
+              ? <><CalendarPlus className="size-3.5" aria-hidden /> Book intervju</>
+              : <><RotateCcw className="size-3.5" aria-hidden /> Ombook</>}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

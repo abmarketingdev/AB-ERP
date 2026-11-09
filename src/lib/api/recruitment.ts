@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiGet, apiPost, API } from "./client";
 import { qk } from "./keys";
 import { leadSourceSchema, MANUAL_SOURCES } from "@/lib/lead-sources";
+import { IS_MOCK } from "@/lib/data-source";
 import {
   candidateListSchema,
   candidateReasonsSchema,
@@ -56,6 +57,35 @@ export function useCandidates() {
   return useQuery({
     queryKey: qk.recruitment.candidates(),
     queryFn: () => apiGet(`${API.recruitment}/candidates/`, candidateListSchema),
+  });
+}
+
+/** R8 «Sendt til kandidaten»: every e-mail/SMS the candidate got, newest first (server-scoped
+ *  like the candidate; booking/opt-out links arrive masked). */
+export const candidateMessageSchema = z.object({
+  id: z.string(),
+  channel: z.string(),
+  channelLabel: z.string(),
+  template: z.string(),
+  label: z.string(),
+  to: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  status: z.string(),
+  statusLabel: z.string(),
+  createdAt: z.string(),
+  sentAt: z.string().nullable(),
+  deliveredAt: z.string().nullable(),
+  sendAfter: z.string().nullable(),
+  error: z.string(),
+}).loose();
+export type CandidateMessage = z.infer<typeof candidateMessageSchema>;
+
+export function useCandidateMessages(id: string) {
+  return useQuery({
+    queryKey: [...qk.recruitment.candidate(id), "messages"] as const,
+    queryFn: () => apiGet(`${API.recruitment}/candidates/${id}/messages/`, z.array(candidateMessageSchema)),
+    enabled: Boolean(id) && !IS_MOCK,
   });
 }
 

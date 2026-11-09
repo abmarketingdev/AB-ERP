@@ -16,10 +16,11 @@ import {
 const IV = `${API.recruitment}/interviews`;
 const PUBLIC = `${API.recruitment}/public`;
 
-export function useInterviews(filter: { scope?: "mine"; status?: string; candidate?: string } = {}) {
+export function useInterviews(filter: { scope?: "mine"; status?: string; candidate?: string } = {}, opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: qk.interviews.list(filter),
     queryFn: () => apiGet(`${IV}/`, interviewListSchema, filter),
+    enabled: opts.enabled ?? true,
   });
 }
 export function useLeaders() {
@@ -64,6 +65,8 @@ export function useSyncCalendar() {
 function invalidateInterviews(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: qk.interviews.all() });
   qc.invalidateQueries({ queryKey: qk.recruitment.candidates() });
+  // The candidate page (status, «Sendt til kandidaten») follows every booking change.
+  qc.invalidateQueries({ queryKey: ["recruitment", "mine", "candidate"] });
   qc.invalidateQueries({ queryKey: qk.tasks.all() });
 }
 
@@ -87,6 +90,15 @@ export function useCancelInterview() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { id: string }) => apiPost(`${IV}/${v.id}/cancel/`, interviewSchema, {}),
+    onSuccess: () => invalidateInterviews(qc),
+  });
+}
+/** R6 «Kommer ikke»: the candidate said they will not come — the interview is cancelled as by
+ *  the candidate and the candidate leaves the pipeline (status «Kommer ikke»). */
+export function useKommerIkke() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string }) => apiPost(`${IV}/${v.id}/kommer-ikke/`, interviewSchema, {}),
     onSuccess: () => invalidateInterviews(qc),
   });
 }

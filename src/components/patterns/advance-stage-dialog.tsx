@@ -51,8 +51,15 @@ function AdvanceStageSheet({
   const reasons = useCandidateReasons();
   const [fields, setFields] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
-  const [sendRejection, setSendRejection] = React.useState(false);
-
+  // R7 (client 09.11): every rejected candidate gets the standard answer unless unticked —
+  // ticked again each time the dialog opens for a new candidate/step.
+  const [sendRejection, setSendRejection] = React.useState(true);
+  const openKey = `${candidate?.id ?? ""}:${stage?.id ?? ""}`;
+  const [seenKey, setSeenKey] = React.useState(openKey);
+  if (seenKey !== openKey) {
+    setSeenKey(openKey);
+    setSendRejection(true);
+  }
 
   const isRejection = stage?.id === "avvist" || stage?.id === "trukket";
   const reopening = Boolean(candidate && TERMINAL_STAGE_IDS.includes(candidate.stageId) && stage?.id === "kvalifisert");
@@ -118,7 +125,7 @@ function AdvanceStageSheet({
               <div className="flex flex-col gap-2 rounded-md border border-border p-3">
                 <label className="flex items-start gap-2 text-sm">
                   <Checkbox className="mt-0.5" checked={sendRejection} onCheckedChange={(v) => setSendRejection(Boolean(v))} />
-                  <span>Send automatisk avslag til kandidaten</span>
+                  <span>Send avslag til kandidaten <span className="text-muted-foreground">(fjern haken for å la være)</span></span>
                 </label>
                 {sendRejection && fields.arsak && (
                   <div className="rounded bg-muted/50 p-2.5 text-xs text-muted-foreground" aria-live="polite">

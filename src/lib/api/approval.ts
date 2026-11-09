@@ -60,8 +60,10 @@ export type DecisionKind = "godkjent" | "avvist" | "sendt-tilbake";
 export function useDecideApproval() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: string; decision: DecisionKind; comment: string }) =>
-      apiPost(`${BASE}/requests/${v.id}/decision/`, approvalRequestSchema, { decision: v.decision, comment: v.comment }),
+    // sendRejection (R7): on «Avvis» the candidate gets the standard rejection unless unticked.
+    mutationFn: (v: { id: string; decision: DecisionKind; comment: string; sendRejection?: boolean }) =>
+      apiPost(`${BASE}/requests/${v.id}/decision/`, approvalRequestSchema,
+        { decision: v.decision, comment: v.comment, sendRejection: v.sendRejection ?? true }),
     onSuccess: () => invalidate(qc),
   });
 }

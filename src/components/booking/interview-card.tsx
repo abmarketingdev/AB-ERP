@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WeekSlotPicker } from "./week-slot-picker";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
-import { useCancelInterview, useLeaders, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
+import { useCancelInterview, useKommerIkke, useLeaders, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
 import { useHasPermission } from "@/lib/permissions";
 import { LeaderPicker } from "./leader-picker";
 import { errorMessage } from "@/lib/api/client";
@@ -120,6 +120,7 @@ function InterviewDetails({ iv }: { iv: Interview }) {
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <CancelStep iv={iv} />
+        {iv.status === "booket" && <KommerIkkeStep iv={iv} />}
         <label className="ml-auto flex min-h-9 items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={iv.reminderEnabled} disabled={setReminder.isPending}
             onCheckedChange={(v) => setReminder.mutate({ id: iv.id, reminderEnabled: v })} aria-label="Påminnelse dagen før" />
@@ -180,6 +181,7 @@ export function InterviewCard({ interview: iv }: { interview: Interview }) {
               <RotateCcw className="size-3.5" /> Ombook
             </Button>
             <CancelStep iv={iv} />
+            <KommerIkkeStep iv={iv} />
             <label className="ml-auto flex min-h-9 items-center gap-2 text-xs text-muted-foreground">
               <Switch checked={iv.reminderEnabled} disabled={setReminder.isPending}
                 onCheckedChange={(v) => setReminder.mutate({ id: iv.id, reminderEnabled: v })} aria-label="Påminnelse dagen før" />
@@ -196,7 +198,7 @@ export function InterviewCard({ interview: iv }: { interview: Interview }) {
   );
 }
 
-function RebookDialog({ iv, open, onOpenChange }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void }) {
+export function RebookDialog({ iv, open, onOpenChange }: { iv: Interview; open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
@@ -281,6 +283,28 @@ function CancelStep({ iv }: { iv: Interview }) {
         confirmLabel="Avlys intervjuet"
         pending={cancel.isPending}
         onConfirm={() => cancel.mutate({ id: iv.id }, { onError: (e) => setError(errorMessage(e)) })}
+      />
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** R6 «Kommer ikke» (client 09.11): the candidate has said they will not come. One confirmed
+ *  click: the interview is cancelled as by the candidate and the candidate leaves the process. */
+export function KommerIkkeStep({ iv, onDone }: { iv: Pick<Interview, "id" | "candidateName">; onDone?: () => void }) {
+  const kommerIkke = useKommerIkke();
+  const [error, setError] = React.useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-1">
+      <ConfirmStep
+        trigger="Kommer ikke"
+        consequence={`Bruk dette når ${iv.candidateName} har gitt beskjed om å ikke komme. Intervjuet avlyses (lederen varsles, hendelsen fjernes fra kalenderen), kandidaten får bekreftelse på avbestillingen og settes til «Kommer ikke», ut av prosessen.`}
+        confirmLabel="Kandidaten kommer ikke"
+        pending={kommerIkke.isPending}
+        onConfirm={() => kommerIkke.mutate({ id: iv.id }, {
+          onSuccess: () => onDone?.(),
+          onError: (e) => setError(errorMessage(e)),
+        })}
       />
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </div>

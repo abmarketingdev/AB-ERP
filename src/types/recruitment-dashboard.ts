@@ -30,6 +30,8 @@ export const noShowRowSchema = z.object({
   interviewNoShows: z.number(),
   firstDayExpected: z.number(),
   firstDayNoShows: z.number(),
+  /** R6: said before the interview that they will not come (not a no-show). */
+  interviewKommerIkke: z.number().optional().default(0),
   interviewRate: z.number().nullable(),
   firstDayRate: z.number().nullable(),
   /** Share over both kinds combined. Null when there was nothing to count. */

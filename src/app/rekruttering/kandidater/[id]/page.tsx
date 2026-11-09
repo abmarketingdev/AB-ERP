@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, ArrowRight, CalendarPlus, Check, Mail, Phone, FileText, ClipboardCheck, UserMinus, ShieldOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Mail, Phone, FileText, ClipboardCheck, UserMinus, ShieldOff } from "lucide-react";
+import { BOOKABLE_FROM, CandidateBookingButton, CandidateKommerIkke, bookingModeFor } from "@/components/booking/candidate-booking";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Mascot } from "@/components/patterns/mascot";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
@@ -31,6 +32,7 @@ import { ApprovalSubmitDialog } from "@/components/patterns/approval-submit-dial
 import { useAccess } from "@/lib/use-access";
 import { CandidateTags } from "@/components/patterns/candidate-tags";
 import { CandidateNotes } from "@/components/patterns/candidate-notes";
+import { CandidateMessages } from "@/components/patterns/candidate-messages";
 import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 import { formatPhone } from "@/lib/format";
 import { showDate } from "@/lib/show-date";
@@ -122,8 +124,6 @@ function RetentionPanel({
 
 /** Steps a process can be ended from by hand (the server's LIVE_RECRUITER_STAGES). After
  *  «Til godkjenning» it ends through Ole's decision or onboarding instead. */
-/** Steps an interview can be booked from (the server's booking edges into «Intervju booket»). */
-const BOOKABLE_FROM = ["ny", "kontaktet", "kvalifisert"];
 /** The picker's own value for «book intervju»: not a stage, a hand-off to the booking page. */
 const BOOK = "__book";
 const CLOSABLE = ["ny", "kontaktet", "kvalifisert", "intervju-booket", "intervjuet"];
@@ -198,13 +198,11 @@ function CandidateDetailPage() {
                             <Button size="sm" className="gap-1.5" onClick={() => setApprovalOpen(true)}>
                               <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
                             </Button>
-                          ) : (BOOKABLE_FROM.includes(c.stageId) && canBook) ? (
+                          ) : (bookingModeFor(c.stageId) && canBook) ? (
                             <>
-                              <Button size="sm" className="gap-1.5"
-                                onClick={() => router.push(`/rekruttering/intervjuer?kandidat=${c.id}`)}>
-                                <CalendarPlus className="size-4" aria-hidden /> Book intervju
-                              </Button>
-                              {canMove && (
+                              {/* R2: book (or re-book) in place, from the card itself. */}
+                              <CandidateBookingButton candidateId={c.id} stageId={c.stageId} />
+                              {canMove && BOOKABLE_FROM.includes(c.stageId) && (
                                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdvanceOpen(true)}>
                                   Flytt til neste steg <ArrowRight className="size-4" />
                                 </Button>
@@ -221,6 +219,8 @@ function CandidateDetailPage() {
                               <ClipboardCheck className="size-4" aria-hidden /> Send til godkjenning
                             </Button>
                           )}
+                          {/* R6: the candidate has said they will not come. */}
+                          {c.stageId === "intervju-booket" && <CandidateKommerIkke candidateId={c.id} candidateName={c.name} />}
                           {canMove && CLOSABLE.includes(c.stageId) && (
                             <Button
                               size="sm"
@@ -319,6 +319,9 @@ function CandidateDetailPage() {
                   <CandidateTags candidate={c} />
 
                   <CandidateNotes candidate={c} />
+
+                  {/* R8: everything the system sent the candidate. */}
+                  <CandidateMessages candidateId={c.id} />
 
                   <HistoryTimeline history={c.history} />
 

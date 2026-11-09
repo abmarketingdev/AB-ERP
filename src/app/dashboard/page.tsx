@@ -334,6 +334,11 @@ function NoShowChart({ title, rows, marks }: { title: string; rows: NoShowRow[];
                       <span className="text-[11px] text-muted-foreground">({r.interviewNoShows + r.firstDayNoShows} av {r.n})</span>
                       {high && <span className="flex items-center gap-0.5 text-[11px] text-danger"><AlertTriangle className="size-3" aria-hidden /> høyt</span>}
                       {thin && v > 0 && <span className="text-[11px] text-muted-foreground">for lite grunnlag</span>}
+                      {r.interviewKommerIkke > 0 && (
+                        <span className="text-[11px] text-muted-foreground" title="Sa fra før intervjuet at de ikke kommer (teller ikke som ikke møtt)">
+                          · {r.interviewKommerIkke} kommer ikke
+                        </span>
+                      )}
                     </span>
                   </span>
                 </li>

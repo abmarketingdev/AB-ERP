@@ -26,10 +26,11 @@ export const STAGE_BADGE: Record<string, string> = {
   avvist: "bg-muted text-muted-foreground line-through",
   "no-show": "bg-danger/10 text-danger",
   trukket: "bg-muted text-muted-foreground line-through",
+  "kommer-ikke": "bg-muted text-muted-foreground line-through",
 };
 
 /** The stages a candidate cannot come back from. Used to offer "close" everywhere. */
-export const TERMINAL_STAGE_IDS = ["avvist", "no-show", "trukket"];
+export const TERMINAL_STAGE_IDS = ["avvist", "no-show", "trukket", "kommer-ikke"];
 
 /**
  * GODK-03 — no candidate reaches onboarding without Ole's approval.

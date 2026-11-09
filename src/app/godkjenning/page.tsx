@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApprovalQueue, useDecideApproval, type DecisionKind } from "@/lib/api/approval";
 import { errorMessage } from "@/lib/api/client";
@@ -51,6 +52,7 @@ export default function Godkjenning() {
   const reduce = useReducedMotion();
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [comment, setComment] = React.useState("");
+  const [sendRejection, setSendRejection] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [justApproved, setJustApproved] = React.useState<string | null>(null);
 
@@ -67,10 +69,11 @@ export default function Godkjenning() {
     try {
       // IFK-04: without 2FA proof the server answers step_up_required; the shared dialog asks
       // for the one-time code and the decision is retried — Ole never has to start over.
-      await stepUpFlow.run(() => decide.mutateAsync({ id: req.id, decision, comment: comment.trim() }));
+      await stepUpFlow.run(() => decide.mutateAsync({ id: req.id, decision, comment: comment.trim(), sendRejection }));
       if (decision === "godkjent") setJustApproved(req.candidate.name);
       setOpenId(null);
       setComment("");
+      setSendRejection(true);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -195,6 +198,11 @@ export default function Godkjenning() {
                                   onChange={(e) => setComment(e.target.value)}
                                   placeholder="Kort begrunnelse som blir stående i historikken" />
                               </div>
+                              {/* R7: an «Avvis» here answers the candidate too, unless unticked. */}
+                              <label className="flex items-start gap-2 text-sm">
+                                <Checkbox className="mt-0.5" checked={sendRejection} onCheckedChange={(v) => setSendRejection(Boolean(v))} />
+                                <span>Ved avvisning: send avslag til kandidaten <span className="text-muted-foreground">(standardtekst, uten kommentaren din)</span></span>
+                              </label>
                               {error && <p role="alert" className="text-sm text-danger">{error}</p>}
                               <div className="flex flex-wrap gap-2">
                                 <Button size="sm" className="gap-1.5" disabled={decide.isPending} onClick={() => run(req, "godkjent")}>
@@ -278,7 +286,7 @@ function SubmittedData({ req }: { req: ApprovalRequest }) {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  godkjent: "Godkjent", onboarding: "Onboarding", ansatt: "Ansatt", "no-show": "Ikke møtt", trukket: "Trukket",
+  godkjent: "Godkjent", onboarding: "Onboarding", ansatt: "Ansatt", "no-show": "Ikke møtt", trukket: "Trukket", "kommer-ikke": "Kommer ikke",
 };
 
 function QueueSkeleton() {

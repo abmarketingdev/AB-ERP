@@ -684,6 +684,7 @@ export const RECRUITMENT_STAGES: RecruitmentStage[] = [
   { id: "avvist", label: "Avvist", fields: [{ id: "arsak", label: "Årsak" }], terminal: "withdrawn" },
   { id: "no-show", label: "No show", fields: [{ id: "naar", label: "Uteble fra" }], terminal: "withdrawn" },
   { id: "trukket", label: "Trukket", fields: [{ id: "arsak", label: "Årsak" }], terminal: "withdrawn" },
+  { id: "kommer-ikke", label: "Kommer ikke", fields: [], terminal: "withdrawn" },
 ];
 
 /**
