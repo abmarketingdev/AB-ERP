@@ -9,6 +9,14 @@ import type { NextConfig } from "next";
 const DEV_API_PROXY = process.env.DEV_API_PROXY ?? "https://api-test.absystem.no";
 const DEV_API = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
 
+/*
+ * Kundeportalen er fortsatt en demo (faste kontoer og 2FA-kode). I api-bygg (produksjon) kan
+ * den ikke nås: /kunde/* går til en nøytral side, og demo-adminsidene til forsiden. Samme vilkår
+ * som i src/app/kunde/** og src/app/admin/{kunder,forhandsvis}: mock-bygg viser alt som før.
+ */
+const DEMO_CUSTOMER_PORTAL =
+  process.env.NEXT_PUBLIC_DATA_SOURCE !== "api" && process.env.NEXT_PUBLIC_API_MOCKING !== "disabled";
+
 const nextConfig: NextConfig = {
   /*
    * Standalone output traces exactly the files the server needs and copies them
@@ -23,6 +31,15 @@ const nextConfig: NextConfig = {
    * where the gateway routes /api/ before Next and page URLs keep their normal redirect.
    */
   skipTrailingSlashRedirect: DEV_API,
+  async redirects() {
+    if (DEMO_CUSTOMER_PORTAL) return [];
+    return [
+      { source: "/kunde", destination: "/kundeportal", permanent: false },
+      { source: "/kunde/:path*", destination: "/kundeportal", permanent: false },
+      { source: "/admin/kunder", destination: "/", permanent: false },
+      { source: "/admin/forhandsvis", destination: "/", permanent: false },
+    ];
+  },
   async rewrites() {
     if (!DEV_API) return [];
     // `:path*` drops a trailing slash, and Django's slash redirect then loses the

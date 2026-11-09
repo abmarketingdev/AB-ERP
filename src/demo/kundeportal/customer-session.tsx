@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { usePreview } from "./preview";
+import { usePreview } from "@/lib/preview";
 
 /**
  * Isolated from lib/permissions.tsx and lib/mock-auth.ts on purpose — the

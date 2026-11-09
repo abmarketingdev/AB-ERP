@@ -74,7 +74,6 @@ import {
   REJECTED_ROWS,
   USER_ACCESS,
   PERMISSIONS,
-  CUSTOMER_ACCOUNTS,
   CAMPAIGNS,
   INTEGRATIONS,
   INBOX_FILES,
@@ -83,6 +82,7 @@ import {
   PENDING_CORRECTIONS,
   AUDIT_LOG,
 } from "@/lib/mock-data";
+import { CUSTOMER_ACCOUNTS } from "./customer-accounts";
 
 /** Deterministic PRNG so fixtures never shift between renders. */
 function rng(seed: number) {

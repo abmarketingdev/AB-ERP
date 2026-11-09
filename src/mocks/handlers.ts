@@ -48,8 +48,8 @@ import type { LeaderTask } from "@/types/task";
 import type { AuditEntry, CustomerAccount, CustomerAgreement } from "@/types/quality";
 import { buildCampaignReport } from "./customer-report";
 import { MOCK_USERS } from "@/lib/mock-users";
+import { DEFAULT_AGREEMENT } from "./customer-accounts";
 import {
-  DEFAULT_AGREEMENT,
   IMPORT_CANDIDATES,
   RETENTION_MONTHS,
   RETENTION_BASIS,

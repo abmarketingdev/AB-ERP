@@ -26,6 +26,14 @@ import { IS_MOCK } from "@/lib/data-source";
 
 let startPromise: Promise<void> | null = null;
 
+/*
+ * Byggetidskonstant (NEXT_PUBLIC_* inlines). I api-bygg blir import() av mock-databasen og
+ * service workeren stående i en død gren og havner ikke i bundelen — med dem ville
+ * demo-fiksturene (bl.a. kundeportalens demo-kontoer) ligge i produksjonsbygget.
+ * Skal stå her og ikke importeres: bundleren bretter ikke konstanter på tvers av moduler.
+ */
+const MOCK_BUILD = process.env.NEXT_PUBLIC_DATA_SOURCE !== "api" && process.env.NEXT_PUBLIC_API_MOCKING !== "disabled";
+
 const SCENARIO_KEY = "ab-erp-mock-scenario";
 const RELOAD_KEY = "ab-erp-msw-reloaded";
 
@@ -37,7 +45,7 @@ async function resetIfScenarioChanged() {
   if (typeof window === "undefined") return;
   const current = new URLSearchParams(window.location.search).get("scenario") ?? "";
   const previous = window.sessionStorage.getItem(SCENARIO_KEY);
-  if (previous !== current) {
+  if (MOCK_BUILD && previous !== current) {
     const { resetDb } = await import("./db");
     resetDb();
     window.sessionStorage.setItem(SCENARIO_KEY, current);
@@ -52,7 +60,7 @@ function isControlled() {
 function startWorkerOnce(): Promise<void> {
   if (!startPromise) {
     startPromise = resetIfScenarioChanged()
-      .then(() => import("./browser"))
+      .then(() => (MOCK_BUILD ? import("./browser") : Promise.reject(new Error("api-bygg: ingen mock"))))
       .then(({ worker }) =>
         worker.start({
           /*
