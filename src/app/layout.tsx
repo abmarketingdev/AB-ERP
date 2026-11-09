@@ -37,7 +37,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "AB Rekruttering",
-  description: "Promoter, leder, rekruttering og kundeportal for AB Marketing",
+  description: "Innlogging til AB Rekruttering",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

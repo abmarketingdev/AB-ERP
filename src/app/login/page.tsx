@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ShieldCheck, Sparkles, Target, Users, UserSearch, KeyRound, RotateCcw, ChevronLeft } from "lucide-react";
+import { ArrowRight, ShieldCheck, Target, Users, UserSearch, KeyRound, RotateCcw, ChevronLeft } from "lucide-react";
 import { Mascot } from "@/components/patterns/mascot";
 import { FloatingPaths } from "@/components/patterns/floating-paths";
 import { LoginTransition } from "@/components/patterns/login-transition";
@@ -21,13 +21,6 @@ const DEMO_PRESETS: { userKey: keyof typeof MOCK_USERS; name: string; role: stri
   { userKey: "leader", name: "Ola Nordmann", role: "Leder", icon: Users },
   { userKey: "recruitment", name: "Fredrik Amundsen", role: "Rekrutterer", icon: UserSearch },
   { userKey: "admin", name: "Administrator", role: "Admin (2FA)", icon: ShieldCheck },
-];
-
-// What a person gets from logging in — not how the system is built (design review round 1).
-const HIGHLIGHTS = [
-  "Én innlogging for hele laget",
-  "Se bare det du trenger",
-  "Alt på norsk, også på mobil",
 ];
 
 type Step = "credentials" | "twofactor";
@@ -146,30 +139,11 @@ export default function LoginPage() {
           <FloatingPaths position={-1} />
         </div>
 
-        <div className="relative z-10 flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--ab-accent-9)]/15">
-            <Mascot state="idle" size={22} />
-          </span>
-          <span className="text-sm font-medium tracking-wide text-foreground">AB Rekruttering</span>
-        </div>
-
-        <div className="relative z-10 mt-auto max-w-sm">
-          <h1 className="text-2xl font-medium tracking-tight text-foreground">
-            Alt i ett, for <span className="text-[var(--ab-accent-11)]">hele laget</span>
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Promoter, leder, rekruttering og kundeportal — samlet i én plattform bygget for AB Marketing.
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            {HIGHLIGHTS.map((h) => (
-              <div key={h} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--ab-accent-9)]/15 text-[var(--ab-accent-11)]">
-                  <Sparkles className="size-3" />
-                </span>
-                {h}
-              </div>
-            ))}
-          </div>
+        {/* Brand only (client 09.11: no marketing copy on the login page). The lockup sits in
+            the middle of the panel so it reads as a deliberate brand panel, not an emptied one. */}
+        <div className="relative z-10 m-auto flex flex-col items-center gap-4">
+          <Mascot state="idle" size={96} />
+          <span className="text-xl font-medium tracking-wide text-foreground">AB Rekruttering</span>
         </div>
       </div>
 
@@ -220,6 +194,8 @@ export default function LoginPage() {
                     type={IS_MOCK ? "email" : "text"}
                     autoComplete="username"
                     autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     placeholder="navn@abmarketing.no"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -300,12 +276,15 @@ export default function LoginPage() {
               <p className="mt-6 text-center text-xs text-muted-foreground">Velg en demo-konto for å fylle ut skjemaet, eller skriv inn selv.</p>
               </>)}
 
-              <p className="mt-4 text-center text-xs text-muted-foreground">
-                Er du kunde?{" "}
-                <a href="/kunde/login" className="font-medium text-[var(--ab-accent-11)] hover:underline">
-                  Gå til kundeportalen →
-                </a>
-              </p>
+              {/* The customer portal is still demo-only, so production does not point to it. */}
+              {IS_MOCK && (
+                <p className="mt-4 text-center text-xs text-muted-foreground">
+                  Er du kunde?{" "}
+                  <a href="/kunde/login" className="font-medium text-[var(--ab-accent-11)] hover:underline">
+                    Gå til kundeportalen →
+                  </a>
+                </p>
+              )}
             </motion.div>
           ) : (
             <motion.div

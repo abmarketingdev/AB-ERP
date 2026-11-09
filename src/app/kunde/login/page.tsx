@@ -136,7 +136,7 @@ export default function CustomerLoginPage() {
               <form onSubmit={onSubmitCredentials} className="mt-6 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="c-email">E-post</Label>
-                  <Input id="c-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onFocus={() => setMascotState("ready")} className="h-11" required />
+                  <Input id="c-email" type="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} onFocus={() => setMascotState("ready")} className="h-11" required />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="c-password">Passord</Label>
@@ -168,7 +168,9 @@ export default function CustomerLoginPage() {
               </span>
               <h2 className="text-xl font-medium text-foreground">Bekreft med kode</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Skriv inn <span className="font-mono text-foreground">246810</span> for demoen.
+                {IS_MOCK
+                  ? <>Skriv inn <span className="font-mono text-foreground">246810</span> for demoen.</>
+                  : "Skriv inn den 6-sifrede koden."}
               </p>
               <form onSubmit={onSubmitTwoFactor} className="mt-6 space-y-4">
                 <Input

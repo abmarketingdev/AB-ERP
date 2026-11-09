@@ -127,7 +127,6 @@ export const FloatingPaths = React.memo(function FloatingPaths({ position }: { p
           fill="none"
           preserveAspectRatio="none"
         >
-          <title>Background paths</title>
           {PATHS[key].map((d, i) => (
             <path
               key={i}
