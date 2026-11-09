@@ -65,7 +65,7 @@ const NAV: (NavItem & { gate: string })[] = [
   { id: "onboarding", label: "Onboarding", href: "/onboarding", icon: "clipboard-list", gate: "onboarding.view", section: "Rekruttering" },
   { id: "ansatte", label: "Ansatte", href: "/ansatte", icon: "users", gate: "employees.view", section: "Rekruttering" },
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "bar-chart", gate: "recruitdash.view", section: "Rekruttering" },
-  // R4a (client 09.11): who registered the leads, and the bonus they have earned.
+  // R4a (client 09.11): who registered the leads (counts per person, no bonus amount).
   { id: "rekruttert-av", label: "Rekruttert av", href: "/dashboard/rekruttert-av", icon: "award", gate: "recruitdash.view", section: "Rekruttering" },
   { id: "forside-leder", label: "Forside", href: "/leder", icon: "home", gate: "leader.view", section: "Ledere" },
   { id: "mine-intervjuer", label: "Mine intervjuer", href: "/leder/intervjuer", icon: "calendar", gate: "myinterviews.view", section: "Ledere" },
