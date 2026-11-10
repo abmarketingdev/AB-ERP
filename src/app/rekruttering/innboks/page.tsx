@@ -17,8 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  useLeads, useLeadCounts, useLeadMeta, useSendLeads, useAssignLeads, useDiscardLeads, useSetLeadLeader,
-  type LeadQuery,
+  useLeads, useLeadCounts, useLeadMeta, useSendLeads, useAssignLeads, useDeleteLeads, useSetLeadLeader,
+  type DeleteLeadsResult, type LeadQuery,
 } from "@/lib/api/leads";
 import { LEAD_STATUS_LABEL, type Lead, type LeadStatus } from "@/types/lead";
 import { MergeDuplicatesDialog } from "@/components/patterns/merge-duplicates-dialog";
@@ -63,6 +63,17 @@ function skippedReason(rows: Lead[]): string {
     n("forkastet") && `${n("forkastet")} er forkastet`,
   ].filter(Boolean);
   return `Bare leads med status «Ny» kan sendes. ${parts.join(" · ")}.`;
+}
+
+/** C1 (client 10.11): what «Slett» will do to the selection, counted so nobody is surprised. */
+function deleteConsequence(rows: Lead[]): string {
+  const n = rows.length;
+  const sent = rows.filter((l) => l.status === "sendt").length;
+  const who = n === 1 ? "Leadet" : `${n} leads`;
+  const withCandidate = sent
+    ? ` ${sent === 1 ? "1 av dem er" : `${sent} av dem er`} sendt videre: kandidaten slettes også fra tavlen, og et booket intervju avlyses uten melding til noen.`
+    : "";
+  return `${who} slettes for godt: navn, telefon, e-post, notater og meldinger fjernes i hele systemet.${withCandidate} Dette kan ikke angres.`;
 }
 
 /**
@@ -152,7 +163,7 @@ function SamleinnboksPage() {
   const [leaderTarget, setLeaderTarget] = React.useState("");
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [lastSend, setLastSend] = React.useState<{ sent: number; skipped: number } | null>(null);
-  const [lastDiscard, setLastDiscard] = React.useState<{ discarded: number; skipped: number } | null>(null);
+  const [lastDelete, setLastDelete] = React.useState<DeleteLeadsResult | null>(null);
   const [lastAssign, setLastAssign] = React.useState<{ assigned: number; skipped: number } | null>(null);
   const kindByName = React.useMemo(
     () => Object.fromEntries((meta.data?.channels ?? []).map((c) => [c.name, c.kind])), [meta.data]);
@@ -188,7 +199,7 @@ function SamleinnboksPage() {
   const send = useSendLeads();
   const assign = useAssignLeads();
   const setLeader = useSetLeadLeader();
-  const discard = useDiscardLeads();
+  const del = useDeleteLeads();
 
   const rows = leads.data?.rows ?? [];
   const total = leads.data?.total ?? 0;
@@ -203,7 +214,7 @@ function SamleinnboksPage() {
   // The same «Ny» rule applies to Tildel (LEAD-09): a sent lead has a candidate behind
   // it, and its owner is changed on the candidate so the person is never split in two.
   const sendable = selectedRows.filter((l) => l.status === "ny");
-  const busy = send.isPending || assign.isPending || discard.isPending || setLeader.isPending;
+  const busy = send.isPending || assign.isPending || del.isPending || setLeader.isPending;
 
   const activeFilters =
     [channel, status, promoter, assignedTo].filter((v) => v !== ALL).length +
@@ -231,7 +242,7 @@ function SamleinnboksPage() {
   async function runSend() {
     const result = await send.mutateAsync({ ids: sendable.map((l) => l.id) });
     setLastSend(result);
-    setLastDiscard(null);
+    setLastDelete(null);
     setLastAssign(null);
     setSelected(new Set());
   }
@@ -323,7 +334,7 @@ function SamleinnboksPage() {
                   const result = await assign.mutateAsync({ ids: sendable.map((l) => l.id), assignTo: assignTarget });
                   setLastAssign({ assigned: result.assigned, skipped: result.skipped + (selected.size - sendable.length) });
                   setLastSend(null);
-                  setLastDiscard(null);
+                  setLastDelete(null);
                   setSelected(new Set());
                 }}>
                 <Users className="size-4" /> Tildel {sendable.length}
@@ -342,7 +353,7 @@ function SamleinnboksPage() {
                   const result = await setLeader.mutateAsync({ ids: [...selected], leaderId: leaderTarget });
                   setLastAssign({ assigned: result.assigned, skipped: result.skipped });
                   setLastSend(null);
-                  setLastDiscard(null);
+                  setLastDelete(null);
                   setSelected(new Set());
                 }}>
                 <Users className="size-4" /> Sett leder
@@ -358,16 +369,18 @@ function SamleinnboksPage() {
               description="Bare når lederen er opptatt vises, ikke hva avtalene gjelder. Intervjutiden velges senere med «Book intervju».">
               {leaderTarget && <CalendarWeek leaderId={leaderTarget} leaderName={leaderNameOf(leaderTarget)} compact />}
             </ResponsiveSheet>
-            {/* Destructive, so it confirms in place (08-DESIGN-REVIEW: never confirm()). Not
-                deleted — a discarded lead stays under its filter — so no typed word. */}
+            {/* C1 (client 10.11): «Slett» really removes the person — the lead, its candidate,
+                a booked interview, notes and messages — whatever the status. Irreversible, so
+                the in-place confirmation asks for a typed word (08-DESIGN-REVIEW: never confirm()). */}
             <ConfirmStep
-              trigger={`Forkast ${selected.size}`}
-              consequence={`${selected.size === 1 ? "Leadet" : `${selected.size} leads`} merkes som forkastet og forsvinner fra innboksen (finnes igjen under status «Forkastet»). Bare leads med status «Ny» kan forkastes.`}
-              confirmLabel="Forkast"
-              pending={discard.isPending}
+              trigger={`Slett ${selected.size}`}
+              consequence={deleteConsequence(selectedRows)}
+              confirmLabel="Slett for godt"
+              typeToConfirm="SLETT"
+              pending={del.isPending}
               onConfirm={async () => {
-                const result = await discard.mutateAsync({ ids: [...selected] });
-                setLastDiscard(result);
+                const result = await del.mutateAsync({ ids: [...selected] });
+                setLastDelete(result);
                 setLastSend(null);
                 setLastAssign(null);
                 setSelected(new Set());
@@ -401,18 +414,26 @@ function SamleinnboksPage() {
         </p>
       )}
 
-      {/* A discarded lead leaves the list, so the line below is the only trace of the click.
-          The skipped count explains the rule: only «Ny» leads can be discarded here. */}
-      {lastDiscard && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {lastDiscard.discarded === 1 ? "1 lead forkastet" : `${lastDiscard.discarded} leads forkastet`}
-          {lastDiscard.skipped > 0 && ` · ${lastDiscard.skipped} hoppet over (allerede sendt videre — avvis kandidaten under Kandidater i stedet)`}
-        </p>
+      {/* C1: a deleted lead leaves every list, so this banner is the only trace of the click —
+          and it stays until it is closed, not a grey line that is easy to miss. */}
+      {lastDelete && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-danger/40 bg-danger/5 px-4 py-3 text-sm text-foreground">
+          <p>
+            <span className="font-medium">{lastDelete.deleted === 1 ? "1 lead slettet" : `${lastDelete.deleted} leads slettet`}</span>
+            {lastDelete.candidates > 0 && ` · ${lastDelete.candidates === 1 ? "1 kandidat" : `${lastDelete.candidates} kandidater`} fjernet fra tavlen`}
+            {lastDelete.interviewsCancelled > 0 && ` · ${lastDelete.interviewsCancelled === 1 ? "1 intervju" : `${lastDelete.interviewsCancelled} intervjuer`} avlyst uten melding`}
+            {lastDelete.skipped > 0 && ` · ${lastDelete.skipped} hoppet over (allerede slettet)`}
+            . Opplysningene er borte for godt.
+          </p>
+          <Button size="sm" variant="ghost" className="-mr-2 -mt-1 shrink-0" aria-label="Lukk meldingen" onClick={() => setLastDelete(null)}>
+            <X className="size-4" />
+          </Button>
+        </div>
       )}
 
-      {(send.isError || assign.isError || discard.isError || setLeader.isError) && (
+      {(send.isError || assign.isError || del.isError || setLeader.isError) && (
         <p role="alert" className="text-sm text-danger">
-          {errorMessage(send.error ?? assign.error ?? discard.error ?? setLeader.error)}
+          {errorMessage(send.error ?? assign.error ?? del.error ?? setLeader.error)}
         </p>
       )}
 

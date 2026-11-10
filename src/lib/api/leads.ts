@@ -157,6 +157,32 @@ export function useDiscardLeads() {
   });
 }
 
+const deleteResultSchema = z.object({
+  deleted: z.number(),
+  also: z.number().default(0),
+  candidates: z.number().default(0),
+  interviewsCancelled: z.number().default(0),
+  skipped: z.number().default(0),
+});
+export type DeleteLeadsResult = z.infer<typeof deleteResultSchema>;
+
+/**
+ * C1 (client 10.11): «Slett» — the person is really removed (the lead, its candidate, a
+ * booked interview, notes and messages), whatever the lead's status. Irreversible, so the
+ * page confirms with a typed word before calling this.
+ */
+export function useDeleteLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { ids: string[] }) =>
+      apiPost(`${API.recruitment}/leads/delete`, deleteResultSchema, input),
+    onSuccess: () => {
+      invalidateAfterLeadWrite(qc);
+      qc.invalidateQueries({ queryKey: qk.interviews.all() });
+    },
+  });
+}
+
 /**
  * LEAD-05 — the stand form. The promotor is taken from the token on the server; the
  * client never says who registered the lead. `clientId` makes a retry from the offline
