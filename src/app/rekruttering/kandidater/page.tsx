@@ -53,8 +53,11 @@ function RekrutteringKandidaterPage() {
   const mayCreate = useHasPermission("candidates.create");
   // «Ny kandidat» is its own switch (candidates.create), as on the server.
   const canCreate = IS_MOCK || mayCreate;
-  // Sales leaders: every new lead not yet sent on sits at the top of «Ny» until someone takes it.
-  const mayBoard = useHasPermission("leads.board");
+  // New leads not yet sent on sit at the top of «Ny» until someone takes them: a sales
+  // leader's (leads.board) and, since C3 (client 10.11), a recruiter's own (leads.write).
+  const isLeader = useHasPermission("leads.board");
+  const mayWrite = useHasPermission("leads.write");
+  const mayBoard = isLeader || mayWrite;
   const boardLeads = useBoardLeads(mayBoard && !IS_MOCK);
   const [openLead, setOpenLead] = React.useState<Lead | null>(null);
   const shownLeads = (boardLeads.data ?? []).filter((l) =>
@@ -310,6 +313,8 @@ const leadDateFmt = new Intl.DateTimeFormat("nb-NO", { dateStyle: "medium", time
 function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void }) {
   const take = useTakeLead();
   const router = useRouter();
+  // A leader who takes a lead is also the interview leader; a recruiter is not (C3, 10.11).
+  const isLeader = useHasPermission("leads.board");
   const bookOwn = useHasPermission("booking.own");
   const bookAny = useHasPermission("booking.write");
   const mayBook = bookOwn || bookAny;
@@ -329,7 +334,11 @@ function LeadDialog({ lead, onClose }: { lead: Lead | null; onClose: () => void 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{lead.name}</DialogTitle>
-          <DialogDescription>Ny lead, ikke tatt ennå. Tar du den, blir den din kandidat, og du er lederen intervjuet bookes med.</DialogDescription>
+          <DialogDescription>
+            {isLeader
+              ? "Ny lead, ikke tatt ennå. Tar du den, blir den din kandidat, og du er lederen intervjuet bookes med."
+              : "Ny lead, ikke tatt ennå. Tar du den, blir den din kandidat på tavlen."}
+          </DialogDescription>
         </DialogHeader>
         {lead.previous && (
           <p className={`rounded-md border px-3 py-2 text-sm ${lead.previous.active

@@ -14,7 +14,8 @@ import { MANUAL_SOURCES } from "@/lib/lead-sources";
 import { cn } from "@/lib/utils";
 import { errorMessage } from "@/lib/api/client";
 import { standLeadSchema } from "@/types/lead";
-import { useSession } from "@/lib/permissions";
+import { useHasPermission, useSession } from "@/lib/permissions";
+import Link from "next/link";
 import { Mascot } from "@/components/patterns/mascot";
 import { mascotFor } from "@/lib/use-mascot";
 import { FormErrorSummary, type FieldError } from "@/components/patterns/form-error-summary";
@@ -44,6 +45,11 @@ import { isRetryable, newClientId, useStandQueue, type QueuedLead } from "@/lib/
  */
 export default function StandSkjema() {
   const session = useSession();
+  // C3 (client 10.11): a recruiter, leader or admin has a board — the lead lands at the top
+  // of «Ny» there. A stand promoter has none: the inbox text stays for them.
+  const mayWrite = useHasPermission("leads.write");
+  const isLeader = useHasPermission("leads.board");
+  const onBoard = mayWrite || isLeader;
   const create = useCreateStandLead();
   // R1 (client 09.11): where the person heard of us; «Stand» unless the promoter picks another.
   const meta = useStandMeta();
@@ -104,7 +110,7 @@ export default function StandSkjema() {
   if (done) {
     return (
       <div className="flex flex-1 flex-col gap-6">
-        <PageHeader title="Registrert" description="Leadet ligger nå i samleinnboksen" />
+        <PageHeader title="Registrert" description={onBoard && !done.queued ? "Leadet ligger øverst i «Ny» på tavlen din" : "Leadet ligger nå i samleinnboksen"} />
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
             {done.queued ? (
@@ -122,12 +128,19 @@ export default function StandSkjema() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {done.queued
                   ? "Ingen dekning akkurat nå. Leadet sendes automatisk så snart du er på nett igjen."
-                  : "Rekrutterer ser det i samleinnboksen med deg som rekruttert av."}
+                  : onBoard
+                    ? "Du finner det øverst i «Ny» på tavlen, og i samleinnboksen. «Ta denne» gjør det til din kandidat."
+                    : "Rekrutterer ser det i samleinnboksen med deg som rekruttert av."}
               </p>
             </div>
             <Button size="lg" className="h-11 w-full max-w-xs gap-2" onClick={reset}>
               <RotateCcw className="size-4" /> Registrer neste
             </Button>
+            {onBoard && !done.queued && (
+              <Button asChild variant="outline" size="lg" className="h-11 w-full max-w-xs">
+                <Link href="/rekruttering/kandidater">Åpne tavlen</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
