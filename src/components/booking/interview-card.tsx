@@ -272,7 +272,7 @@ function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
 }
 
 /** BOOK-06 by staff: a confirmation step in the card (never confirm()), with the consequence spelled out. */
-function CancelStep({ iv }: { iv: Interview }) {
+export function CancelStep({ iv }: { iv: Interview }) {
   const cancel = useCancelInterview();
   const [error, setError] = React.useState<string | null>(null);
   return (
@@ -332,7 +332,7 @@ export function KommerIkkeStep({ iv, onDone, size = "default" }: {
   );
 }
 
-function MessageList({ iv }: { iv: Interview }) {
+export function MessageList({ iv }: { iv: Interview }) {
   const failed = iv.messages.filter((m) => m.status === "failed").length;
   return (
     <details className="text-sm" open={failed > 0}>

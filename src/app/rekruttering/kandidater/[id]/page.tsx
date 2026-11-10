@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Check, Mail, Phone, FileText, ClipboardCheck, UserMinus, ShieldOff } from "lucide-react";
 import { BOOKABLE_FROM, CandidateBookingButton, CandidateKommerIkke, bookingModeFor } from "@/components/booking/candidate-booking";
+import { CandidateInterviewBox } from "@/components/booking/candidate-interview-box";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Mascot } from "@/components/patterns/mascot";
 import { QueryBoundary } from "@/components/patterns/query-boundary";
@@ -331,7 +332,11 @@ function CandidateDetailPage() {
                       </CardContent>
                     </Card>
 
-                    <OnboardingCard candidate={c} stage={stage} />
+                    {/* C2 (client 10.11): the right box shows the interview; onboarding joins it once hired. */}
+                    <div className="flex flex-col gap-4">
+                      <CandidateInterviewBox candidateId={c.id} stageId={c.stageId} />
+                      {(stage?.terminal === "hired" || c.onboarding.length > 0) && <OnboardingCard candidate={c} stage={stage} />}
+                    </div>
                   </div>
 
                   <CandidateTags candidate={c} />
