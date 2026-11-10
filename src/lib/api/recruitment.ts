@@ -245,6 +245,17 @@ export function useSetCandidateTags() {
   });
 }
 
+/** C6 (client 10.11): the «E-post til kandidaten» switch on the card. */
+export function useSetEmailEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; emailEnabled: boolean }) =>
+      apiPost(`${API.recruitment}/candidates/${vars.id}/contact-settings`, candidateSchema,
+              { emailEnabled: vars.emailEnabled }),
+    onSuccess: (updated) => writeCandidate(qc, updated),
+  });
+}
+
 /** LEAD-09 — hand the candidate to a colleague. */
 export function useAssignCandidate() {
   const qc = useQueryClient();

@@ -86,6 +86,8 @@ export const candidateSchema = z.object({
   name: z.string(),
   phone: z.string(),
   email: z.string(),
+  /** C6 (client 10.11): «E-post til kandidaten» — off = the system sends them nothing. */
+  emailEnabled: z.boolean().default(true),
   source: z.string(),
   campaign: z.string(),
   appliedDate: z.string(),

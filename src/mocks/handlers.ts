@@ -459,6 +459,7 @@ export const handlers = [
       const owner = body.assignTo ?? lead.assignedTo ?? "Fredrik Amundsen";
       const candidate: Candidate = {
         id: `c-${lead.id}`,
+        emailEnabled: true,
         name: lead.name,
         phone: lead.phone,
         email: lead.email,
@@ -795,6 +796,7 @@ export const handlers = [
     };
     const candidate: Candidate = {
       id: `c-${Date.now()}`,
+      emailEnabled: true,
       name: body.name,
       phone: body.phone,
       email: body.email,

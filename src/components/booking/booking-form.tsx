@@ -192,6 +192,12 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
                 <li className="flex items-center gap-1.5"><MessageSquare className="size-3" aria-hidden /> SMS til kandidat og leder med tid, sted og kontaktinformasjon</li>
                 <li className="flex items-center gap-1.5"><Mail className="size-3" aria-hidden /> E-post med kalenderinvitasjon og lenke for å flytte eller avbestille</li>
               </ul>
+              {/* C6 (client 10.11): the card's switch — say it here, where the messages are promised. */}
+              {candidate && candidate.emailEnabled === false && (
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-on-tint">
+                  E-post er slått av for denne kandidaten: ingen bekreftelse eller påminnelse sendes til kandidaten. Lederen får sin invitasjon som før.
+                </p>
+              )}
               {/* BOOK-05 — «stenge av og på»: the reminder, per booking. */}
               <label className="flex min-h-11 items-center gap-2 text-sm">
                 <Switch checked={reminder} onCheckedChange={setReminder} id="iv-reminder" />

@@ -22,6 +22,7 @@ const STATUS_TONE: Record<string, string> = {
   queued: "border-border text-muted-foreground",
   failed: "border-danger/40 text-danger",
   blocked_optout: "border-warning/40 text-warning-on-tint",
+  blocked_off: "border-warning/40 text-warning-on-tint",
   cancelled: "border-border text-muted-foreground",
 };
 

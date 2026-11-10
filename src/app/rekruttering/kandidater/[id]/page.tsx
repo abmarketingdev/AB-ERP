@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -23,6 +24,7 @@ import {
   useCandidate,
   useStages,
   useMinimiseCandidate,
+  useSetEmailEnabled,
 } from "@/lib/api/recruitment";
 import { errorMessage } from "@/lib/api/client";
 import type { Candidate, CandidateHistoryEntry, RecruitmentStage } from "@/types/recruitment";
@@ -137,6 +139,8 @@ function CandidateDetailPage() {
   const candidate = useCandidate(params.id);
   const advance = useAdvanceStage();
   const minimise = useMinimiseCandidate();
+  // C6 (client 10.11): «E-post til kandidaten» — off = the system sends this person nothing.
+  const setEmail = useSetEmailEnabled();
   const [advanceOpen, setAdvanceOpen] = React.useState(false);
   const [closing, setClosing] = React.useState(false);
   // GODK-01: the leader sends an interviewed candidate to Ole from here (and from the board's link).
@@ -301,7 +305,21 @@ function CandidateDetailPage() {
                           {c.phone && <span className="flex items-center gap-1.5"><Phone className="size-3.5" /> {formatPhone(c.phone)}</span>}
                           {c.email && <span className="flex min-w-0 items-center gap-1.5"><Mail className="size-3.5 shrink-0" /> <span className="truncate">{c.email}</span></span>}
                           <span>Eier: <span className="text-foreground">{c.owner}</span></span>
+                          {canMove ? (
+                            <label className="flex items-center gap-2">
+                              <Switch checked={c.emailEnabled} disabled={setEmail.isPending} aria-label="E-post til kandidaten"
+                                onCheckedChange={(v) => setEmail.mutate({ id: c.id, emailEnabled: v })} />
+                              <span>E-post til kandidaten{c.emailEnabled ? "" : ": av"}</span>
+                            </label>
+                          ) : !c.emailEnabled ? (
+                            <Badge className="bg-warning/10 text-warning-on-tint">E-post av</Badge>
+                          ) : null}
                         </div>
+                        {!c.emailEnabled && (
+                          <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning-on-tint">
+                            E-post er slått av for denne kandidaten: bekreftelser, påminnelser og avslag sendes ikke til kandidaten. Meldinger til leder og rekrutterer går som før.
+                          </p>
+                        )}
 
                         {c.nextActivity ? (
                           <div className={`rounded-md px-3 py-2 text-sm ${c.nextActivity.overdue ? "bg-danger/10 text-danger" : "bg-[var(--ab-accent-3)]/40 text-[var(--ab-accent-12)]"}`}>

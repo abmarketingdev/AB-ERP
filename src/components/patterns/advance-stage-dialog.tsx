@@ -127,6 +127,10 @@ function AdvanceStageSheet({
                   <Checkbox className="mt-0.5" checked={sendRejection} onCheckedChange={(v) => setSendRejection(Boolean(v))} />
                   <span>Send avslag til kandidaten <span className="text-muted-foreground">(fjern haken for å la være)</span></span>
                 </label>
+                {/* C6 (client 10.11): the card's switch wins — the message is held back. */}
+                {candidate?.emailEnabled === false && (
+                  <p className="text-xs text-warning-on-tint">E-post er slått av for denne kandidaten: avslaget sendes ikke.</p>
+                )}
                 {sendRejection && fields.arsak && (
                   <div className="rounded bg-muted/50 p-2.5 text-xs text-muted-foreground" aria-live="polite">
                     {preview.isLoading ? "Henter forhåndsvisning…" : preview.data?.channel ? (
