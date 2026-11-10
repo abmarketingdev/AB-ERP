@@ -4,7 +4,7 @@ import { apiGet, apiPatch, apiPost, API } from "./client";
 import { qk } from "./keys";
 import {
   calendarStatusSchema, calendarWeekSchema, interviewListSchema, interviewSchema, leaderListSchema,
-  publicInterviewSchema, slotsResponseSchema,
+  officeListSchema, publicInterviewSchema, slotsResponseSchema,
 } from "@/types/interview";
 
 /**
@@ -21,6 +21,14 @@ export function useInterviews(filter: { scope?: "mine"; status?: string; candida
     queryKey: qk.interviews.list(filter),
     queryFn: () => apiGet(`${IV}/`, interviewListSchema, filter),
     enabled: opts.enabled ?? true,
+  });
+}
+/** C5 (client 10.11): the offices for «Kontor» in the booking form. */
+export function useOffices() {
+  return useQuery({
+    queryKey: qk.interviews.offices(),
+    queryFn: () => apiGet(`${IV}/offices/`, officeListSchema),
+    staleTime: 10 * 60 * 1000,
   });
 }
 export function useLeaders() {

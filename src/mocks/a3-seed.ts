@@ -26,6 +26,7 @@ export const MOCK_LEADERS: Leader[] = LEADERS.map((name, i) => ({
   id: `led-${name.split(" ")[0].toLowerCase()}`,
   name,
   teams: [["Team Vest"], ["Team Nord"], ["Team Sør"], ["Team Øst"]][i % 4],
+  cities: [["Bergen"], ["Trondheim"], ["Kristiansand"], ["Oslo"]][i % 4],
 }));
 export const leaderByName = (name: string) => MOCK_LEADERS.find((l) => l.name === name) ?? MOCK_LEADERS[0];
 export const leaderById = (id: string) => MOCK_LEADERS.find((l) => l.id === id);

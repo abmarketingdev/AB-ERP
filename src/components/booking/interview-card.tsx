@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { WeekSlotPicker } from "./week-slot-picker";
 import { ConfirmStep } from "@/components/patterns/confirm-step";
-import { useCancelInterview, useKommerIkke, useLeaders, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCancelInterview, useKommerIkke, useLeaders, useOffices, useRebookInterview, useSetReminder } from "@/lib/api/interviews";
 import { useHasPermission } from "@/lib/permissions";
 import { LeaderPicker } from "./leader-picker";
 import { errorMessage } from "@/lib/api/client";
@@ -214,6 +215,11 @@ function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
   // leader booking for himself (booking.own) keeps it on his own calendar.
   const canMove = useHasPermission("booking.write");
   const leaders = useLeaders();
+  // C5 (client 10.11): narrow the leader list to an office's city, as in the booking form.
+  const offices = useOffices();
+  const [office, setOffice] = React.useState("alle");
+  const city = (offices.data ?? []).find((o) => o.key === office)?.city ?? null;
+  const pool = (leaders.data ?? []).filter((l) => city === null || l.cities.includes(city));
   const [leaderId, setLeaderId] = React.useState(iv.leader.id);
   const leader = leaders.data?.find((l) => l.id === leaderId) ?? (leaderId === iv.leader.id ? iv.leader : null);
   const changed = leaderId !== iv.leader.id;
@@ -235,6 +241,16 @@ function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
       </DialogHeader>
       {canMove && (
         <div className="flex flex-wrap items-end gap-3">
+          <div className="flex min-w-40 flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Kontor</span>
+            <Select value={office} onValueChange={setOffice}>
+              <SelectTrigger aria-label="Kontor" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="alle">Alle kontorer</SelectItem>
+                {(offices.data ?? []).map((o) => <SelectItem key={o.key} value={o.key}>{o.city}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex min-w-64 flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">Leder</span>
             <LeaderPicker
@@ -242,10 +258,11 @@ function RebookBody({ iv, onDone }: { iv: Interview; onDone: () => void }) {
               value={leaderId}
               onChange={(v) => { setLeaderId(v); setPicked(null); setError(null); }}
               leaders={[
-                ...(leaders.data?.some((l) => l.id === iv.leader.id) ? [] : [{ id: iv.leader.id, name: iv.leader.name, suffix: " (nå)" }]),
-                ...(leaders.data ?? []).map((l) => ({ id: l.id, name: l.name, suffix: l.id === iv.leader.id ? " (nå)" : "" })),
+                ...(pool.some((l) => l.id === iv.leader.id) ? [] : [{ id: iv.leader.id, name: iv.leader.name, suffix: " (nå)" }]),
+                ...pool.map((l) => ({ id: l.id, name: l.name, teams: l.teams, suffix: l.id === iv.leader.id ? " (nå)" : "" })),
               ]}
             />
+            {city && pool.length === 0 && <span className="text-xs text-warning-on-tint">Ingen team i {city} ennå.</span>}
           </div>
           {changed && (
             <Button variant="outline" size="sm" className="h-9" onClick={() => setPicked(iv.startsAt)}>

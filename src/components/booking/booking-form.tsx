@@ -13,7 +13,7 @@ import { Mascot } from "@/components/patterns/mascot";
 import { mascotFor } from "@/lib/use-mascot";
 import { WeekSlotPicker } from "./week-slot-picker";
 import { CalendarWeek } from "./calendar-week";
-import { useBookInterview, useLeaders } from "@/lib/api/interviews";
+import { useBookInterview, useLeaders, useOffices } from "@/lib/api/interviews";
 import { useCandidates } from "@/lib/api/recruitment";
 import { useAccess } from "@/lib/use-access";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -55,7 +55,15 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
     || (chosenForCandidate && leaders.data?.some((l) => l.id === chosenForCandidate) ? chosenForCandidate : "")
     || (leaderFixed ? leaders.data?.[0]?.id ?? "" : "");
   const [showCalendar, setShowCalendar] = React.useState(false);
-  const [location, setLocation] = React.useState("AB Marketing, Grenseveien 107, Oslo");
+  // C5 (client 10.11): pick the office first (the five on abmarketing.no); the address fills
+  // in, and the leader list narrows to that city's teams. «Annet sted» keeps free text.
+  const offices = useOffices();
+  const [office, setOffice] = React.useState("oslo");
+  const [customLocation, setCustomLocation] = React.useState("");
+  const [showAll, setShowAll] = React.useState(false);
+  const chosenOffice = (offices.data ?? []).find((o) => o.key === office);
+  const location = office === "annet" ? customLocation : (chosenOffice?.label ?? "AB Marketing, Grenseveien 107 B, 0663 Oslo");
+  const city = office === "annet" ? null : chosenOffice?.city ?? null;
   const [reminder, setReminder] = React.useState(true);
   const [picked, setPicked] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -64,9 +72,21 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
   const bookable = (candidates.data ?? []).filter((c) => BOOKABLE.includes(c.stageId) || c.id === fixedCandidate);
   const candidate = (candidates.data ?? []).find((c) => c.id === candidateId);
   const leader = leaders.data?.find((l) => l.id === leaderId);
+  // The leaders whose teams sit in the chosen city; everyone when no city, when asked, or when
+  // the city has no team yet (HR sets the city on the team). The candidate's own, already
+  // chosen leader is always in the list, whatever the city.
+  const inCity = (leaders.data ?? []).filter((l) => city !== null && l.cities.includes(city));
+  const narrowed = city !== null && !showAll && inCity.length > 0;
+  const pool = narrowed ? inCity : (leaders.data ?? []);
+  const pickerLeaders = leaderId && !pool.some((l) => l.id === leaderId)
+    ? [...(leaders.data ?? []).filter((l) => l.id === leaderId), ...pool] : pool;
 
   async function submit() {
     setError(null);
+    if (!location.trim()) {
+      setError("Skriv inn hvor intervjuet holdes.");
+      return;
+    }
     if (!candidateId || !picked || !leaderId) {
       setError("Velg kandidat, leder og tidspunkt.");
       return;
@@ -128,11 +148,26 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
           </div>
         )}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="iv-leader">Leder</Label>
+          <Label htmlFor="iv-office">Kontor</Label>
+          <Select value={office} onValueChange={(v) => { setOffice(v); setShowAll(false); }}>
+            <SelectTrigger id="iv-office" className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder={offices.isPending ? "Henter …" : "Velg kontor"} /></SelectTrigger>
+            <SelectContent>
+              {(offices.data ?? []).map((o) => <SelectItem key={o.key} value={o.key}>{o.city} · {o.address}</SelectItem>)}
+              <SelectItem value="annet">Annet sted</SelectItem>
+            </SelectContent>
+          </Select>
+          {office === "annet" ? (
+            <Input id="iv-loc" aria-label="Sted" placeholder="Adresse" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} />
+          ) : (
+            <p className="truncate text-xs text-muted-foreground" title={location}>{location}</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="iv-leader">{city && narrowed ? `Team / leder i ${city}` : "Leder"}</Label>
           {/* Searchable (client 2026-11-08): the list opens as before, typing narrows it. */}
           <LeaderPicker
             id="iv-leader"
-            leaders={leaders.data ?? []}
+            leaders={pickerLeaders}
             value={leaderId}
             disabled={leaderFixed}
             placeholder={leaders.isPending ? "Henter …" : "Velg leder"}
@@ -140,10 +175,19 @@ export function BookingForm({ candidateId: fixedCandidate, onBooked, compact }: 
           />
           {leaders.isError && <p className="text-xs text-danger">Kunne ikke hente lederne. {errorMessage(leaders.error)}</p>}
           {leaderFixed && !leaders.isError && <p className="text-xs text-muted-foreground">Du er lederen på intervjuet.</p>}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="iv-loc">Sted</Label>
-          <Input id="iv-loc" value={location} onChange={(e) => setLocation(e.target.value)} />
+          {!leaderFixed && !leaders.isError && city && leaders.data && (
+            inCity.length === 0 ? (
+              <p className="text-xs text-warning-on-tint">Ingen team i {city} ennå (sett by på teamet i HR). Viser alle ledere.</p>
+            ) : showAll ? (
+              <button type="button" className="self-start text-xs text-muted-foreground underline underline-offset-2" onClick={() => setShowAll(false)}>
+                Viser alle ledere · bare {city}
+              </button>
+            ) : (
+              <button type="button" className="self-start text-xs text-muted-foreground underline underline-offset-2" onClick={() => setShowAll(true)}>
+                {inCity.length} {inCity.length === 1 ? "team" : "team"} i {city} · vis alle ledere
+              </button>
+            )
+          )}
         </div>
       </div>
 

@@ -28,9 +28,18 @@ export const INTERVIEW_STATUS_LABEL: Record<InterviewStatus, string> = {
 export const leaderRefSchema = z.object({ id: z.string(), name: z.string() });
 export type LeaderRef = z.infer<typeof leaderRefSchema>;
 
-export const leaderSchema = leaderRefSchema.extend({ teams: z.array(z.string()) });
+/** C5 (client 10.11): `cities` = where the leader's teams sit (HR), so the booking form can
+ *  narrow the list to the chosen office's city. */
+export const leaderSchema = leaderRefSchema.extend({ teams: z.array(z.string()), cities: z.array(z.string()).default([]) });
 export type Leader = z.infer<typeof leaderSchema>;
 export const leaderListSchema = z.array(leaderSchema);
+
+/** C5: an office from abmarketing.no — the booking's «Kontor», with its address and how many HR teams sit there. */
+export const officeSchema = z.object({
+  key: z.string(), city: z.string(), address: z.string(), label: z.string(), teams: z.number().default(0),
+});
+export type Office = z.infer<typeof officeSchema>;
+export const officeListSchema = z.array(officeSchema);
 
 export const messageStatusSchema = z.enum(["queued", "blocked_optout", "sent", "delivered", "failed", "cancelled"]);
 export type MessageStatus = z.infer<typeof messageStatusSchema>;

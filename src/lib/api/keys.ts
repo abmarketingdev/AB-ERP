@@ -42,6 +42,7 @@ export const qk = {
   interviews: {
     list: (filter: Record<string, string | undefined> = {}) => ["interviews", "all", "list", filter] as const,
     leaders: () => ["interviews", "all", "leaders"] as const,
+    offices: () => ["interviews", "all", "offices"] as const,
     slots: (leaderId: string, from: string) => ["interviews", "all", "slots", leaderId, from] as const,
     calendar: (leaderId: string, from: string, days: number) => ["interviews", "all", "calendar", leaderId, from, days] as const,
     all: () => ["interviews"] as const,
