@@ -45,7 +45,8 @@ const CAL_TONE: Record<CalendarState, string> = {
 const MSG_TONE: Record<MessageStatus, string> = {
   queued: "border-border text-muted-foreground", sent: "border-border text-muted-foreground",
   delivered: "border-success/40 text-success", failed: "border-danger/40 text-danger",
-  blocked_optout: "border-warning/40 text-warning-on-tint", cancelled: "border-border text-muted-foreground",
+  blocked_optout: "border-warning/40 text-warning-on-tint", blocked_off: "border-warning/40 text-warning-on-tint",
+  cancelled: "border-border text-muted-foreground",
 };
 const ROLE_LABEL = { kandidat: "kandidat", leder: "leder", rekrutterer: "rekrutterer" } as const;
 const KIND_LABEL = { bekreftelse: "bekreftelse", paaminnelse: "påminnelse", avlysning: "avlysning", ombooking: "ombooking",

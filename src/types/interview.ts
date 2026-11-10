@@ -41,12 +41,14 @@ export const officeSchema = z.object({
 export type Office = z.infer<typeof officeSchema>;
 export const officeListSchema = z.array(officeSchema);
 
-export const messageStatusSchema = z.enum(["queued", "blocked_optout", "sent", "delivered", "failed", "cancelled"]);
+export const messageStatusSchema = z.enum(["queued", "blocked_optout", "blocked_off", "sent", "delivered", "failed", "cancelled"]);
 export type MessageStatus = z.infer<typeof messageStatusSchema>;
 
 export const MESSAGE_STATUS_LABEL: Record<MessageStatus, string> = {
   queued: "I kø",
   blocked_optout: "Ikke sendt – avmeldt",
+  /** C6 (client 10.11): «E-post til kandidaten» was off on the card. */
+  blocked_off: "Ikke sendt – e-post av",
   sent: "Sendt",
   delivered: "Levert",
   failed: "Feilet",
