@@ -35,9 +35,10 @@ function pick(rows: Interview[]): Interview | undefined {
   return rows.filter((iv) => iv.status !== "ombooket").sort((a, b) => b.startsAt.localeCompare(a.startsAt))[0];
 }
 
-export function CandidateInterviewBox({ candidateId, stageId }: { candidateId: string; stageId: string }) {
+export function CandidateInterviewBox({ candidateId, stageId, readOnly = false }: { candidateId: string; stageId: string; readOnly?: boolean }) {
   const interviews = useInterviews({ candidate: candidateId });
-  const canBook = useCanBook();
+  // C4: a follower sees the interview but has no buttons.
+  const canBook = useCanBook() && !readOnly;
   const setReminder = useSetReminder();
   const [rebookOpen, setRebookOpen] = React.useState(false);
   const [now] = React.useState(() => Date.now());

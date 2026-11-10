@@ -8,6 +8,7 @@ import { QueryBoundary } from "@/components/patterns/query-boundary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -42,6 +43,8 @@ function RekrutteringKandidaterPage() {
   const [source, setSource] = React.useState("alle");
   const [campaign, setCampaign] = React.useState("alle");
   const [owner, setOwner] = React.useState("alle");
+  // C4 (client 10.11): candidates I registered or handed on stay on my board, greyed; this hides them.
+  const [showFollowed, setShowFollowed] = React.useState(true);
   const [createOpen, setCreateOpen] = React.useState(false);
 
   const all = React.useMemo(() => candidates.data ?? [], [candidates.data]);
@@ -68,7 +71,9 @@ function RekrutteringKandidaterPage() {
   // R1 (client 09.11): «Ny kandidat» offers the 7 manual sources, «Stand» preselected.
   const createSources = (meta.data?.sources?.length ? meta.data.sources : MANUAL_SOURCES).map((c) => c.name);
 
+  const followedCount = all.filter((c) => c.follow).length;
   const filtered = all.filter((c) => {
+    if (!showFollowed && c.follow) return false;
     if (status !== "alle" && c.stageId !== status) return false;
     if (source !== "alle" && c.source !== source) return false;
     if (campaign !== "alle" && c.campaign !== campaign) return false;
@@ -143,6 +148,12 @@ function RekrutteringKandidaterPage() {
               ))}
             </SelectContent>
           </Select>
+          {followedCount > 0 && (
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <Checkbox checked={showFollowed} onCheckedChange={(v) => setShowFollowed(Boolean(v))} />
+              Vis overførte ({followedCount})
+            </label>
+          )}
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"

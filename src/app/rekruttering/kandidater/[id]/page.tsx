@@ -147,13 +147,13 @@ function CandidateDetailPage() {
   // GODK-01: the leader sends an interviewed candidate to Ole from here (and from the board's link).
   const [approvalOpen, setApprovalOpen] = React.useState(false);
   const access = useAccess();
-  const canSubmitApproval = access.can("approval.submit");
+  const maySubmitAny = access.can("approval.submit");
   // «Intervju booket» is only ever set by a real booking (requires: booking), so the next
   // step from Kvalifisert is the booking page, with this candidate preselected. A sales
   // leader books his own candidates (booking.own); this page only shows him his own.
-  const canBook = access.can("booking.write") || access.can("booking.own");
+  const mayBookAny = access.can("booking.write") || access.can("booking.own");
   // Moving a candidate between steps and closing the process are candidates.write.
-  const canMove = access.can("candidates.write");
+  const mayMoveAny = access.can("candidates.write");
   const [failed, setFailed] = React.useState<string | null>(null);
 
   // The picker chooses the stage; the shared AdvanceStageDialog captures what that
@@ -180,6 +180,12 @@ function CandidateDetailPage() {
         {(stageList) => (
           <QueryBoundary query={candidate} skeleton={<Skeleton className="h-64 rounded-lg" />}>
             {(c) => {
+              // C4 (client 10.11): a follower (registered it, or handed it on) reads and writes
+              // notes, nothing else — the server refuses too; this just hides the buttons.
+              const editable = c.canEdit !== false;
+              const canMove = mayMoveAny && editable;
+              const canBook = mayBookAny && editable;
+              const canSubmitApproval = maySubmitAny && editable;
               const stage = stageList.find((s) => s.id === c.stageId);
               const currentIndex = stageList.findIndex((s) => s.id === c.stageId);
               const pipelineStages = stageList.filter((s) => !s.terminal);
@@ -225,7 +231,7 @@ function CandidateDetailPage() {
                             </Button>
                           )}
                           {/* R6: the candidate has said they will not come. */}
-                          {c.stageId === "intervju-booket" && <CandidateKommerIkke candidateId={c.id} candidateName={c.name} />}
+                          {c.stageId === "intervju-booket" && editable && <CandidateKommerIkke candidateId={c.id} candidateName={c.name} />}
                           {canMove && CLOSABLE.includes(c.stageId) && (
                             <Button
                               size="sm"
@@ -241,6 +247,14 @@ function CandidateDetailPage() {
                       ) : undefined
                     }
                   />
+
+                  {c.follow && (
+                    <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                      {c.follow.kind === "registered"
+                        ? <>Du registrerte denne kandidaten; <span className="text-foreground">{c.follow.owner || "en kollega"}</span> eier den nå. Du kan følge med og skrive notater, men ikke endre.</>
+                        : <>Du overførte denne kandidaten til <span className="text-foreground">{c.follow.owner || "en kollega"}</span>. Du kan følge med og skrive notater, men ikke endre.</>}
+                    </p>
+                  )}
 
                   {/* FR-R-10 — closing the process, and what it does to the data. */}
                   {closing && !c.closure && (
@@ -334,12 +348,12 @@ function CandidateDetailPage() {
 
                     {/* C2 (client 10.11): the right box shows the interview; onboarding joins it once hired. */}
                     <div className="flex flex-col gap-4">
-                      <CandidateInterviewBox candidateId={c.id} stageId={c.stageId} />
+                      <CandidateInterviewBox candidateId={c.id} stageId={c.stageId} readOnly={!editable} />
                       {(stage?.terminal === "hired" || c.onboarding.length > 0) && <OnboardingCard candidate={c} stage={stage} />}
                     </div>
                   </div>
 
-                  <CandidateTags candidate={c} />
+                  {editable && <CandidateTags candidate={c} />}
 
                   <CandidateNotes candidate={c} />
 
@@ -347,6 +361,9 @@ function CandidateDetailPage() {
                   <CandidateMessages candidateId={c.id} />
 
                   <HistoryTimeline history={c.history} />
+
+                  {/* C4 (client 10.11): every handover, newest first. */}
+                  <TransfersLog transfers={c.transfers ?? []} />
 
                   <StagePickerDialog
                     open={advanceOpen}
@@ -427,6 +444,36 @@ function OnboardingCard({ candidate, stage }: { candidate: Candidate; stage: Rec
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+const transferFmt = new Intl.DateTimeFormat("nb-NO", { timeZone: "Europe/Oslo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+function TransfersLog({ transfers }: { transfers: NonNullable<Candidate["transfers"]> }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium text-foreground">Overføringer</h2>
+      <p className="-mt-2 text-xs text-muted-foreground">Hvem som har hatt kandidaten, og hvem som ga den videre. De som har gitt den fra seg, følger den fortsatt.</p>
+      {transfers.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Ingen overføringer.</p>
+      ) : (
+        <Card>
+          <ul className="divide-y divide-border text-sm">
+            {transfers.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
+                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{transferFmt.format(new Date(t.at))}</span>
+                <span>
+                  <span className={t.from ? "text-foreground" : "text-muted-foreground"}>{t.from || "Ingen"}</span>
+                  <span className="text-muted-foreground"> → </span>
+                  <span className="text-foreground">{t.to || "Ingen"}</span>
+                </span>
+                <span className="text-xs text-muted-foreground">{t.label}{t.lead ? " (som lead)" : ""} · av {t.actor}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
   );
 }
 

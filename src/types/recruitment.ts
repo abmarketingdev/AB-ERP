@@ -88,6 +88,15 @@ export const candidateSchema = z.object({
   email: z.string(),
   /** C6 (client 10.11): «E-post til kandidaten» — off = the system sends them nothing. */
   emailEnabled: z.boolean().default(true),
+  /** C4 (client 10.11): false for a follower — someone who registered or handed the candidate
+   *  on. They see everything and may write notes, but change nothing. */
+  canEdit: z.boolean().optional(),
+  follow: z.object({ kind: z.enum(["transferred", "registered", "other"]), owner: z.string() }).nullable().optional(),
+  /** C4: the «Overføringer» log — every handover, newest first (lead and candidate). */
+  transfers: z.array(z.object({
+    id: z.string(), at: z.string(), from: z.string(), to: z.string(), actor: z.string(),
+    rule: z.string(), label: z.string(), lead: z.boolean(),
+  })).optional(),
   source: z.string(),
   campaign: z.string(),
   appliedDate: z.string(),

@@ -385,7 +385,8 @@ function LeadCard({ lead: l, onOpen }: { lead: Lead; onOpen: () => void }) {
 }
 
 function DraggableCard({ candidate }: { candidate: Candidate }) {
-  const canMove = React.useContext(CanMove);
+  // C4 (client 10.11): a followed card (registered or handed on) is a link, never a drag.
+  const canMove = React.useContext(CanMove) && candidate.canEdit !== false;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: candidate.id, disabled: !canMove });
 
   /*
@@ -397,7 +398,7 @@ function DraggableCard({ candidate }: { candidate: Candidate }) {
    * the browser's native ghost image never competes with the overlay.
    */
   const openBooking = React.useContext(OpenBooking);
-  const mode = openBooking ? bookingModeFor(candidate.stageId) : null;
+  const mode = openBooking && candidate.canEdit !== false ? bookingModeFor(candidate.stageId) : null;
   return (
     <div
       ref={setNodeRef}
@@ -405,8 +406,8 @@ function DraggableCard({ candidate }: { candidate: Candidate }) {
       {...attributes}
       aria-label={canMove ? `Flytt ${candidate.name} til et annet steg` : candidate.name}
       className={`rounded-lg border border-border transition-colors duration-[120ms] hover:border-[var(--ab-accent-9)]/45 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        !canMove ? "" : isDragging ? "touch-none cursor-grabbing opacity-40" : "touch-none cursor-grab"
-      }`}
+        candidate.follow ? "border-dashed bg-muted/30" : ""
+      } ${!canMove ? "" : isDragging ? "touch-none cursor-grabbing opacity-40" : "touch-none cursor-grab"}`}
     >
       <Link
         href={`/rekruttering/kandidater/${candidate.id}`}
@@ -443,8 +444,14 @@ function CardFace({ candidate: c, overlay }: { candidate: Candidate; overlay?: b
   const days = c.stageSince && now ? Math.floor((now - new Date(c.stageSince).getTime()) / 86_400_000) : null;
   return (
     <div className={overlay ? "w-[244px] rounded-lg border border-[var(--ab-accent-9)] bg-card px-3 py-2.5 shadow-lg" : undefined}>
+      {/* C4: why a card you cannot move is on your board at all. */}
+      {c.follow && (
+        <p className="mb-1 truncate text-[10.5px] uppercase tracking-wide text-muted-foreground">
+          {c.follow.kind === "registered" ? "Du registrerte denne" : `Overført til ${c.follow.owner.split(" ")[0] || "kollega"}`}
+        </p>
+      )}
       <div className="flex items-start justify-between gap-2">
-        <p className="truncate text-[13px] text-foreground">{c.name}</p>
+        <p className={`truncate text-[13px] ${c.follow ? "text-muted-foreground" : "text-foreground"}`}>{c.name}</p>
         {/* «Dager i steget»: what has been left lying is what a board is for. */}
         {/* Always shown, «i dag» included, so the board's rhythm is visible at a glance. */}
         {days !== null && (
