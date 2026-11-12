@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { takeReturnTo } from "@/lib/use-session-guard";
 import { login, verifyTwoFactor, fetchSession, storeToken, DEMO_ACCOUNTS, type DemoAccount } from "@/lib/auth";
 import { IS_MOCK } from "@/lib/data-source";
+import { requestPasswordReset, GENERIC_MESSAGE } from "@/lib/password-reset";
 import { MOCK_USERS } from "@/lib/mock-users";
 
 const DEMO_PRESETS: { userKey: keyof typeof MOCK_USERS; name: string; role: string; icon: React.ElementType }[] = [
@@ -23,7 +24,7 @@ const DEMO_PRESETS: { userKey: keyof typeof MOCK_USERS; name: string; role: stri
   { userKey: "admin", name: "Administrator", role: "Admin (2FA)", icon: ShieldCheck },
 ];
 
-type Step = "credentials" | "twofactor";
+type Step = "credentials" | "twofactor" | "forgot";
 
 /**
  * FR-S-01 — the ERP's own login, deliberately separate from the maps, HR and
@@ -51,6 +52,11 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [transitioning, setTransitioning] = React.useState<{ label: string } | null>(null);
   const [mascotState, setMascotState] = React.useState<"greeting" | "ready" | "thinking" | "concerned">("greeting");
+  // R1 (kunden 12.11) — «Glemt passord?»: e-mail in, generic answer out (never says whether
+  // the address exists). The link in the mail lands on /reset-password.
+  const [forgotEmail, setForgotEmail] = React.useState("");
+  const [forgotSending, setForgotSending] = React.useState(false);
+  const [forgotSent, setForgotSent] = React.useState(false);
 
   function triggerError(message: string) {
     setError(message);
@@ -124,7 +130,32 @@ export default function LoginPage() {
     setStep("credentials");
     setCode("");
     setError(null);
+    setForgotSent(false);
     setMascotState("greeting");
+  }
+
+  function openForgot() {
+    setStep("forgot");
+    setError(null);
+    setForgotSent(false);
+    // Carry an e-mail typed in the login form over; a username is of no use here.
+    setForgotEmail(email.includes("@") ? email.trim() : "");
+    setMascotState("ready");
+  }
+
+  async function onSubmitForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setForgotSending(true);
+    setMascotState("thinking");
+    const result = await requestPasswordReset(forgotEmail);
+    setForgotSending(false);
+    if (!result.ok) {
+      triggerError(result.error);
+      return;
+    }
+    setMascotState("ready");
+    setForgotSent(true);
   }
 
   return (
@@ -233,6 +264,13 @@ export default function LoginPage() {
                   {submitting ? "Logger inn…" : "Logg inn"}
                   {!submitting && <ArrowRight className="size-4" />}
                 </Button>
+                <button
+                  type="button"
+                  onClick={openForgot}
+                  className="flex w-full items-center justify-center text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Glemt passord?
+                </button>
               </form>
 
               {/* Demo accounts exist only in mock mode; in api mode they would be dead buttons. */}
@@ -284,6 +322,85 @@ export default function LoginPage() {
                     Gå til kundeportalen →
                   </a>
                 </p>
+              )}
+            </motion.div>
+          ) : step === "forgot" ? (
+            <motion.div
+              key="forgot"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: shake ? [0, -8, 8, -6, 6, 0] : 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="relative z-10 mx-auto w-full sm:w-sm"
+            >
+              <span className="mb-4 flex size-11 items-center justify-center rounded-full bg-[var(--ab-accent-9)]/15 text-[var(--ab-accent-11)]">
+                <KeyRound className="size-5" />
+              </span>
+              <h2 className="text-2xl font-medium tracking-tight text-foreground">Glemt passord?</h2>
+              {forgotSent ? (
+                <>
+                  <p className="mt-1.5 text-sm text-muted-foreground">{GENERIC_MESSAGE} Lenken virker i 24 timer.</p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Ingen e-post? Sjekk søppelposten, eller spør en administrator om hvilken e-postadresse kontoen din har.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={backToCredentials}
+                    className="mt-8 h-11 w-full bg-[var(--ab-accent-12)] text-sm font-semibold text-[var(--ab-accent-contrast)] shadow-lg shadow-black/20 hover:bg-[var(--ab-accent-9)]"
+                  >
+                    Tilbake til pålogging
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1.5 text-sm text-muted-foreground">
+                    Skriv inn e-postadressen til kontoen din, så sender vi en lenke for å lage et nytt passord. Passordet er felles for hele AB-systemet.
+                  </p>
+                  <form onSubmit={onSubmitForgot} className="mt-8 space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="forgot-email" className="text-foreground">E-post</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        placeholder="navn@abmarketing.no"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        onFocus={() => setMascotState("ready")}
+                        className="h-11 bg-input/40"
+                        autoFocus
+                        required
+                      />
+                    </div>
+
+                    {error && (
+                      <motion.p ref={errorRef} tabIndex={-1} role="alert" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                        className="rounded-md text-sm font-medium text-danger outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        {error}
+                      </motion.p>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={forgotSending || !forgotEmail.trim()}
+                      className="h-11 w-full bg-[var(--ab-accent-12)] text-sm font-semibold text-[var(--ab-accent-contrast)] shadow-lg shadow-black/20 hover:bg-[var(--ab-accent-9)] disabled:opacity-50"
+                    >
+                      {forgotSending ? "Sender…" : "Send lenke"}
+                      {!forgotSending && <ArrowRight className="size-4" />}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={backToCredentials}
+                      className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <RotateCcw className="size-3" />
+                      Tilbake til pålogging
+                    </button>
+                  </form>
+                </>
               )}
             </motion.div>
           ) : (
