@@ -20,7 +20,7 @@ export function clearSessionKey() {
  * The gate is a **permission**, not a user key. Two roles legitimately share the
  * leader portal — a team lead and a sales chief both hold `leader.view` and see
  * the same screens at different scopes (doc 01). Matching on identity instead
- * would have forced a duplicate set of /salgssjef routes, which is exactly the
+ * would have forced a duplicate set of /salgsleder routes, which is exactly the
  * fork doc 01 says not to build.
  */
 /**

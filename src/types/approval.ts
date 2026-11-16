@@ -37,7 +37,7 @@ export const approvalSubmitSchema = z.object({
   }),
   startDate: z.string().min(1, "Velg oppstartsdato"),
   teamId: z.string().min(1, "Velg team"),
-  /** R5: the sales chief picked first (null = «Uten salgssjef»); left out when the server sends no chiefs. */
+  /** R5: the sales chief picked first (null = «Uten salgsleder»); left out when the server sends no chiefs. */
   salesChiefId: z.string().nullable().optional(),
   campaignId: z.string().min(1, "Velg prosjekt"),
   positionLevel: z.string().min(1, "Velg junior eller senior"),
@@ -99,7 +99,7 @@ export const approvalRequestListSchema = z.array(approvalRequestSchema);
 
 export const approvalFormOptionsSchema = z.object({
   teams: z.array(named.extend({ salesChiefId: z.string().nullable().optional() })),
-  /** R5 (client 09.11): «Velg avdeling basert på salgssjef» — each chief with their team ids. */
+  /** R5 (client 09.11): «Velg avdeling basert på salgsleder» — each chief with their team ids. */
   salesChiefs: z.array(z.object({ id: z.string().nullable(), name: z.string(), teams: z.array(z.string()) })).default([]),
   defaultSalesChief: z.string().nullable().optional(),
   campaigns: z.array(named),

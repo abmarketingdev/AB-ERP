@@ -129,7 +129,7 @@ export function useAssignLeads() {
   });
 }
 
-/** Choose the interview leader (salgssjef) for leads; `leaderId: null` clears it. */
+/** Choose the interview leader (salgsleder) for leads; `leaderId: null` clears it. */
 export function useSetLeadLeader() {
   const qc = useQueryClient();
   return useMutation({

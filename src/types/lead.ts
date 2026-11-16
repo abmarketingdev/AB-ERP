@@ -77,7 +77,7 @@ export const leadSchema = z.object({
   /** Server ids behind the display names, for filters and assignment. */
   promoterId: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
-  /** The interview leader (salgssjef) chosen in the inbox; the default when booking. */
+  /** The interview leader (salgsleder) chosen in the inbox; the default when booking. */
   leader: z.string().nullable().optional(),
   leaderId: z.string().nullable().optional(),
   mergedIntoId: z.string().nullable().optional(),

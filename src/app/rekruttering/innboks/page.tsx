@@ -340,7 +340,7 @@ function SamleinnboksPage() {
                 <Users className="size-4" /> Tildel {sendable.length}
               </Button>
             </div>
-            {/* The leader (salgssjef) the candidate will meet — preselected when booking. */}
+            {/* The leader (salgsleder) the candidate will meet — preselected when booking. */}
             <div className="flex items-center gap-2">
               <Select value={leaderTarget} onValueChange={setLeaderTarget}>
                 <SelectTrigger size="sm" className="w-[11rem]" aria-label="Velg leder"><SelectValue placeholder="Velg leder" /></SelectTrigger>

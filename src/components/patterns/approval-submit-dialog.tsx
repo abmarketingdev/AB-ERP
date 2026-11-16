@@ -90,7 +90,7 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
   const [email, setEmail] = React.useState(base.prefill.email ?? "");
   const [kinds, setKinds] = React.useState<string[]>(["ansettelse", "prosjekt"]);
   const [startDate, setStartDate] = React.useState("");
-  // R5 (client 09.11): «Salgssjef» first, then only that chief's teams. A chief sending their
+  // R5 (client 09.11): «Salgsleder» first, then only that chief's teams. A chief sending their
   // own candidate starts on themselves; one team in the list is picked for you.
   const NO_CHIEF = "__none__";
   const chiefs = base.salesChiefs;
@@ -182,9 +182,9 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
 
         {chiefs.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="salesChiefId">Salgssjef <span aria-hidden className="text-danger">*</span></Label>
+            <Label htmlFor="salesChiefId">Salgsleder <span aria-hidden className="text-danger">*</span></Label>
             <Select value={chief} onValueChange={pickChief}>
-              <SelectTrigger id="salesChiefId" className="w-full" {...aria("salesChiefId")}><SelectValue placeholder="Velg salgssjef" /></SelectTrigger>
+              <SelectTrigger id="salesChiefId" className="w-full" {...aria("salesChiefId")}><SelectValue placeholder="Velg salgsleder" /></SelectTrigger>
               <SelectContent>{chiefs.map((c) => <SelectItem key={chiefKey(c.id)} value={chiefKey(c.id)}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
             {fieldError("salesChiefId")}
@@ -195,7 +195,7 @@ function ApprovalForm({ candidateId, base, submit, onDone }: {
           <Label htmlFor="teamId">Team <span aria-hidden className="text-danger">*</span></Label>
           <Select value={teamId} onValueChange={setTeamId} disabled={chiefs.length > 0 && !chief}>
             <SelectTrigger id="teamId" className="w-full" {...aria("teamId")}>
-              <SelectValue placeholder={chiefs.length > 0 && !chief ? "Velg salgssjef først" : "Velg team"} />
+              <SelectValue placeholder={chiefs.length > 0 && !chief ? "Velg salgsleder først" : "Velg team"} />
             </SelectTrigger>
             <SelectContent>{teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
           </Select>

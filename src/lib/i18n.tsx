@@ -202,7 +202,7 @@ const EN: Record<string, string> = {
   // Roles
   Promoter: "Promoter",
   "Team lead": "Team lead",
-  Salgssjef: "Sales chief",
+  Salgsleder: "Sales chief",
   Rekrutterer: "Recruiter",
   Administrator: "Administrator",
 };
