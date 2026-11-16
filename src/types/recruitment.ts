@@ -81,6 +81,19 @@ export const candidateNoteSchema = z.object({
 });
 export type CandidateNote = z.infer<typeof candidateNoteSchema>;
 
+/** Client 16.11 — one application (lead) behind a candidate: what the person filled in. */
+export const candidateApplicationSchema = z.object({
+  leadId: z.string(),
+  receivedAt: z.string(),
+  channel: z.string(),
+  channelKey: z.string().optional(),
+  form: z.string(),
+  hearAbout: z.string().nullable(),
+  referredBy: z.string().nullable(),
+  lines: z.array(z.string()),
+});
+export type CandidateApplication = z.infer<typeof candidateApplicationSchema>;
+
 export const candidateSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -100,6 +113,8 @@ export const candidateSchema = z.object({
   source: z.string(),
   campaign: z.string(),
   appliedDate: z.string(),
+  /** Client 16.11 — the applications behind the candidate (detail only). */
+  applications: z.array(candidateApplicationSchema).optional(),
   owner: z.string(),
   stageId: z.string(),
   nextActivity: z

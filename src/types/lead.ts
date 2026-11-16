@@ -92,6 +92,9 @@ export const leadSchema = z.object({
   /** Which ad this came from, when the channel is an ad platform (ANN-04). */
   adId: z.string().nullable(),
   note: z.string().nullable(),
+  /** Client 16.11 — «Hvor hørte du om oss» and «Hvem tipset deg?» from the website form. */
+  hearAbout: z.string().nullable().optional(),
+  referredBy: z.string().nullable().optional(),
   /** Set when the lead was sent on — the id of the candidate it became. */
   candidateId: z.string().nullable(),
   /**

@@ -40,6 +40,7 @@ import { ChannelMark, channelOf } from "@/components/patterns/channel-mark";
 import { formatPhone } from "@/lib/format";
 import { showDate } from "@/lib/show-date";
 import { PermissionGate } from "@/components/patterns/permission-gate";
+import { CandidateApplications, ReferredBy } from "@/components/patterns/application-details";
 
 const RETENTION_MONTHS_UI = 6;
 
@@ -294,6 +295,9 @@ function CandidateDetailPage() {
                             <FileText className="mr-1 size-3" /> Kontrakt: {CONTRACT_LABEL[c.contract]}
                           </Badge>
                           {c.nextActivity?.overdue && <Badge className="bg-danger/10 text-danger">Oppfølging forsinket</Badge>}
+                          {/* Client 16.11: who referred them, straight under the status. */}
+                          {(() => { const by = [...(c.applications ?? [])].reverse().find((a) => a.referredBy)?.referredBy;
+                            return by ? <Badge variant="outline" className="gap-1 font-normal"><ReferredBy name={by} /></Badge> : null; })()}
                         </div>
 
                         {!isTerminal && (
@@ -352,6 +356,8 @@ function CandidateDetailPage() {
                       {(stage?.terminal === "hired" || c.onboarding.length > 0) && <OnboardingCard candidate={c} stage={stage} />}
                     </div>
                   </div>
+
+                  <CandidateApplications applications={c.applications ?? []} />
 
                   {editable && <CandidateTags candidate={c} />}
 

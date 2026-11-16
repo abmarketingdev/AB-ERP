@@ -31,6 +31,7 @@ import { DateRangePicker } from "@/components/patterns/date-picker";
 import { usePhone } from "@/lib/use-media-query";
 import { contactLine } from "@/lib/phone";
 import { formatPhone } from "@/lib/format";
+import { LeadApplicationButton, ReferredBy } from "@/components/patterns/application-details";
 
 /**
  * LEAD-01 — the samleinnboks.
@@ -501,6 +502,8 @@ function SamleinnboksPage() {
                           {/* Campaign under its channel: they answer the same question (where from),
                               and one column fewer keeps the table inside 1440 px without scrolling. */}
                           {lead.campaign && <div className="mt-1 max-w-[12rem] truncate text-xs text-muted-foreground">{lead.campaign}</div>}
+                          {lead.referredBy && <div className="mt-1 max-w-[14rem]"><ReferredBy name={lead.referredBy} /></div>}
+                          <LeadApplicationButton lead={lead} />
                         </TableCell>
                         <TableCell className="text-sm tabular-nums text-muted-foreground">
                           {dateFmt.format(new Date(lead.receivedAt))}
@@ -579,6 +582,8 @@ function LeadCards({ rows, selected, onToggle, onMerge }: {
               {lead.assignedTo ? <span>{lead.assignedTo}</span> : <Unassigned />}
               {lead.leader && <><span>·</span><span>Leder: {lead.leader}</span></>}
             </p>
+            {lead.referredBy && <p className="mt-1"><ReferredBy name={lead.referredBy} /></p>}
+            <LeadApplicationButton lead={lead} />
           </div>
           {lead.duplicateOf.length > 0 && (
             <Button size="sm" variant="outline" className="h-11 shrink-0 gap-1.5" onClick={() => onMerge(lead)}
