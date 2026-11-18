@@ -68,6 +68,12 @@ export const publicationSchema = z.object({
   lastError: z.string(),
   /** ANN-06 — counted per platform, from the inbox, not per ad. */
   applicants: z.number(),
+  /** The board's own page for the ad (Nav: arbeidsplassen.no), once the board has processed it. */
+  externalUrl: z.string().optional(),
+  /** The board's review: ACTIVE (godkjent), REJECTED, STOPPED, PENDING … Empty = not checked. */
+  externalStatus: z.string().optional(),
+  externalMessage: z.string().optional(),
+  externalCheckedAt: z.string().nullable().optional(),
 });
 export type Publication = z.infer<typeof publicationSchema>;
 

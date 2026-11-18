@@ -15,8 +15,20 @@ const ADS = `${API.recruitment}/ads`;
 const PUBLIC = `${API.recruitment}/public`;
 const okSchema = z.object({ ok: z.boolean() }).loose();
 
+/** True while a board is still working on an ad (sending, or Nav reviewing it), so the
+ *  list refreshes by itself until «Godkjent av Nav» and the link appear. */
+function boardBusy(ads: { publications: { platform: string; state: string; externalStatus?: string; unpublishedAt: string | null }[] }[] | undefined) {
+  return (ads ?? []).some((a) => a.publications.some((p) =>
+    p.state === "venter" || p.state === "avpubliserer"
+    || (p.platform === "nav" && p.state === "publisert" && !["ACTIVE", "REJECTED"].includes(p.externalStatus ?? ""))));
+}
+
 export function useAds() {
-  return useQuery({ queryKey: qk.ads.list(), queryFn: () => apiGet(`${ADS}/`, adListSchema) });
+  return useQuery({
+    queryKey: qk.ads.list(),
+    queryFn: () => apiGet(`${ADS}/`, adListSchema),
+    refetchInterval: (q) => (boardBusy(q.state.data as Parameters<typeof boardBusy>[0]) ? 30_000 : false),
+  });
 }
 export function useAd(id: string) {
   return useQuery({

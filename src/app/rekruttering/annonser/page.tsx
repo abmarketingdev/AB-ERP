@@ -254,6 +254,7 @@ function PublicationTable({ ad }: { ad: Ad }) {
             <span className="shrink-0 text-sm tabular-nums">{numFmt.format(p.applicants)} søkere</span>
           </div>
           <PublicationState ad={ad} p={p} />
+          <BoardReview p={p} />
           {p.externalId && <span className="font-mono text-xs text-muted-foreground">ID {p.externalId}</span>}
           <button
             type="button"
@@ -291,7 +292,9 @@ function PublicationTable({ ad }: { ad: Ad }) {
           {ad.publications.map((p) => (
             <tr key={p.id} className={p.unpublishedAt ? "text-muted-foreground" : undefined}>
               <td className="py-2 pr-2 align-top">{p.platformName}</td>
-              <td className="py-2 pr-2 align-top"><PublicationState ad={ad} p={p} /></td>
+              <td className="py-2 pr-2 align-top">
+                <div className="flex min-w-0 flex-col gap-1.5"><PublicationState ad={ad} p={p} /><BoardReview p={p} /></div>
+              </td>
               <td className="hidden py-2 align-top font-mono text-xs sm:table-cell">{p.externalId || "—"}</td>
               <td className="py-2 text-right align-top tabular-nums">{numFmt.format(p.applicants)}</td>
               <td className="py-2 pl-3 align-top">
@@ -322,6 +325,46 @@ function PublicationTable({ ad }: { ad: Ad }) {
       </table>
     </div>
     </>
+  );
+}
+
+/** Boards that report back on the ad (today: Nav). */
+const REVIEWED_BOARDS = ["nav"];
+
+/** The board's own view of the ad: approved / rejected / waiting, and the link to the ad
+ *  on the board's site (Nav: arbeidsplassen.no). Shown only for boards that report back. */
+function BoardReview({ p }: { p: Publication }) {
+  if (!REVIEWED_BOARDS.includes(p.platform) || p.manual) return null;
+  if (!p.externalUrl && !p.externalStatus && p.state !== "publisert") return null;
+  const board = p.platformName.split(" (")[0];
+  const s = p.externalStatus;
+  const review =
+    s === "ACTIVE" ? { text: `Godkjent av ${board}`, tone: "text-success" }
+    : s === "REJECTED" ? { text: `Avvist av ${board}${p.externalMessage ? ` (${p.externalMessage})` : ""}`, tone: "text-danger" }
+    : s === "STOPPED" || s === "DELETED" ? { text: `Stoppet hos ${board}`, tone: "text-muted-foreground" }
+    : s === "INACTIVE" ? { text: `Ikke aktiv hos ${board}`, tone: "text-muted-foreground" }
+    : p.state === "publisert" ? { text: `Venter på ${board} (3–5 min)`, tone: "text-muted-foreground" }
+    : null;
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 text-xs">
+      {review && <span className={review.tone}>{review.text}</span>}
+      {p.externalUrl && (
+        <a
+          href={p.externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-1 font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Se annonsen hos {board} <ExternalLink className="size-3" aria-hidden />
+        </a>
+      )}
+      {p.externalUrl && (
+        <a href={p.externalUrl} target="_blank" rel="noopener noreferrer" title={p.externalUrl}
+          className="block min-w-0 truncate font-mono text-[11px] text-muted-foreground hover:text-foreground">
+          {p.externalUrl.replace(/^https?:\/\//, "")}
+        </a>
+      )}
+    </div>
   );
 }
 
