@@ -180,8 +180,8 @@ export default function StandSkjema() {
                 value={form.phone} onChange={(e) => set("phone", e.target.value)} />
             </Field>
 
-            <Field label="E-post" id="st-email" error={errors.email} hint="Kan stå tomt">
-              <Input id="st-email" aria-invalid={Boolean(errors.email)} className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
+            <Field label="E-post" id="st-email" error={errors.email} required>
+              <Input id="st-email" aria-required="true" aria-invalid={Boolean(errors.email)} className="h-11 text-base" type="email" inputMode="email" autoComplete="email"
                 value={form.email} onChange={(e) => set("email", e.target.value)} />
             </Field>
 

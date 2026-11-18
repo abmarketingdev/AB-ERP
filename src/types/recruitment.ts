@@ -179,7 +179,7 @@ export type Candidate = z.infer<typeof candidateSchema>;
 export const newCandidateSchema = z.object({
   name: z.string().min(2, "Skriv inn fullt navn"),
   phone: z.string().min(6, "Skriv inn et telefonnummer"),
-  email: z.string().email("Ugyldig e-postadresse"),
+  email: z.string().trim().min(1, "E-post er påkrevd").email("Ugyldig e-postadresse"),
   source: z.string().min(1, "Velg en kilde"),
 });
 export type NewCandidate = z.infer<typeof newCandidateSchema>;
